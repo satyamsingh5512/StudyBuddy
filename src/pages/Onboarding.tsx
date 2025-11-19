@@ -46,13 +46,6 @@ const CLASSES = ['11th', '12th', 'Dropper', 'Graduate', 'Working Professional'];
 export default function Onboarding() {
   const [user, setUser] = useAtom(userAtom);
   const [step, setStep] = useState(1);
-  const [organizationType, setOrganizationType] = useState<'school' | 'college' | 'coaching' | 'none'>('none');
-  const [organizationSearch, setOrganizationSearch] = useState('');
-  const [organizations, setOrganizations] = useState<any[]>([]);
-  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
-  const [newOrgName, setNewOrgName] = useState('');
-  const [newOrgCity, setNewOrgCity] = useState('');
-  const [newOrgState, setNewOrgState] = useState('');
   const [username, setUsername] = useState('');
   const [avatarType, setAvatarType] = useState<'photo' | 'animated'>('photo');
   const [selectedStyle, setSelectedStyle] = useState('adventurer');
@@ -61,7 +54,6 @@ export default function Onboarding() {
   const [batch, setBatch] = useState('');
   const [examAttempt, setExamAttempt] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [fetchingData, setFetchingData] = useState(false);
   const [faqs, setFaqs] = useState<any[]>([]);
   const { toast } = useToast();
 
@@ -71,7 +63,6 @@ export default function Onboarding() {
   const fetchExamData = async () => {
     if (!examGoal) return;
 
-    setFetchingData(true);
     try {
       const res = await fetch('/api/ai/exam-info', {
         method: 'POST',
@@ -81,14 +72,11 @@ export default function Onboarding() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        // Data will be saved when completing onboarding
+        await res.json();
         toast({ title: 'Exam information fetched successfully' });
       }
     } catch (error) {
       console.error('Failed to fetch exam data:', error);
-    } finally {
-      setFetchingData(false);
     }
   };
 
