@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String
+  username        String?       @unique
+  googleId        String        @unique
+  avatar          String?
+  avatarType      String        @default("photo") // "photo" or "animated"
+  onboardingDone  Boolean       @default(false)
+  examGoal        String        @default("JEE")
+  examDate        DateTime
+  totalPoints     Int           @default(0)
+  streak          Int           @default(0)
+  createdAt       DateTime      @default(now())
+  todos           Todo[]
+  reports         DailyReport[]
+  chatMessages    ChatMessage[]
+}
+
+model Todo {
+  id             String    @id @default(cuid())
+  userId         String
+  title          String
+  subject        String
+  difficulty     String
+  questionsTarget Int
+  completed      Boolean   @default(false)
+  scheduledTime  DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DailyReport {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @default(now())
+  tasksPlanned    Int
+  tasksCompleted  Int
+  questionsEasy   Int      @default(0)
+  questionsMedium Int      @default(0)
+  questionsHard   Int      @default(0)
+  studyHours      Float
+  understanding   Int
+  completionPct   Float
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([date])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Notice {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String
+  createdAt DateTime @default(now())
+  published Boolean  @default(true)
+
+  @@index([published])
+  @@index([createdAt])
+}
