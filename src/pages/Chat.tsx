@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/components/ui/use-toast';
+import { API_URL } from '@/config/api';
 
 interface Message {
   id: string;
@@ -28,7 +29,7 @@ export default function Chat() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001', {
+    const newSocket = io(API_URL, {
       withCredentials: true,
     });
 

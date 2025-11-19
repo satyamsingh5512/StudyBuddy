@@ -14,6 +14,7 @@ import {
 import { Button } from './ui/button';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import { apiFetch } from '@/config/api';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,7 +32,7 @@ export default function Layout() {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };
 

@@ -14,13 +14,14 @@ import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 import LoadingScreen from './components/LoadingScreen';
 import { Toaster } from './components/ui/toaster';
+import { apiFetch } from './config/api';
 
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
+    apiFetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         setUser(data);

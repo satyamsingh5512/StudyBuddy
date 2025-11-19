@@ -2,11 +2,12 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
+import { API_URL } from '@/config/api';
 
 export default function Landing() {
   const handleGetStarted = async () => {
     try {
-      const response = await fetch('/api/auth/google', { credentials: 'include' });
+      const response = await fetch(`${API_URL}/api/auth/google`, { credentials: 'include' });
       if (response.status === 503) {
         alert(
           'Authentication is not configured yet.\n\n' +
@@ -14,10 +15,10 @@ export default function Landing() {
             'See SETUP.md for instructions.'
         );
       } else {
-        window.location.href = '/api/auth/google';
+        window.location.href = `${API_URL}/api/auth/google`;
       }
     } catch (error) {
-      window.location.href = '/api/auth/google';
+      window.location.href = `${API_URL}/api/auth/google`;
     }
   };
 
