@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const userLastMessage = new Map<string, number>();
+const onlineUsers = new Set<string>();
 const RATE_LIMIT_MS = 30000; // 30 seconds
 
 export const setupSocketHandlers = (io: Server) => {
@@ -12,6 +13,13 @@ export const setupSocketHandlers = (io: Server) => {
     socket.on('join-chat', async (userId: string) => {
       socket.data.userId = userId;
       socket.join('global-chat');
+      
+      // Add user to online list
+      onlineUsers.add(userId);
+      
+      // Broadcast online users
+      io.to('global-chat').emit('online-users', Array.from(onlineUsers));
+      io.to('global-chat').emit('user-online', userId);
 
       // Send recent messages
       const messages = await prisma.chatMessage.findMany({
@@ -58,6 +66,14 @@ export const setupSocketHandlers = (io: Server) => {
       io.to('global-chat').emit('new-message', message);
     });
 
+    socket.on('mark-read', async (messageIds: string[]) => {
+      const userId = socket.data.userId;
+      if (!userId || messageIds.length === 0) return;
+
+      // Mark messages as read (you can add this to database if needed)
+      socket.to('global-chat').emit('messages-read', { userId, messageIds });
+    });
+
     socket.on('typing', () => {
       socket.to('global-chat').emit('user-typing', {
         userId: socket.data.userId,
@@ -66,6 +82,14 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
+      
+      // Remove user from online list
+      const userId = socket.data.userId;
+      if (userId) {
+        onlineUsers.delete(userId);
+        io.to('global-chat').emit('user-offline', userId);
+        io.to('global-chat').emit('online-users', Array.from(onlineUsers));
+      }
     });
   });
 };
