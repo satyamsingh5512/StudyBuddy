@@ -58,6 +58,66 @@ Keep it concise and actionable.`;
   }
 });
 
+// Generate tasks with AI
+router.post('/generate-tasks', async (req: any, res: any) => {
+  try {
+    const { prompt, examGoal } = req.body;
+    const userId = req.user.id;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const fullPrompt = `You are a study planner for ${examGoal || 'exam'} preparation. 
+Based on this request: "${prompt}"
+
+Generate 3-5 specific study tasks in JSON format. Each task should have:
+- title: Clear, actionable task description (max 100 chars)
+- subject: The subject/topic (e.g., Physics, Chemistry, Math, Biology, etc.)
+- difficulty: easy, medium, or hard
+- questionsTarget: Number of questions/problems to solve (5-50)
+
+Return ONLY a valid JSON array, no other text. Example:
+[
+  {"title": "Solve kinematics problems from chapter 3", "subject": "Physics", "difficulty": "medium", "questionsTarget": 20},
+  {"title": "Practice organic reactions mechanisms", "subject": "Chemistry", "difficulty": "hard", "questionsTarget": 15}
+]`;
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      return res.status(500).json({ error: 'Failed to parse AI response' });
+    }
+
+    const tasks = JSON.parse(jsonMatch[0]);
+
+    // Create todos in database
+    const createdTodos = await Promise.all(
+      tasks.map((task: any) =>
+        prisma.todo.create({
+          data: {
+            userId,
+            title: task.title,
+            subject: task.subject || 'General',
+            difficulty: task.difficulty || 'medium',
+            questionsTarget: task.questionsTarget || 10,
+          },
+        })
+      )
+    );
+
+    res.json({ success: true, tasks: createdTodos });
+  } catch (error) {
+    console.error('AI task generation error:', error);
+    res.status(500).json({ error: 'Failed to generate tasks' });
+  }
+});
+
 router.post('/exam-info', async (req, res) => {
   try {
     const { examType } = req.body;

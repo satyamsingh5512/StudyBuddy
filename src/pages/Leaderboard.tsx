@@ -8,6 +8,7 @@ interface LeaderboardUser {
   name: string;
   avatar?: string;
   totalPoints: number;
+  totalStudyMinutes: number;
   streak: number;
 }
 
@@ -53,7 +54,9 @@ export default function Leaderboard() {
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.streak} day streak</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.streak} day streak · {Math.floor(user.totalStudyMinutes / 60)}h {user.totalStudyMinutes % 60}m studied
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold">{user.totalPoints}</p>

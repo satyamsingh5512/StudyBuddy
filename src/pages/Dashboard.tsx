@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles, Loader2 } from 'lucide-react';
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
@@ -26,7 +26,8 @@ export default function Dashboard() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const { toast} = useToast();
 
   useEffect(() => {
     fetchTodos();
@@ -60,6 +61,41 @@ export default function Dashboard() {
       setNewTodo('');
       fetchTodos();
       toast({ title: 'Todo added successfully' });
+    }
+  };
+
+  const generateWithAI = async () => {
+    if (!newTodo.trim()) {
+      toast({ title: 'Enter a prompt', description: 'Describe what you want to study', variant: 'destructive' });
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const res = await apiFetch('/api/ai/generate-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: newTodo,
+          examGoal: user?.examGoal || 'exam',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setNewTodo('');
+        fetchTodos();
+        toast({ 
+          title: `Generated ${data.tasks.length} tasks!`, 
+          description: 'AI created your study tasks' 
+        });
+      } else {
+        throw new Error('Failed to generate tasks');
+      }
+    } catch (error) {
+      toast({ title: 'AI generation failed', description: 'Please try again', variant: 'destructive' });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -118,15 +154,36 @@ export default function Dashboard() {
           <CardTitle className="text-lg font-medium">Tasks</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add task..."
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addTodo()}
-            />
-            <Button onClick={addTodo} size="icon">
-              <Plus className="h-4 w-4" />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add task or describe what you want to study..."
+                value={newTodo}
+                onChange={(e) => setNewTodo(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addTodo()}
+              />
+              <Button onClick={addTodo} size="icon" title="Add task">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button 
+              onClick={generateWithAI} 
+              disabled={aiGenerating || !newTodo.trim()}
+              variant="outline"
+              className="w-full"
+              size="sm"
+            >
+              {aiGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating with AI...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Tasks with AI
+                </>
+              )}
             </Button>
           </div>
 
