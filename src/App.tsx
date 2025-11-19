@@ -21,17 +21,27 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setUser(null);
+      setIsLoading(false);
+    }, 5000); // 5 second timeout
+
     apiFetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        clearTimeout(timeoutId);
         setUser(data);
         // Add a small delay for smooth transition
         setTimeout(() => setIsLoading(false), 500);
       })
       .catch(() => {
+        clearTimeout(timeoutId);
         setUser(null);
         setTimeout(() => setIsLoading(false), 500);
       });
+
+    return () => clearTimeout(timeoutId);
   }, [setUser]);
 
   if (isLoading) {
