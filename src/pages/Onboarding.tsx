@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
+import { apiFetch } from '@/config/api';
 import {
   Select,
   SelectContent,
@@ -66,10 +67,9 @@ export default function Onboarding() {
     if (!examGoal) return;
 
     try {
-      const res = await fetch('/api/ai/exam-info', {
+      const res = await apiFetch('/api/ai/exam-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ examType: examGoal }),
       });
 
@@ -86,7 +86,7 @@ export default function Onboarding() {
     if (!examGoal) return;
 
     try {
-      const res = await fetch(`/api/faqs/${examGoal}`, { credentials: 'include' });
+      const res = await apiFetch(`/api/faqs/${examGoal}`);
       if (res.ok) {
         const data = await res.json();
         setFaqs(data);
@@ -115,10 +115,9 @@ export default function Onboarding() {
           ? `https://api.dicebear.com/7.x/${selectedStyle}/svg?seed=${username}`
           : uploadedAvatar || user?.avatar;
 
-      const res = await fetch('/api/users/onboarding', {
+      const res = await apiFetch('/api/users/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           username,
           avatarType,
