@@ -1,23 +1,25 @@
 import { Router } from 'express';
 import { uploadProfile, uploadImage, deleteImage } from '../config/cloudinary';
 import { isAuthenticated } from '../middleware/auth';
-import { prisma } from '../db';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const router = Router();
 
 // Upload profile picture
-router.post('/profile', isAuthenticated, uploadProfile.single('image'), async (req, res) => {
+router.post('/profile', isAuthenticated, uploadProfile.single('image'), async (req: any, res: any) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const imageUrl = (req.file as any).path;
-    const publicId = (req.file as any).filename;
+    const imageUrl = req.file.path;
+    const publicId = req.file.filename;
 
     // Update user's avatar in database
     const user = await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: req.user.id },
       data: { avatar: imageUrl },
     });
 
@@ -34,14 +36,14 @@ router.post('/profile', isAuthenticated, uploadProfile.single('image'), async (r
 });
 
 // Upload general image
-router.post('/image', isAuthenticated, uploadImage.single('image'), async (req, res) => {
+router.post('/image', isAuthenticated, uploadImage.single('image'), async (req: any, res: any) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const imageUrl = (req.file as any).path;
-    const publicId = (req.file as any).filename;
+    const imageUrl = req.file.path;
+    const publicId = req.file.filename;
 
     res.json({
       success: true,
@@ -55,7 +57,7 @@ router.post('/image', isAuthenticated, uploadImage.single('image'), async (req, 
 });
 
 // Delete image
-router.delete('/image/:publicId', isAuthenticated, async (req, res) => {
+router.delete('/image/:publicId', isAuthenticated, async (req: any, res: any) => {
   try {
     const { publicId } = req.params;
     await deleteImage(publicId);
