@@ -80,7 +80,6 @@ export default function Dashboard() {
   };
 
   const completedCount = todos.filter((t) => t.completed).length;
-  const completionPct = todos.length > 0 ? (completedCount / todos.length) * 100 : 0;
 
   return (
     <div className="space-y-6">

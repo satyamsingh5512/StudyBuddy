@@ -1,7 +1,6 @@
 // Simple sound effects using Web Audio API
 class SoundManager {
   private audioContext: AudioContext | null = null;
-  private enabled: boolean = true;
 
   private getContext(): AudioContext {
     if (!this.audioContext) {
@@ -11,7 +10,6 @@ class SoundManager {
   }
 
   setEnabled(enabled: boolean) {
-    this.enabled = enabled;
     localStorage.setItem('soundEnabled', enabled.toString());
   }
 
