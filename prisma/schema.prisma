@@ -29,6 +29,7 @@ model User {
   totalStudyMinutes Int           @default(0)
   streak            Int           @default(0)
   lastActive        DateTime      @default(now())
+  showProfile       Boolean       @default(true)
   createdAt         DateTime      @default(now())
   school            School?       @relation(fields: [schoolId], references: [id])
   college           College?      @relation(fields: [collegeId], references: [id])

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
+import { Switch } from '@/components/ui/switch';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -14,6 +15,7 @@ export default function Settings() {
   const [examDate, setExamDate] = useState(
     user?.examDate ? new Date(user.examDate).toISOString().split('T')[0] : ''
   );
+  const [showProfile, setShowProfile] = useState((user as any)?.showProfile !== false);
   const { toast } = useToast();
 
   const saveSettings = async () => {
@@ -23,6 +25,7 @@ export default function Settings() {
       body: JSON.stringify({
         examGoal,
         examDate: new Date(examDate),
+        showProfile,
       }),
     });
 
@@ -66,6 +69,28 @@ export default function Settings() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Privacy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="showProfile">Show Profile in Chat</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow other users to view your profile details when they click your name in chat
+              </p>
+            </div>
+            <Switch
+              id="showProfile"
+              checked={showProfile}
+              onCheckedChange={setShowProfile}
+            />
+          </div>
+          <Button onClick={saveSettings}>Save Settings</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -78,6 +103,9 @@ export default function Settings() {
             <div>
               <p className="font-medium text-lg">{user?.name}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
+              {(user as any)?.username && (
+                <p className="text-sm text-muted-foreground">@{(user as any).username}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 pt-4 border-t">
