@@ -44,7 +44,8 @@ app.use(
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-domain in production
+      domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser handle domain
     },
   })
 );
