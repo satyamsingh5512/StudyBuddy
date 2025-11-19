@@ -5,11 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Check, CheckCheck } from 'lucide-react';
+import { Send, Check, CheckCheck, Trash2, User as UserIcon } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/components/ui/use-toast';
 import { API_URL } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Message {
   id: string;
@@ -19,8 +25,22 @@ interface Message {
   user: {
     id: string;
     name: string;
+    username?: string;
     avatar?: string;
+    showProfile?: boolean;
+    examGoal?: string;
+    streak?: number;
   };
+}
+
+interface UserProfile {
+  id: string;
+  name: string;
+  username?: string;
+  avatar?: string;
+  examGoal?: string;
+  streak?: number;
+  totalPoints?: number;
 }
 
 export default function Chat() {
@@ -30,6 +50,7 @@ export default function Chat() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -57,6 +78,10 @@ export default function Chat() {
         soundManager.playMessageNotification();
         setUnreadCount((prev) => prev + 1);
       }
+    });
+
+    newSocket.on('message-deleted', (messageId: string) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
     });
 
     newSocket.on('online-users', (users: string[]) => {
@@ -110,6 +135,34 @@ export default function Chat() {
     setNewMessage('');
   };
 
+  const deleteMessage = (messageId: string) => {
+    if (!socket) return;
+    socket.emit('delete-message', messageId);
+  };
+
+  const viewProfile = (userId: string) => {
+    const message = messages.find((m) => m.user.id === userId);
+    if (!message) return;
+
+    if (message.user.showProfile === false) {
+      toast({
+        title: 'Profile hidden',
+        description: 'This user has chosen to keep their profile private',
+      });
+      return;
+    }
+
+    setSelectedProfile({
+      id: message.user.id,
+      name: message.user.name,
+      username: message.user.username,
+      avatar: message.user.avatar,
+      examGoal: message.user.examGoal,
+      streak: message.user.streak,
+      totalPoints: 0, // Can be fetched from API if needed
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -141,33 +194,53 @@ export default function Chat() {
             {messages.map((msg) => {
               const isOnline = onlineUsers.has(msg.user.id);
               const isOwnMessage = msg.user.id === user?.id;
+              const displayName = msg.user.username || msg.user.name;
               
               return (
-                <div key={msg.id} className="flex gap-3">
+                <div key={msg.id} className="flex gap-3 group">
                   <div className="relative">
-                    <img
-                      src={msg.user.avatar || 'https://via.placeholder.com/40'}
-                      alt={msg.user.name}
-                      className="h-8 w-8 rounded-full"
-                    />
-                    {isOnline && (
-                      <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
-                    )}
+                    <button
+                      onClick={() => viewProfile(msg.user.id)}
+                      className="hover:opacity-80 transition-opacity"
+                    >
+                      <img
+                        src={msg.user.avatar || 'https://via.placeholder.com/40'}
+                        alt={displayName}
+                        className="h-8 w-8 rounded-full cursor-pointer"
+                      />
+                      {isOnline && (
+                        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                      )}
+                    </button>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{msg.user.name}</span>
+                      <button
+                        onClick={() => viewProfile(msg.user.id)}
+                        className="font-medium text-sm hover:underline"
+                      >
+                        {displayName}
+                      </button>
                       <span className="text-xs text-muted-foreground">
                         {new Date(msg.createdAt).toLocaleTimeString()}
                       </span>
                       {isOwnMessage && (
-                        <span className="text-xs text-muted-foreground">
-                          {msg.read ? (
-                            <CheckCheck className="h-3 w-3 text-blue-500" />
-                          ) : (
-                            <Check className="h-3 w-3" />
-                          )}
-                        </span>
+                        <>
+                          <span className="text-xs text-muted-foreground">
+                            {msg.read ? (
+                              <CheckCheck className="h-3 w-3 text-blue-500" />
+                            ) : (
+                              <Check className="h-3 w-3" />
+                            )}
+                          </span>
+                          <button
+                            onClick={() => deleteMessage(msg.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
+                            title="Delete message"
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive hover:text-destructive/80" />
+                          </button>
+                        </>
                       )}
                     </div>
                     <p className="text-sm mt-1">{msg.message}</p>
@@ -191,6 +264,56 @@ export default function Chat() {
           </div>
         </CardContent>
       </Card>
+
+      {/* User Profile Dialog */}
+      <Dialog open={!!selectedProfile} onOpenChange={() => setSelectedProfile(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+          </DialogHeader>
+          {selectedProfile && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={selectedProfile.avatar || 'https://via.placeholder.com/80'}
+                  alt={selectedProfile.username || selectedProfile.name}
+                  className="h-20 w-20 rounded-full"
+                />
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {selectedProfile.username || selectedProfile.name}
+                  </h3>
+                  {selectedProfile.username && (
+                    <p className="text-sm text-muted-foreground">{selectedProfile.name}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {selectedProfile.examGoal && (
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Exam Goal</p>
+                    <p className="font-medium">{selectedProfile.examGoal}</p>
+                  </div>
+                )}
+                {selectedProfile.streak !== undefined && (
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Streak</p>
+                    <p className="font-medium">{selectedProfile.streak} days 🔥</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <UserIcon className="h-4 w-4" />
+                <span>
+                  {onlineUsers.has(selectedProfile.id) ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

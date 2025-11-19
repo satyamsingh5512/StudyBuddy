@@ -27,7 +27,15 @@ export const setupSocketHandlers = (io: Server) => {
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            select: { id: true, name: true, avatar: true },
+            select: { 
+              id: true, 
+              name: true, 
+              username: true,
+              avatar: true,
+              showProfile: true,
+              examGoal: true,
+              streak: true,
+            },
           },
         },
       });
@@ -58,12 +66,37 @@ export const setupSocketHandlers = (io: Server) => {
         },
         include: {
           user: {
-            select: { id: true, name: true, avatar: true },
+            select: { 
+              id: true, 
+              name: true, 
+              username: true,
+              avatar: true,
+              showProfile: true,
+              examGoal: true,
+              streak: true,
+            },
           },
         },
       });
 
       io.to('global-chat').emit('new-message', message);
+    });
+
+    socket.on('delete-message', async (messageId: string) => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      // Verify the message belongs to the user
+      const message = await prisma.chatMessage.findUnique({
+        where: { id: messageId },
+      });
+
+      if (message && message.userId === userId) {
+        await prisma.chatMessage.delete({
+          where: { id: messageId },
+        });
+        io.to('global-chat').emit('message-deleted', messageId);
+      }
     });
 
     socket.on('mark-read', async (messageIds: string[]) => {
