@@ -1,10 +1,9 @@
 // API configuration
-// In production, VITE_API_URL should be set to your backend URL
-// If not set, it will try localhost (which won't work in production)
+// Use same domain for API calls (Vercel will handle routing)
 export const API_URL =
   (import.meta as any).env?.VITE_API_URL || 
-  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
-    ? '' // Empty string will cause immediate failure in production without backend
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? window.location.origin // Use same domain in production
     : 'http://localhost:3001');
 
 // Helper to build API URLs
