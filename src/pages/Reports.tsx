@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { apiFetch } from '@/config/api';
 
 interface Report {
   id: string;
@@ -28,7 +29,7 @@ export default function Reports() {
   }, []);
 
   const fetchReports = async () => {
-    const res = await fetch('/api/reports', { credentials: 'include' });
+    const res = await apiFetch('/api/reports');
     if (res.ok) {
       const data = await res.json();
       setReports(data);
@@ -53,10 +54,9 @@ export default function Reports() {
       completionPct: (tasksCompleted / tasksPlanned) * 100,
     };
 
-    const res = await fetch('/api/reports', {
+    const res = await apiFetch('/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify(data),
     });
 

@@ -10,6 +10,7 @@ import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
 import StudyTimer from '@/components/StudyTimer';
+import { apiFetch } from '@/config/api';
 
 interface Todo {
   id: string;
@@ -33,7 +34,7 @@ export default function Dashboard() {
 
   const fetchTodos = async () => {
     setLoading(true);
-    const res = await fetch('/api/todos', { credentials: 'include' });
+    const res = await apiFetch('/api/todos');
     if (res.ok) {
       const data = await res.json();
       setTodos(data);
@@ -44,10 +45,9 @@ export default function Dashboard() {
   const addTodo = async () => {
     if (!newTodo.trim()) return;
     
-    const res = await fetch('/api/todos', {
+    const res = await apiFetch('/api/todos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({
         title: newTodo,
         subject: 'General',
@@ -64,10 +64,9 @@ export default function Dashboard() {
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
-    const res = await fetch(`/api/todos/${id}`, {
+    const res = await apiFetch(`/api/todos/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ completed: !completed }),
     });
 

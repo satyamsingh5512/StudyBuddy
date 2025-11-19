@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { apiFetch } from '@/config/api';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -16,10 +17,9 @@ export default function Settings() {
   const { toast } = useToast();
 
   const saveSettings = async () => {
-    const res = await fetch('/api/users/profile', {
+    const res = await apiFetch('/api/users/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({
         examGoal,
         examDate: new Date(examDate),

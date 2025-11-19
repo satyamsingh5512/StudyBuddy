@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { apiFetch } from '@/config/api';
 
 interface Notice {
   id: string;
@@ -26,7 +27,7 @@ export default function Notices() {
   }, []);
 
   const fetchNotices = async () => {
-    const res = await fetch('/api/notices', { credentials: 'include' });
+    const res = await apiFetch('/api/notices');
     if (res.ok) {
       const data = await res.json();
       setNotices(data);
