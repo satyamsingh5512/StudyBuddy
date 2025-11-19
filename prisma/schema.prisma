@@ -26,6 +26,7 @@ model User {
   collegeId         String?
   coachingId        String?
   totalPoints       Int           @default(0)
+  totalStudyMinutes Int           @default(0)
   streak            Int           @default(0)
   lastActive        DateTime      @default(now())
   createdAt         DateTime      @default(now())

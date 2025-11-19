@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
 import { Play, Pause } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
+import { apiFetch } from '@/config/api';
+import { useToast } from './ui/use-toast';
 
 const POMODORO_DURATION = 50 * 60; // 50 minutes
 
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
+  const [user, setUser] = useAtom(userAtom);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!studying) return;
@@ -22,7 +26,37 @@ export default function StudyTimer() {
     return () => clearInterval(interval);
   }, [studying, setStudyTime]);
 
+  const saveSession = async (minutes: number) => {
+    if (minutes < 1) return;
+
+    try {
+      const res = await apiFetch('/api/timer/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        toast({
+          title: 'Session saved!',
+          description: `+${Math.floor(minutes / 5)} points earned`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save session:', error);
+    }
+  };
+
   const toggleStudying = () => {
+    if (studying) {
+      // Stopping - save the session
+      const minutes = Math.floor(studyTime / 60);
+      if (minutes > 0) {
+        saveSession(minutes);
+      }
+    }
     setStudying(!studying);
     if (!studying) {
       setStudyTime(0);

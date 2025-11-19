@@ -14,6 +14,7 @@ import aiRoutes from './routes/ai';
 import userRoutes from './routes/users';
 import faqRoutes from './routes/faqs';
 import uploadRoutes from './routes/upload';
+import timerRoutes from './routes/timer';
 import { setupSocketHandlers } from './socket/handlers';
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/faqs', faqRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/timer', timerRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);
