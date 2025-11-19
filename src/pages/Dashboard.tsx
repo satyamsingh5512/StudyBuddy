@@ -90,10 +90,21 @@ export default function Dashboard() {
           description: 'AI created your study tasks' 
         });
       } else {
-        throw new Error('Failed to generate tasks');
+        // AI failed, create a simple manual task instead
+        await addTodo();
+        toast({ 
+          title: 'Task added manually', 
+          description: 'AI generation unavailable, created basic task',
+          variant: 'default'
+        });
       }
     } catch (error) {
-      toast({ title: 'AI generation failed', description: 'Please try again', variant: 'destructive' });
+      // Fallback to manual task creation
+      await addTodo();
+      toast({ 
+        title: 'Task added manually', 
+        description: 'AI unavailable, created basic task instead'
+      });
     } finally {
       setAiGenerating(false);
     }
