@@ -12,6 +12,7 @@ import reportRoutes from './routes/reports';
 import noticeRoutes from './routes/notices';
 import aiRoutes from './routes/ai';
 import userRoutes from './routes/users';
+import faqRoutes from './routes/faqs';
 import { setupSocketHandlers } from './socket/handlers';
 
 dotenv.config();
@@ -40,7 +41,9 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login
+      httpOnly: true,
+      sameSite: 'lax',
     },
   })
 );
@@ -60,6 +63,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/faqs', faqRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);

@@ -6,29 +6,114 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { User, Sparkles } from 'lucide-react';
+import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const AVATAR_STYLES = [
-  { id: 'adventurer', name: 'Adventurer', preview: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix' },
-  { id: 'avataaars', name: 'Avataaars', preview: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix' },
-  { id: 'bottts', name: 'Bottts', preview: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix' },
-  { id: 'lorelei', name: 'Lorelei', preview: 'https://api.dicebear.com/7.x/lorelei/svg?seed=Felix' },
-  { id: 'micah', name: 'Micah', preview: 'https://api.dicebear.com/7.x/micah/svg?seed=Felix' },
-  { id: 'pixel-art', name: 'Pixel Art', preview: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix' },
+  { id: 'adventurer', name: 'Adventurer' },
+  { id: 'avataaars', name: 'Avataaars' },
+  { id: 'bottts', name: 'Bottts' },
+  { id: 'lorelei', name: 'Lorelei' },
+  { id: 'micah', name: 'Micah' },
+  { id: 'pixel-art', name: 'Pixel Art' },
 ];
+
+const EXAMS = [
+  { id: 'JEE', name: 'JEE (Joint Entrance Examination)', hasAttempts: true },
+  { id: 'NEET', name: 'NEET (National Eligibility cum Entrance Test)', hasAttempts: true },
+  { id: 'UPSC', name: 'UPSC (Union Public Service Commission)', hasAttempts: false },
+  { id: 'CAT', name: 'CAT (Common Admission Test)', hasAttempts: false },
+  { id: 'GATE', name: 'GATE (Graduate Aptitude Test in Engineering)', hasAttempts: false },
+  { id: 'Other', name: 'Other Exam', hasAttempts: false },
+];
+
+const CLASSES = ['11th', '12th', 'Dropper', 'Graduate', 'Working Professional'];
 
 export default function Onboarding() {
   const [user, setUser] = useAtom(userAtom);
   const [step, setStep] = useState(1);
+  const [organizationType, setOrganizationType] = useState<'school' | 'college' | 'coaching' | 'none'>('none');
+  const [organizationSearch, setOrganizationSearch] = useState('');
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<any>(null);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgCity, setNewOrgCity] = useState('');
+  const [newOrgState, setNewOrgState] = useState('');
   const [username, setUsername] = useState('');
   const [avatarType, setAvatarType] = useState<'photo' | 'animated'>('photo');
   const [selectedStyle, setSelectedStyle] = useState('adventurer');
+  const [examGoal, setExamGoal] = useState('');
+  const [studentClass, setStudentClass] = useState('');
+  const [batch, setBatch] = useState('');
+  const [examAttempt, setExamAttempt] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(false);
+  const [faqs, setFaqs] = useState<any[]>([]);
   const { toast } = useToast();
+
+  const selectedExam = EXAMS.find((e) => e.id === examGoal);
+  const maxAttempts = examGoal === 'JEE' ? 3 : examGoal === 'NEET' ? 2 : 0;
+
+  const fetchExamData = async () => {
+    if (!examGoal) return;
+
+    setFetchingData(true);
+    try {
+      const res = await fetch('/api/ai/exam-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ examType: examGoal }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Data will be saved when completing onboarding
+        toast({ title: 'Exam information fetched successfully' });
+      }
+    } catch (error) {
+      console.error('Failed to fetch exam data:', error);
+    } finally {
+      setFetchingData(false);
+    }
+  };
+
+  const fetchFAQs = async () => {
+    if (!examGoal) return;
+
+    try {
+      const res = await fetch(`/api/faqs/${examGoal}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setFaqs(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch FAQs:', error);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!username.trim()) {
       toast({ title: 'Username required', variant: 'destructive' });
+      return;
+    }
+
+    if (!examGoal || !studentClass || !batch) {
+      toast({ title: 'Please complete all fields', variant: 'destructive' });
       return;
     }
 
@@ -48,6 +133,10 @@ export default function Onboarding() {
           username,
           avatarType,
           avatar: avatarUrl,
+          examGoal,
+          studentClass,
+          batch,
+          examAttempt: selectedExam?.hasAttempts ? examAttempt : null,
         }),
       });
 
@@ -57,7 +146,7 @@ export default function Onboarding() {
         toast({ title: 'Welcome to StudyBuddy!' });
       } else {
         const error = await res.json();
-        toast({ title: error.error || 'Username already taken', variant: 'destructive' });
+        toast({ title: error.error || 'Failed to complete onboarding', variant: 'destructive' });
       }
     } catch (error) {
       toast({ title: 'Something went wrong', variant: 'destructive' });
@@ -74,6 +163,7 @@ export default function Onboarding() {
           <CardDescription>Let's set up your profile</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Step 1: Username */}
           {step === 1 && (
             <div className="space-y-4">
               <div>
@@ -82,7 +172,9 @@ export default function Onboarding() {
                   id="username"
                   placeholder="e.g., study_master_2024"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  onChange={(e) =>
+                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                  }
                   maxLength={20}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
@@ -98,7 +190,131 @@ export default function Onboarding() {
             </div>
           )}
 
+          {/* Step 2: Exam Details */}
           {step === 2 && (
+            <div className="space-y-4">
+              <div>
+                <Label>Which exam are you preparing for?</Label>
+                <Select value={examGoal} onValueChange={setExamGoal}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select exam" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXAMS.map((exam) => (
+                      <SelectItem key={exam.id} value={exam.id}>
+                        {exam.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {examGoal && (
+                <>
+                  <div>
+                    <Label>Current Class/Status</Label>
+                    <Select value={studentClass} onValueChange={setStudentClass}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CLASSES.map((cls) => (
+                          <SelectItem key={cls} value={cls}>
+                            {cls}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Academic Batch</Label>
+                    <Select value={batch} onValueChange={setBatch}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select batch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2024-25">2024-25</SelectItem>
+                        <SelectItem value="2025-26">2025-26</SelectItem>
+                        <SelectItem value="2026-27">2026-27</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedExam?.hasAttempts && (
+                    <div>
+                      <Label>Exam Attempt</Label>
+                      <Select
+                        value={examAttempt.toString()}
+                        onValueChange={(v) => setExamAttempt(Number(v))}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: maxAttempts }, (_, i) => i + 1).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              Attempt {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Maximum {maxAttempts} attempts allowed
+                      </p>
+                    </div>
+                  )}
+
+                  {faqs.length > 0 && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full gap-2">
+                          <HelpCircle className="h-4 w-4" />
+                          View FAQs about {examGoal}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>{examGoal} - Frequently Asked Questions</DialogTitle>
+                          <DialogDescription>
+                            Important information about the exam
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          {faqs.map((faq) => (
+                            <div key={faq.id} className="space-y-2">
+                              <h4 className="font-medium">{faq.question}</h4>
+                              <p className="text-sm text-muted-foreground">{faq.answer}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </>
+              )}
+
+              <div className="flex gap-4 pt-4">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                  Back
+                </Button>
+                <Button
+                  onClick={() => {
+                    fetchExamData();
+                    fetchFAQs();
+                    setStep(3);
+                  }}
+                  disabled={!examGoal || !studentClass || !batch}
+                  className="flex-1"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Avatar */}
+          {step === 3 && (
             <div className="space-y-4">
               <div>
                 <Label>Choose your avatar style</Label>
@@ -170,11 +386,18 @@ export default function Onboarding() {
               )}
 
               <div className="flex gap-4 pt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                   Back
                 </Button>
                 <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                  {loading ? 'Setting up...' : 'Complete Setup'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    'Complete Setup'
+                  )}
                 </Button>
               </div>
             </div>

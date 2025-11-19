@@ -42,6 +42,12 @@ export default function Chat() {
 
     newSocket.on('new-message', (message: Message) => {
       setMessages((prev) => [...prev, message]);
+      // Play sound if message is from another user
+      if (message.user.id !== user?.id) {
+        import('@/lib/sounds').then(({ soundManager }) => {
+          soundManager.playMessageNotification();
+        });
+      }
     });
 
     newSocket.on('rate-limit', (data: { message: string; remainingSeconds: number }) => {

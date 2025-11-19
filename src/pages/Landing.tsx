@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Github } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -21,37 +21,18 @@ export default function Landing() {
     }
   };
 
-  const features = [
-    'AI study plan generation',
-    'Task management with priorities',
-    'Pomodoro timer integration',
-    'Weekly schedule planner',
-    'Progress tracking & analytics',
-    'Leaderboard & gamification',
-    'Real-time community chat',
-    'Exam notifications',
-  ];
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="border-b">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-6xl">
           <div className="flex items-center gap-2">
             <Logo className="w-5 h-5" />
-            <span className="font-semibold">StudyBuddy</span>
+            <span className="font-medium">StudyBuddy</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <Github className="h-5 w-5" />
-            </a>
-            <Button onClick={handleGetStarted} size="sm">
+            <Button onClick={handleGetStarted} size="sm" variant="ghost">
               Sign in
             </Button>
           </div>
@@ -61,94 +42,86 @@ export default function Landing() {
       {/* Main Content */}
       <main className="flex-1">
         {/* Hero */}
-        <section className="container mx-auto px-4 py-24 max-w-4xl">
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight">
-              Study platform for competitive exams
+        <section className="container mx-auto px-6 pt-32 pb-24 max-w-6xl">
+          <div className="max-w-3xl">
+            <h1 className="text-6xl font-semibold tracking-tight leading-[1.1] mb-6">
+              Todo list with
+              <br />
+              community support
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              Track your progress, manage tasks, and get AI-generated study plans. Built for JEE,
-              NEET, UPSC, and other exam prep.
+            <p className="text-xl text-muted-foreground leading-relaxed mb-8 max-w-xl">
+              Organize your tasks and connect with peers from your school or college. Stay
+              productive together.
             </p>
-            <div className="flex gap-3 pt-4">
-              <Button onClick={handleGetStarted} className="gap-2">
+            <div className="flex items-center gap-3">
+              <Button onClick={handleGetStarted} size="lg">
                 Get started
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <Button variant="outline" asChild>
-                <a href="#features">View features</a>
-              </Button>
+              <span className="text-sm text-muted-foreground">Free, no credit card required</span>
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section id="features" className="border-t py-24">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-2xl font-semibold mb-8">What's included</h2>
-            <div className="grid sm:grid-cols-2 gap-x-12 gap-y-6">
-              {features.map((feature, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="text-muted-foreground mt-0.5">→</div>
-                  <div>{feature}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Tech Stack */}
-        <section className="border-t py-24 bg-muted/30">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-2xl font-semibold mb-8">Built with</h2>
-            <div className="grid sm:grid-cols-3 gap-8">
+        <section className="border-t">
+          <div className="container mx-auto px-6 py-24 max-w-6xl">
+            <div className="grid md:grid-cols-3 gap-16">
               <div>
-                <div className="font-medium mb-2">Frontend</div>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <div>React + TypeScript</div>
-                  <div>Tailwind CSS</div>
-                  <div>Framer Motion</div>
-                </div>
+                <h3 className="font-medium mb-2">Task management</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Create, organize, and track your daily tasks with a clean interface.
+                </p>
               </div>
               <div>
-                <div className="font-medium mb-2">Backend</div>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <div>Node.js + Express</div>
-                  <div>PostgreSQL + Prisma</div>
-                  <div>Socket.io</div>
-                </div>
+                <h3 className="font-medium mb-2">Community chat</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Connect with students from your school or college in dedicated chat rooms.
+                </p>
               </div>
               <div>
-                <div className="font-medium mb-2">Services</div>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <div>Google OAuth</div>
-                  <div>Gemini AI</div>
-                  <div>Neon Database</div>
-                </div>
+                <h3 className="font-medium mb-2">Study timer</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Stay focused with built-in Pomodoro timer and session tracking.
+                </p>
               </div>
             </div>
           </div>
         </section>
 
         {/* CTA */}
-        <section className="border-t py-24">
-          <div className="container mx-auto px-4 max-w-4xl text-center">
-            <h2 className="text-2xl font-semibold mb-4">Ready to start?</h2>
-            <p className="text-muted-foreground mb-8">
-              Sign in with Google to access your dashboard
-            </p>
-            <Button onClick={handleGetStarted} size="lg" className="gap-2">
-              Get started
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+        <section className="border-t">
+          <div className="container mx-auto px-6 py-24 max-w-6xl">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl font-semibold tracking-tight mb-4">
+                Start organizing with your community
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Join students using StudyBuddy to manage tasks and stay connected.
+              </p>
+              <Button onClick={handleGetStarted} size="lg">
+                Get started
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>Built with React, TypeScript, and Tailwind CSS</p>
+      <footer className="border-t">
+        <div className="container mx-auto px-6 py-8 max-w-6xl">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div>© 2024 StudyBuddy</div>
+            <div className="flex gap-6">
+              <a href="#" className="hover:text-foreground transition-colors">
+                Privacy
+              </a>
+              <a href="#" className="hover:text-foreground transition-colors">
+                Terms
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

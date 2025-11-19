@@ -13,7 +13,7 @@ router.post('/study-plan', async (req, res) => {
   try {
     const userId = (req.user as any).id;
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -28,9 +28,13 @@ router.post('/study-plan', async (req, res) => {
       where: { userId, completed: false },
     });
 
-    const daysLeft = Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    const avgStudyHours = recentReports.reduce((sum, r) => sum + r.studyHours, 0) / (recentReports.length || 1);
-    const avgCompletion = recentReports.reduce((sum, r) => sum + r.completionPct, 0) / (recentReports.length || 1);
+    const daysLeft = user.examDate
+      ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 0;
+    const avgStudyHours =
+      recentReports.reduce((sum, r) => sum + r.studyHours, 0) / (recentReports.length || 1);
+    const avgCompletion =
+      recentReports.reduce((sum, r) => sum + r.completionPct, 0) / (recentReports.length || 1);
 
     const prompt = `You are a mentor for ${user.examGoal} aspirants. The student has ${daysLeft} days until exam.
 They've been studying ${avgStudyHours.toFixed(1)} hours daily on average with ${avgCompletion.toFixed(0)}% task completion.
@@ -51,6 +55,48 @@ Keep it concise and actionable.`;
   } catch (error) {
     console.error('AI Error:', error);
     res.status(500).json({ error: 'Failed to generate study plan' });
+  }
+});
+
+router.post('/exam-info', async (req, res) => {
+  try {
+    const { examType } = req.body;
+
+    const prompt = `Provide comprehensive information about ${examType} exam in JSON format:
+{
+  "examDate": "Expected exam date in YYYY-MM-DD format for next session",
+  "syllabus": {
+    "subjects": [
+      {
+        "name": "Subject name",
+        "topics": ["Topic 1", "Topic 2", "..."],
+        "weightage": "Percentage or marks"
+      }
+    ]
+  },
+  "importantDates": [
+    {"event": "Event name", "date": "YYYY-MM-DD"}
+  ]
+}
+
+Provide accurate, up-to-date information for ${examType}.`;
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Try to parse JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const data = JSON.parse(jsonMatch[0]);
+      res.json(data);
+    } else {
+      res.json({ raw: text });
+    }
+  } catch (error) {
+    console.error('AI Error:', error);
+    res.status(500).json({ error: 'Failed to fetch exam information' });
   }
 });
 
