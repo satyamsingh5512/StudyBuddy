@@ -13,7 +13,7 @@ const POMODORO_DURATION = 50 * 60; // 50 minutes
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
-  const [user, setUser] = useAtom(userAtom);
+  const [, setUser] = useAtom(userAtom);
   const { toast } = useToast();
 
   useEffect(() => {
