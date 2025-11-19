@@ -13,6 +13,7 @@ import noticeRoutes from './routes/notices';
 import aiRoutes from './routes/ai';
 import userRoutes from './routes/users';
 import faqRoutes from './routes/faqs';
+import uploadRoutes from './routes/upload';
 import { setupSocketHandlers } from './socket/handlers';
 
 dotenv.config();
@@ -64,6 +65,7 @@ app.use('/api/notices', noticeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/faqs', faqRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);
@@ -75,6 +77,9 @@ httpServer.listen(PORT, () => {
   console.log(`📱 Client URL: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
   console.log(`🗄️  Database: ${process.env.DATABASE_URL ? 'Connected' : '⚠️  Not configured'}`);
   console.log(
-    `🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' ? 'Configured' : '⚠️  Not configured'}\n`
+    `🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' ? 'Configured' : '⚠️  Not configured'}`
+  );
+  console.log(
+    `☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name' ? 'Configured' : '⚠️  Not configured'}\n`
   );
 });

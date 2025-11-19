@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
+import ImageUpload from '@/components/ImageUpload';
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
   const [avatarType, setAvatarType] = useState<'photo' | 'animated'>('photo');
+  const [uploadedAvatar, setUploadedAvatar] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState('adventurer');
   const [examGoal, setExamGoal] = useState('');
   const [studentClass, setStudentClass] = useState('');
@@ -111,7 +113,7 @@ export default function Onboarding() {
       const avatarUrl =
         avatarType === 'animated'
           ? `https://api.dicebear.com/7.x/${selectedStyle}/svg?seed=${username}`
-          : user?.avatar;
+          : uploadedAvatar || user?.avatar;
 
       const res = await fetch('/api/users/onboarding', {
         method: 'POST',
@@ -320,8 +322,8 @@ export default function Onboarding() {
                         <User className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <div className="text-center">
-                        <p className="font-medium">Profile Photo</p>
-                        <p className="text-xs text-muted-foreground">Use your Google photo</p>
+                        <p className="font-medium">Upload Photo</p>
+                        <p className="text-xs text-muted-foreground">Upload your own picture</p>
                       </div>
                     </div>
                   </button>
@@ -346,6 +348,16 @@ export default function Onboarding() {
                   </button>
                 </div>
               </div>
+
+              {avatarType === 'photo' && (
+                <div className="flex justify-center">
+                  <ImageUpload
+                    type="profile"
+                    currentImage={uploadedAvatar || user?.avatar}
+                    onUploadComplete={(url) => setUploadedAvatar(url)}
+                  />
+                </div>
+              )}
 
               {avatarType === 'animated' && (
                 <div>
