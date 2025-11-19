@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonList } from '@/components/Skeleton';
+import { apiFetch } from '@/config/api';
 
 interface LeaderboardUser {
   id: string;
@@ -20,7 +21,7 @@ export default function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     setLoading(true);
-    const res = await fetch('/api/users/leaderboard', { credentials: 'include' });
+    const res = await apiFetch('/api/users/leaderboard');
     if (res.ok) {
       const data = await res.json();
       setUsers(data);
