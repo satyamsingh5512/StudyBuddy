@@ -19,6 +19,10 @@ import { setupSocketHandlers } from './socket/handlers';
 dotenv.config();
 
 const app = express();
+
+// Trust proxy - required for secure cookies behind Render's proxy
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
