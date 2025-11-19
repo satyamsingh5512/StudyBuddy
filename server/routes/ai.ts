@@ -18,6 +18,10 @@ router.post('/study-plan', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'AI service not configured' });
+    }
+
     const recentReports = await prisma.dailyReport.findMany({
       where: { userId },
       orderBy: { date: 'desc' },
@@ -46,15 +50,15 @@ They have ${todos.length} pending tasks. Generate a personalized study plan for 
 
 Keep it concise and actionable.`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
 
     res.json({ plan: text });
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI Error:', error);
-    res.status(500).json({ error: 'Failed to generate study plan' });
+    res.status(500).json({ error: 'Failed to generate study plan', details: error.message });
   }
 });
 
@@ -66,6 +70,11 @@ router.post('/generate-tasks', async (req: any, res: any) => {
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Check if API key is configured
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'AI service not configured' });
     }
 
     const fullPrompt = `You are a study planner for ${examGoal || 'exam'} preparation. 
@@ -83,7 +92,7 @@ Return ONLY a valid JSON array, no other text. Example:
   {"title": "Practice organic reactions mechanisms", "subject": "Chemistry", "difficulty": "hard", "questionsTarget": 15}
 ]`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const text = response.text();
@@ -91,7 +100,8 @@ Return ONLY a valid JSON array, no other text. Example:
     // Extract JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      return res.status(500).json({ error: 'Failed to parse AI response' });
+      console.error('AI response:', text);
+      return res.status(500).json({ error: 'Failed to parse AI response', details: text });
     }
 
     const tasks = JSON.parse(jsonMatch[0]);
@@ -112,9 +122,12 @@ Return ONLY a valid JSON array, no other text. Example:
     );
 
     res.json({ success: true, tasks: createdTodos });
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI task generation error:', error);
-    res.status(500).json({ error: 'Failed to generate tasks' });
+    res.status(500).json({ 
+      error: 'Failed to generate tasks',
+      details: error.message || 'Unknown error'
+    });
   }
 });
 
@@ -141,7 +154,7 @@ router.post('/exam-info', async (req, res) => {
 
 Provide accurate, up-to-date information for ${examType}.`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -154,9 +167,9 @@ Provide accurate, up-to-date information for ${examType}.`;
     } else {
       res.json({ raw: text });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('AI Error:', error);
-    res.status(500).json({ error: 'Failed to fetch exam information' });
+    res.status(500).json({ error: 'Failed to fetch exam information', details: error.message });
   }
 });
 
