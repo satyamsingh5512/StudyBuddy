@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
-import { Play, Pause, Settings } from 'lucide-react';
+import { Play, Pause, Settings, RotateCcw, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
@@ -18,6 +18,12 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
+interface Lap {
+  id: number;
+  time: number;
+  timestamp: Date;
+}
+
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
@@ -28,6 +34,7 @@ export default function StudyTimer() {
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
+  const [laps, setLaps] = useState<Lap[]>([]);
   const { toast } = useToast();
 
   const POMODORO_DURATION = pomodoroDuration * 60;
@@ -87,16 +94,40 @@ export default function StudyTimer() {
   }, [studying, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
 
   const toggleStudying = () => {
-    if (studying) {
-      // Stopping - save the session
+    setStudying(!studying);
+    soundManager.playClick();
+  };
+
+  const clearTimer = () => {
+    setStudying(false);
+    setStudyTime(0);
+    setLaps([]);
+    soundManager.playClick();
+    toast({ title: 'Timer cleared', description: 'All progress reset' });
+  };
+
+  const addLap = () => {
+    if (studyTime > 0) {
+      const newLap: Lap = {
+        id: Date.now(),
+        time: studyTime,
+        timestamp: new Date(),
+      };
+      setLaps([newLap, ...laps]);
+      soundManager.playClick();
+      toast({ title: 'Lap recorded', description: formatTime(studyTime) });
+    }
+  };
+
+  const stopAndSave = () => {
+    if (studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
       if (minutes > 0) {
         saveSession(minutes);
       }
-    }
-    setStudying(!studying);
-    if (!studying) {
+      setStudying(false);
       setStudyTime(0);
+      setLaps([]);
     }
   };
 
@@ -181,10 +212,11 @@ export default function StudyTimer() {
           </div>
         </div>
 
-        {studying && (
-          <div className="space-y-2">
+        {/* Timer Display */}
+        {studyTime > 0 && (
+          <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-mono">{formatTime(studyTime)}</span>
+              <span className="font-mono text-2xl font-bold">{formatTime(studyTime)}</span>
               <span className="text-muted-foreground">{Math.floor(progress)}%</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -193,10 +225,57 @@ export default function StudyTimer() {
                 style={{ width: `${progress}%` }}
               />
             </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addLap}
+                className="flex-1"
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                Lap
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={clearTimer}
+                className="flex-1"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={stopAndSave}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                Save & Stop
+              </Button>
+            </div>
+
+            {/* Laps Display */}
+            {laps.length > 0 && (
+              <div className="mt-4 space-y-1">
+                <h4 className="text-xs font-medium text-muted-foreground">Laps</h4>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {laps.map((lap, index) => (
+                    <div
+                      key={lap.id}
+                      className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
+                    >
+                      <span className="text-muted-foreground">Lap {laps.length - index}</span>
+                      <span className="font-mono">{formatTime(lap.time)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {!studying && (
+        {studyTime === 0 && !studying && (
           <p className="text-sm text-muted-foreground">Click play to start studying</p>
         )}
       </CardContent>
