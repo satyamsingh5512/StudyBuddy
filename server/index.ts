@@ -18,6 +18,7 @@ import faqRoutes from './routes/faqs';
 import uploadRoutes from './routes/upload';
 import timerRoutes from './routes/timer';
 import { setupSocketHandlers } from './socket/handlers';
+import { keepAliveService } from './utils/keepAlive';
 
 dotenv.config();
 
@@ -68,7 +69,20 @@ app.use(passport.session());
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const uptime = process.uptime();
+  const memoryUsage = process.memoryUsage();
+  
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: `${Math.floor(uptime / 60)} minutes`,
+    memory: {
+      rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+      heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+      heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+    },
+    environment: process.env.NODE_ENV || 'development',
+  });
 });
 
 // Routes
@@ -112,11 +126,15 @@ httpServer.listen(PORT, () => {
   console.log(
     `☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name' ? 'Configured' : '⚠️  Not configured'}\n`
   );
+
+  // Start keep-alive service to prevent Render from spinning down
+  keepAliveService.start();
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  keepAliveService.stop();
   httpServer.close(() => {
     console.log('✅ Server closed');
     process.exit(0);
@@ -125,6 +143,7 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
+  keepAliveService.stop();
   httpServer.close(() => {
     console.log('✅ Server closed');
     process.exit(0);
