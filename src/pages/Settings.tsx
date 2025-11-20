@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
 import { Switch } from '@/components/ui/switch';
+import { soundManager } from '@/lib/sounds';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -16,7 +17,32 @@ export default function Settings() {
     user?.examDate ? new Date(user.examDate).toISOString().split('T')[0] : ''
   );
   const [showProfile, setShowProfile] = useState((user as any)?.showProfile !== false);
+  const [soundsEnabled, setSoundsEnabled] = useState(soundManager.isEnabled());
+  const [uiSounds, setUiSounds] = useState(soundManager.isEnabled('ui'));
+  const [notificationSounds, setNotificationSounds] = useState(soundManager.isEnabled('notifications'));
+  const [timerSounds, setTimerSounds] = useState(soundManager.isEnabled('timer'));
+  const [authSounds, setAuthSounds] = useState(soundManager.isEnabled('auth'));
   const { toast } = useToast();
+
+  useEffect(() => {
+    soundManager.setEnabled(soundsEnabled);
+  }, [soundsEnabled]);
+
+  useEffect(() => {
+    soundManager.setEnabled(uiSounds, 'ui');
+  }, [uiSounds]);
+
+  useEffect(() => {
+    soundManager.setEnabled(notificationSounds, 'notifications');
+  }, [notificationSounds]);
+
+  useEffect(() => {
+    soundManager.setEnabled(timerSounds, 'timer');
+  }, [timerSounds]);
+
+  useEffect(() => {
+    soundManager.setEnabled(authSounds, 'auth');
+  }, [authSounds]);
 
   const saveSettings = async () => {
     const res = await apiFetch('/api/users/profile', {
@@ -64,6 +90,98 @@ export default function Settings() {
             />
           </div>
           <Button onClick={saveSettings}>Save Settings</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sound Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="allSounds">All Sounds</Label>
+              <p className="text-sm text-muted-foreground">
+                Master control for all sound effects
+              </p>
+            </div>
+            <Switch
+              id="allSounds"
+              checked={soundsEnabled}
+              onCheckedChange={(checked) => {
+                setSoundsEnabled(checked);
+                if (checked) soundManager.playClick();
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="uiSounds">UI Sounds</Label>
+              <p className="text-sm text-muted-foreground">
+                Clicks, toggles, and button sounds
+              </p>
+            </div>
+            <Switch
+              id="uiSounds"
+              checked={uiSounds}
+              onCheckedChange={(checked) => {
+                setUiSounds(checked);
+                if (checked) soundManager.playClick();
+              }}
+              disabled={!soundsEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="notificationSounds">Notification Sounds</Label>
+              <p className="text-sm text-muted-foreground">
+                Chat messages and alerts
+              </p>
+            </div>
+            <Switch
+              id="notificationSounds"
+              checked={notificationSounds}
+              onCheckedChange={(checked) => {
+                setNotificationSounds(checked);
+                if (checked) soundManager.playMessageNotification();
+              }}
+              disabled={!soundsEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="timerSounds">Timer Sounds</Label>
+              <p className="text-sm text-muted-foreground">
+                Pomodoro completion alerts
+              </p>
+            </div>
+            <Switch
+              id="timerSounds"
+              checked={timerSounds}
+              onCheckedChange={(checked) => {
+                setTimerSounds(checked);
+                if (checked) soundManager.playTimerComplete();
+              }}
+              disabled={!soundsEnabled}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="authSounds">Login Sounds</Label>
+              <p className="text-sm text-muted-foreground">
+                Sign in and authentication sounds
+              </p>
+            </div>
+            <Switch
+              id="authSounds"
+              checked={authSounds}
+              onCheckedChange={(checked) => {
+                setAuthSounds(checked);
+                if (checked) soundManager.playLogin();
+              }}
+              disabled={!soundsEnabled}
+            />
+          </div>
         </CardContent>
       </Card>
 

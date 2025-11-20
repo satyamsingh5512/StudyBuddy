@@ -5,6 +5,8 @@ import passport from 'passport';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { PrismaClient } from '@prisma/client';
+import { PrismaSessionStore } from '@quixo3/prisma-session-store';
 import './config/passport';
 import authRoutes from './routes/auth';
 import todoRoutes from './routes/todos';
@@ -18,6 +20,8 @@ import timerRoutes from './routes/timer';
 import { setupSocketHandlers } from './socket/handlers';
 
 dotenv.config();
+
+const prisma = new PrismaClient();
 
 const app = express();
 
@@ -45,12 +49,16 @@ app.use(
     secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
+    store: new PrismaSessionStore(prisma, {
+      checkPeriod: 2 * 60 * 1000, // Clean expired sessions every 2 minutes
+      dbRecordIdIsSessionId: true,
+      dbRecordIdFunction: undefined,
+    }),
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login like Facebook/Instagram
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-domain in production
-      domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser handle domain
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     },
   })
 );
@@ -79,6 +87,21 @@ setupSocketHandlers(io);
 
 const PORT = process.env.PORT || 3001;
 
+// Add error handling for port conflicts
+httpServer.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`\n❌ Error: Port ${PORT} is already in use`);
+    console.log(`\n💡 To fix this, run one of these commands:`);
+    console.log(`   1. lsof -ti:${PORT} | xargs kill -9`);
+    console.log(`   2. pkill -f "tsx watch server/index.ts"`);
+    console.log(`   3. npm run clean\n`);
+    process.exit(1);
+  } else {
+    console.error('Server error:', error);
+    process.exit(1);
+  }
+});
+
 httpServer.listen(PORT, () => {
   console.log(`\n✅ Server running on http://localhost:${PORT}`);
   console.log(`📱 Client URL: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
@@ -89,4 +112,21 @@ httpServer.listen(PORT, () => {
   console.log(
     `☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name' ? 'Configured' : '⚠️  Not configured'}\n`
   );
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  httpServer.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
+  httpServer.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });

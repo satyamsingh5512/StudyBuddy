@@ -12,8 +12,10 @@ node_modules/
 
 # Build
 dist/
+dist-server/
 build/
 *.tsbuildinfo
+.vite/
 
 # Logs
 npm-debug.log*
