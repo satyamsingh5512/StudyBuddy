@@ -22,7 +22,7 @@ router.post('/session', isAuthenticated, async (req: any, res: any) => {
           increment: minutes,
         },
         totalPoints: {
-          increment: Math.floor(minutes / 5), // 1 point per 5 minutes
+          increment: minutes, // 1 point per minute studied continuously
         },
       },
     });

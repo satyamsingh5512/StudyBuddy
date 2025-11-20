@@ -47,7 +47,7 @@ export default function StudyTimer() {
         setUser(data.user);
         toast({
           title: 'Session saved!',
-          description: `+${Math.floor(minutes / 5)} points earned`,
+          description: `+${minutes} points earned (1 point per minute)`,
         });
       }
     } catch (error) {

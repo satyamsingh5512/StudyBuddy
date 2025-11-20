@@ -124,7 +124,7 @@ export default function Dashboard() {
       fetchTodos();
       if (!completed) {
         soundManager.playSuccess();
-        toast({ title: 'Great job!', description: 'Task completed' });
+        toast({ title: 'Great job! +1 point', description: 'Task completed' });
       }
     }
   };
