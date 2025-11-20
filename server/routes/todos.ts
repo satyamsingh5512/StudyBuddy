@@ -35,17 +35,20 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
+    const existingTodo = await prisma.todo.findUnique({
+      where: { id: req.params.id },
+    });
+
     const todo = await prisma.todo.update({
       where: { id: req.params.id },
       data: req.body,
     });
     
-    // Award points if completed
-    if (req.body.completed && !todo.completed) {
-      const points = { easy: 10, medium: 25, hard: 50 }[todo.difficulty as keyof typeof points] || 10;
+    // Award 1 point when completing a task (regardless of difficulty)
+    if (req.body.completed && existingTodo && !existingTodo.completed) {
       await prisma.user.update({
         where: { id: (req.user as any).id },
-        data: { totalPoints: { increment: points } },
+        data: { totalPoints: { increment: 1 } }, // 1 point per completed task
       });
     }
     
