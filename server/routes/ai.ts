@@ -50,7 +50,7 @@ They have ${todos.length} pending tasks. Generate a personalized study plan for 
 
 Keep it concise and actionable.`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -92,7 +92,7 @@ Return ONLY a valid JSON array, no other text. Example:
   {"title": "Practice organic reactions mechanisms", "subject": "Chemistry", "difficulty": "hard", "questionsTarget": 15}
 ]`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     const text = response.text();
@@ -154,7 +154,7 @@ router.post('/exam-info', async (req, res) => {
 
 Provide accurate, up-to-date information for ${examType}.`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
