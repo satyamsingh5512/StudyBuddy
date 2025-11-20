@@ -214,7 +214,7 @@ export default function StudyTimer() {
 
         {/* Timer Display */}
         {studyTime > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-in fade-in duration-300">
             <div className="flex items-center justify-between text-sm">
               <span className="font-mono text-2xl font-bold">{formatTime(studyTime)}</span>
               <span className="text-muted-foreground">{Math.floor(progress)}%</span>
@@ -227,12 +227,12 @@ export default function StudyTimer() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={addLap}
-                className="flex-1"
+                className="transition-all hover:scale-105 active:scale-95"
               >
                 <Clock className="h-3 w-3 mr-1" />
                 Lap
@@ -241,7 +241,7 @@ export default function StudyTimer() {
                 size="sm"
                 variant="outline"
                 onClick={clearTimer}
-                className="flex-1"
+                className="transition-all hover:scale-105 active:scale-95"
               >
                 <RotateCcw className="h-3 w-3 mr-1" />
                 Clear
@@ -249,21 +249,22 @@ export default function StudyTimer() {
               <Button
                 size="sm"
                 onClick={stopAndSave}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
               >
-                Save & Stop
+                Save
               </Button>
             </div>
 
             {/* Laps Display */}
             {laps.length > 0 && (
-              <div className="mt-4 space-y-1">
+              <div className="mt-4 space-y-1 animate-in slide-in-from-top duration-300">
                 <h4 className="text-xs font-medium text-muted-foreground">Laps</h4>
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {laps.map((lap, index) => (
                     <div
                       key={lap.id}
-                      className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
+                      className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 animate-in fade-in slide-in-from-top duration-200"
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <span className="text-muted-foreground">Lap {laps.length - index}</span>
                       <span className="font-mono">{formatTime(lap.time)}</span>
