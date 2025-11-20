@@ -1,0 +1,26 @@
+name: Keep Render Server Alive
+
+on:
+  schedule:
+    # Run every 14 minutes to keep Render free tier from spinning down
+    - cron: '*/14 * * * *'
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  ping-server:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping StudyBuddy Server
+        run: |
+          echo "Pinging server at $(date)"
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://studybuddy-backend-latest.onrender.com/api/health)
+          if [ $response -eq 200 ]; then
+            echo "✅ Server is alive (Status: $response)"
+          else
+            echo "⚠️  Server returned status: $response"
+          fi
+        continue-on-error: true  # Don't fail workflow if server is temporarily down
+      
+      - name: Log ping result
+        run: echo "Keep-alive ping completed at $(date)"
