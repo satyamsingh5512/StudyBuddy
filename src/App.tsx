@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
+import { Analytics } from '@vercel/analytics/react';
 import { userAtom } from './store/atoms';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
@@ -98,6 +99,7 @@ function App() {
         <Route path="*" element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />} />
       </Routes>
       <Toaster />
+      <Analytics />
     </>
   );
 }
