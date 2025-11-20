@@ -188,3 +188,12 @@ model Notice {
   @@index([published])
   @@index([createdAt])
 }
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

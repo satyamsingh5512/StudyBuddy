@@ -15,12 +15,21 @@ import Settings from './pages/Settings';
 import LoadingScreen from './components/LoadingScreen';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
+import { soundManager } from './lib/sounds';
+
+function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
+  if (!user) return '/';
+  if (needsOnboarding) return '/onboarding';
+  return '/dashboard';
+}
 
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let soundPlayed = false;
+    
     // Add timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       setUser(null);
@@ -32,6 +41,11 @@ function App() {
       .then((data) => {
         clearTimeout(timeoutId);
         setUser(data);
+        // Play login sound when user successfully authenticates
+        if (data && !soundPlayed) {
+          setTimeout(() => soundManager.playLogin(), 100);
+          soundPlayed = true;
+        }
         // Add a small delay for smooth transition
         setTimeout(() => setIsLoading(false), 500);
       })
@@ -49,26 +63,19 @@ function App() {
   }
 
   // Check if user needs onboarding
-  const needsOnboarding = user && !(user as any).onboardingDone;
+  const needsOnboarding = user && !('onboardingDone' in user && user.onboardingDone);
+
+  const getDefaultRoute = () => {
+    if (!user) return <Landing />;
+    if (needsOnboarding) return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/dashboard" replace />;
+  };
 
   return (
     <>
       <Routes>
         {/* Public route - accessible to everyone */}
-        <Route
-          path="/"
-          element={
-            user ? (
-              needsOnboarding ? (
-                <Navigate to="/onboarding" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            ) : (
-              <Landing />
-            )
-          }
-        />
+        <Route path="/" element={getDefaultRoute()} />
 
         {/* Onboarding route */}
         {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
@@ -88,12 +95,7 @@ function App() {
           <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
         )}
 
-        <Route
-          path="*"
-          element={
-            <Navigate to={user ? (needsOnboarding ? '/onboarding' : '/dashboard') : '/'} replace />
-          }
-        />
+        <Route path="*" element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />} />
       </Routes>
       <Toaster />
     </>

@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom } from '@/store/atoms';
 import {
@@ -10,11 +10,22 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import { apiFetch } from '@/config/api';
+import { soundManager } from '@/lib/sounds';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -30,8 +41,10 @@ export default function Layout() {
   const [user] = useAtom(userAtom);
   const [studying] = useAtom(studyingAtom);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
+    soundManager.playClick();
     await apiFetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };
@@ -97,22 +110,47 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <div className="text-right">
-              <p className="text-sm font-medium">
-                {(user as any)?.username ? `@${(user as any).username}` : user?.name}
-              </p>
-              <p className="text-xs text-muted-foreground">{user?.totalPoints} points</p>
-            </div>
-            <div className="relative">
-              <img
-                src={user?.avatar || 'https://via.placeholder.com/32'}
-                alt={(user as any)?.username || user?.name}
-                className="h-8 w-8 rounded-full"
-              />
-              {studying && (
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background"></span>
-              )}
-            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none">
+                  <div className="text-right">
+                    <p className="text-sm font-medium">
+                      {(user as any)?.username ? `@${(user as any).username}` : user?.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{user?.totalPoints} points</p>
+                  </div>
+                  <div className="relative">
+                    <img
+                      src={user?.avatar || 'https://via.placeholder.com/32'}
+                      alt={(user as any)?.username || user?.name}
+                      className="h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/20 transition-all"
+                    />
+                    {studying && (
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background"></span>
+                    )}
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

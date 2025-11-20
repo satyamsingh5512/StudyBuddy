@@ -1,25 +1,22 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { useState } from 'react';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 import { API_URL } from '@/config/api';
+import { soundManager } from '@/lib/sounds';
 
 export default function Landing() {
-  const handleGetStarted = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/auth/google`, { credentials: 'include' });
-      if (response.status === 503) {
-        alert(
-          'Authentication is not configured yet.\n\n' +
-            'Please set up Google OAuth credentials in the .env file.\n' +
-            'See SETUP.md for instructions.'
-        );
-      } else {
-        window.location.href = `${API_URL}/api/auth/google`;
-      }
-    } catch (error) {
-      window.location.href = `${API_URL}/api/auth/google`;
-    }
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGetStarted = () => {
+    if (isLoading) return; // Prevent multiple clicks
+    
+    setIsLoading(true);
+    soundManager.playClick();
+    
+    // Direct redirect without pre-checks for faster response
+    window.location.href = `${API_URL}/api/auth/google`;
   };
 
   return (
@@ -33,8 +30,8 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Button onClick={handleGetStarted} size="sm" variant="ghost">
-              Sign in
+            <Button onClick={handleGetStarted} size="sm" variant="ghost" disabled={isLoading}>
+              {isLoading ? 'Connecting...' : 'Sign in'}
             </Button>
           </div>
         </div>
@@ -55,9 +52,33 @@ export default function Landing() {
               productive together.
             </p>
             <div className="flex items-center gap-3">
-              <Button onClick={handleGetStarted} size="lg">
-                Get started
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button onClick={handleGetStarted} size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    Get started
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
               <span className="text-sm text-muted-foreground">Free, no credit card required</span>
             </div>
@@ -100,9 +121,33 @@ export default function Landing() {
               <p className="text-muted-foreground mb-6">
                 Join students using StudyBuddy to manage tasks and stay connected.
               </p>
-              <Button onClick={handleGetStarted} size="lg">
-                Get started
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button onClick={handleGetStarted} size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    Get started
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>

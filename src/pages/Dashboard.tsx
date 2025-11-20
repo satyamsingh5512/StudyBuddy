@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Plus, Sparkles, Loader2, Trash2 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Sparkles, Loader2 } from 'lucide-react';
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
 import StudyTimer from '@/components/StudyTimer';
 import { apiFetch } from '@/config/api';
+import { soundManager } from '@/lib/sounds';
 
 interface Todo {
   id: string;
@@ -60,6 +61,7 @@ export default function Dashboard() {
     if (res.ok) {
       setNewTodo('');
       fetchTodos();
+      soundManager.playAdd();
       toast({ title: 'Todo added successfully' });
     }
   };
@@ -85,6 +87,7 @@ export default function Dashboard() {
         const data = await res.json();
         setNewTodo('');
         fetchTodos();
+        soundManager.playSuccess();
         toast({ 
           title: `Generated ${data.tasks.length} tasks!`, 
           description: 'AI created your study tasks' 
@@ -120,17 +123,33 @@ export default function Dashboard() {
     if (res.ok) {
       fetchTodos();
       if (!completed) {
+        soundManager.playSuccess();
         toast({ title: 'Great job!', description: 'Task completed' });
       }
     }
   };
 
+  const deleteTodo = async (id: string) => {
+    const res = await apiFetch(`/api/todos/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      soundManager.playDelete();
+      fetchTodos();
+      toast({ title: 'Task deleted' });
+    }
+  };
+
   const completedCount = todos.filter((t) => t.completed).length;
+
+  // Get full name for greeting
+  const displayName = user?.name || 'there';
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
         <p className="text-sm text-muted-foreground">
           {getDaysUntil(user?.examDate || '')} days until {user?.examGoal}
         </p>
@@ -206,7 +225,7 @@ export default function Dashboard() {
                 {todos.map((todo) => (
                   <div
                     key={todo.id}
-                    className="flex items-start gap-3 p-3 rounded-md border"
+                    className="flex items-start gap-3 p-3 rounded-md border group"
                   >
                     <Checkbox
                       checked={todo.completed}
@@ -223,6 +242,14 @@ export default function Dashboard() {
                         {todo.subject} · {todo.difficulty}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteTodo(todo.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+                      title="Delete task"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </button>
                   </div>
                 ))}
                 {todos.length === 0 && (
