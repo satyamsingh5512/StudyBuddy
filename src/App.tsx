@@ -13,6 +13,8 @@ import Leaderboard from './pages/Leaderboard';
 import Notices from './pages/Notices';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import LoadingScreen from './components/LoadingScreen';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
@@ -75,8 +77,10 @@ function App() {
   return (
     <>
       <Routes>
-        {/* Public route - accessible to everyone */}
+        {/* Public routes - accessible to everyone */}
         <Route path="/" element={getDefaultRoute()} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
 
         {/* Onboarding route */}
         {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
