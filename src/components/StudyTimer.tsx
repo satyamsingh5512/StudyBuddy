@@ -26,6 +26,7 @@ export default function StudyTimer() {
     const saved = localStorage.getItem('pomodoroDuration');
     return saved ? parseInt(saved) : 50;
   });
+  const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
 
@@ -101,11 +102,27 @@ export default function StudyTimer() {
 
   const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
 
-  const saveDuration = (minutes: number) => {
-    setPomodoroDuration(minutes);
-    localStorage.setItem('pomodoroDuration', minutes.toString());
-    setShowSettings(false);
-    toast({ title: 'Timer duration updated', description: `Pomodoro set to ${minutes} minutes` });
+  const handleOpenSettings = () => {
+    setTempDuration(pomodoroDuration);
+    setShowSettings(true);
+  };
+
+  const saveDuration = () => {
+    if (tempDuration >= 1 && tempDuration <= 120) {
+      setPomodoroDuration(tempDuration);
+      localStorage.setItem('pomodoroDuration', tempDuration.toString());
+      setShowSettings(false);
+      toast({ 
+        title: 'Timer duration updated', 
+        description: `Pomodoro set to ${tempDuration} minutes` 
+      });
+    } else {
+      toast({
+        title: 'Invalid duration',
+        description: 'Please enter a value between 1 and 120 minutes',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -119,7 +136,7 @@ export default function StudyTimer() {
           <div className="flex gap-2">
             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
-                <Button size="icon" variant="ghost">
+                <Button size="icon" variant="ghost" onClick={handleOpenSettings}>
                   <Settings className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -135,11 +152,11 @@ export default function StudyTimer() {
                       type="number"
                       min="1"
                       max="120"
-                      defaultValue={pomodoroDuration}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (val >= 1 && val <= 120) {
-                          saveDuration(val);
+                      value={tempDuration}
+                      onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          saveDuration();
                         }
                       }}
                     />
@@ -147,6 +164,9 @@ export default function StudyTimer() {
                       Set your preferred focus duration (1-120 minutes)
                     </p>
                   </div>
+                  <Button onClick={saveDuration} className="w-full">
+                    Save Duration
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
