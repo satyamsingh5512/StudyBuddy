@@ -176,19 +176,6 @@ export default function CollaborationSettings({ formId, onClose }: Collaboration
     }
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'ADMIN':
-        return <Crown className="h-4 w-4" />;
-      case 'EDITOR':
-        return <Edit3 className="h-4 w-4" />;
-      case 'VIEWER':
-        return <Eye className="h-4 w-4" />;
-      default:
-        return null;
-    }
-  };
-
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'ADMIN':
