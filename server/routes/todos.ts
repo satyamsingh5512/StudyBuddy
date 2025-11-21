@@ -1,32 +1,16 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
-
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-  };
-}
 
 const router = Router();
 const prisma = new PrismaClient();
 
 router.use(isAuthenticated);
 
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (req, res) => {
   try {
-    const authReq = req as AuthRequest;
-    const userId = authReq.user?.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
     const todos = await prisma.todo.findMany({
-      where: { userId },
+      where: { userId: (req.user as any).id },
       orderBy: { createdAt: 'desc' },
     });
     res.json(todos);
@@ -35,20 +19,12 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post('/', async (req, res) => {
   try {
-    const authReq = req as AuthRequest;
-    const userId = authReq.user?.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
     const todo = await prisma.todo.create({
       data: {
         ...req.body,
-        userId,
+        userId: (req.user as any).id,
       },
     });
     res.json(todo);
@@ -57,16 +33,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id', async (req, res) => {
   try {
-    const authReq = req as AuthRequest;
-    const userId = authReq.user?.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
     const existingTodo = await prisma.todo.findUnique({
       where: { id: req.params.id },
     });
@@ -79,7 +47,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     // Award 1 point when completing a task (regardless of difficulty)
     if (req.body.completed && existingTodo && !existingTodo.completed) {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: (req.user as any).id },
         data: { totalPoints: { increment: 1 } }, // 1 point per completed task
       });
     }
@@ -90,7 +58,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', async (req, res) => {
   try {
     await prisma.todo.delete({
       where: { id: req.params.id },

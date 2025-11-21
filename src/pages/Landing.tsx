@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 import { API_URL } from '@/config/api';
@@ -189,7 +189,7 @@ export default function Landing() {
                 Ready to transform your study routine?
               </h2>
               <p className="text-lg text-muted-foreground mb-8">
-                Join thousands of students who are achieving their goals with StudyBuddy&apos;s intelligent study system.
+                Join thousands of students who are achieving their goals with StudyBuddy's intelligent study system.
               </p>
               <Button onClick={handleGetStarted} size="lg" disabled={isLoading} className="text-base px-8">
                 {isLoading ? (
@@ -252,7 +252,6 @@ export default function Landing() {
               <h4 className="font-semibold mb-3">Product</h4>
               <div className="space-y-2">
                 <button 
-                  type="button"
                   onClick={handleGetStarted} 
                   className="block text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
                   disabled={isLoading}
@@ -260,7 +259,6 @@ export default function Landing() {
                   Get Started
                 </button>
                 <button 
-                  type="button"
                   onClick={handleExploreDashboard} 
                   className="block text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
                   disabled={isLoading}

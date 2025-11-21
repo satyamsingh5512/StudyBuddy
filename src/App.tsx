@@ -19,6 +19,11 @@ import LoadingScreen from './components/LoadingScreen';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
+import FormsDashboard from './pages/forms/FormsDashboard';
+import FormBuilder from './pages/forms/FormBuilder';
+import PublicForm from './pages/forms/PublicForm';
+import FormResponses from './pages/forms/FormResponses';
+import FormAnalytics from './pages/forms/FormAnalytics';
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -81,6 +86,7 @@ function App() {
         <Route path="/" element={getDefaultRoute()} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/forms/f/:identifier" element={<PublicForm />} />
 
         {/* Onboarding route */}
         {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
@@ -95,6 +101,10 @@ function App() {
             <Route path="notices" element={<Notices />} />
             <Route path="chat" element={<Chat />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="forms" element={<FormsDashboard />} />
+            <Route path="forms/:formId/builder" element={<FormBuilder />} />
+            <Route path="forms/:formId/responses" element={<FormResponses />} />
+            <Route path="forms/:formId/analytics" element={<FormAnalytics />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
