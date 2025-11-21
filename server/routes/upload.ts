@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadProfile, uploadImage, deleteImage } from '../config/cloudinary';
+import { uploadProfile, uploadImage, uploadFormFile, deleteImage } from '../config/cloudinary';
 import { isAuthenticated } from '../middleware/auth';
 import { PrismaClient } from '@prisma/client';
 
@@ -65,6 +65,44 @@ router.delete('/image/:publicId', isAuthenticated, async (req: any, res: any) =>
   } catch (error) {
     console.error('Image deletion error:', error);
     res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
+// Upload form file (public endpoint for form responses)
+router.post('/form-file', uploadFormFile.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const fileUrl = req.file.path;
+    const publicId = req.file.filename;
+    const originalName = req.file.originalname;
+    const fileSize = req.file.size;
+    const fileType = req.file.mimetype;
+
+    res.json({
+      success: true,
+      url: fileUrl,
+      publicId,
+      originalName,
+      fileSize,
+      fileType,
+    });
+  } catch (error: any) {
+    console.error('Form file upload error:', error);
+    
+    // Handle file size limits
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File size exceeds 50MB limit' });
+    }
+    
+    // Handle unsupported file types
+    if (error.message?.includes('Invalid file type')) {
+      return res.status(400).json({ error: 'Unsupported file type' });
+    }
+    
+    res.status(500).json({ error: 'Failed to upload file' });
   }
 });
 

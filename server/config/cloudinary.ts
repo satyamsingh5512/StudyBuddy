@@ -39,6 +39,21 @@ export const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Storage for form file uploads (supports all file types)
+const formFileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'studybuddy/form-uploads',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
+    resource_type: 'auto', // Auto-detect file type
+  } as any,
+});
+
+export const uploadFormFile = multer({
+  storage: formFileStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for form uploads
+});
+
 // Helper function to delete image from Cloudinary
 export const deleteImage = async (publicId: string): Promise<void> => {
   try {
