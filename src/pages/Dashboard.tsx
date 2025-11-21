@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Plus, Sparkles, Loader2, Trash2 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -22,6 +22,46 @@ interface Todo {
   completed: boolean;
 }
 
+// Memoized TodoItem component to prevent unnecessary re-renders
+const TodoItem = memo(({ 
+  todo, 
+  onToggle, 
+  onDelete 
+}: { 
+  todo: Todo; 
+  onToggle: (id: string, completed: boolean) => void;
+  onDelete: (id: string) => void;
+}) => (
+  <div
+    className="flex items-start gap-3 p-3 rounded-md border group"
+  >
+    <Checkbox
+      checked={todo.completed}
+      onCheckedChange={() => onToggle(todo.id, todo.completed)}
+      className="mt-0.5"
+    />
+    <div className="flex-1 min-w-0">
+      <p
+        className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
+      >
+        {todo.title}
+      </p>
+      <p className="text-xs text-muted-foreground mt-1">
+        {todo.subject} · {todo.difficulty}
+      </p>
+    </div>
+    <button
+      type="button"
+      onClick={() => onDelete(todo.id)}
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+      title="Delete task"
+    >
+      <Trash2 className="h-4 w-4 text-destructive" />
+    </button>
+  </div>
+));
+TodoItem.displayName = 'TodoItem';
+
 export default function Dashboard() {
   const [user] = useAtom(userAtom);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -30,11 +70,7 @@ export default function Dashboard() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const { toast} = useToast();
 
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
-  const fetchTodos = async () => {
+  const fetchTodos = useCallback(async () => {
     setLoading(true);
     const res = await apiFetch('/api/todos');
     if (res.ok) {
@@ -42,9 +78,13 @@ export default function Dashboard() {
       setTodos(data);
     }
     setLoading(false);
-  };
+  }, []);
 
-  const addTodo = async () => {
+  useEffect(() => {
+    fetchTodos();
+  }, [fetchTodos]);
+
+  const addTodo = useCallback(async () => {
     if (!newTodo.trim()) return;
     
     const res = await apiFetch('/api/todos', {
@@ -64,9 +104,9 @@ export default function Dashboard() {
       soundManager.playAdd();
       toast({ title: 'Todo added successfully' });
     }
-  };
+  }, [newTodo, fetchTodos, toast]);
 
-  const generateWithAI = async () => {
+  const generateWithAI = useCallback(async () => {
     if (!newTodo.trim()) {
       toast({ title: 'Enter a prompt', description: 'Describe what you want to study', variant: 'destructive' });
       return;
@@ -111,9 +151,9 @@ export default function Dashboard() {
     } finally {
       setAiGenerating(false);
     }
-  };
+  }, [newTodo, user?.examGoal, fetchTodos, toast, addTodo]);
 
-  const toggleTodo = async (id: string, completed: boolean) => {
+  const toggleTodo = useCallback(async (id: string, completed: boolean) => {
     const res = await apiFetch(`/api/todos/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -127,9 +167,9 @@ export default function Dashboard() {
         toast({ title: 'Great job! +1 point', description: 'Task completed' });
       }
     }
-  };
+  }, [fetchTodos, toast]);
 
-  const deleteTodo = async (id: string) => {
+  const deleteTodo = useCallback(async (id: string) => {
     const res = await apiFetch(`/api/todos/${id}`, {
       method: 'DELETE',
     });
@@ -139,19 +179,20 @@ export default function Dashboard() {
       fetchTodos();
       toast({ title: 'Task deleted' });
     }
-  };
+  }, [fetchTodos, toast]);
 
-  const completedCount = todos.filter((t) => t.completed).length;
+  const completedCount = useMemo(() => todos.filter((t) => t.completed).length, [todos]);
 
   // Get full name for greeting
-  const displayName = user?.name || 'there';
+  const displayName = useMemo(() => user?.name || 'there', [user?.name]);
+  const daysUntilExam = useMemo(() => getDaysUntil(user?.examDate || ''), [user?.examDate]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
         <p className="text-sm text-muted-foreground">
-          {getDaysUntil(user?.examDate || '')} days until {user?.examGoal}
+          {daysUntilExam} days until {user?.examGoal}
         </p>
       </div>
 
@@ -223,34 +264,12 @@ export default function Dashboard() {
             ) : (
               <>
                 {todos.map((todo) => (
-                  <div
+                  <TodoItem
                     key={todo.id}
-                    className="flex items-start gap-3 p-3 rounded-md border group"
-                  >
-                    <Checkbox
-                      checked={todo.completed}
-                      onCheckedChange={() => toggleTodo(todo.id, todo.completed)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
-                      >
-                        {todo.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {todo.subject} · {todo.difficulty}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteTodo(todo.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
-                      title="Delete task"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </button>
-                  </div>
+                    todo={todo}
+                    onToggle={toggleTodo}
+                    onDelete={deleteTodo}
+                  />
                 ))}
                 {todos.length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-8">No tasks yet</p>

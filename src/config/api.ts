@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/performance';
+
 // API configuration
 // Backend is deployed on Render, frontend on Vercel
 export const API_URL =
@@ -15,6 +17,40 @@ export const apiFetch = (path: string, options?: RequestInit) => {
     credentials: 'include',
     ...options,
   });
+};
+
+// Helper fetch function with caching support for GET requests
+export const apiFetchCached = async (
+  path: string,
+  options?: RequestInit & { cacheTTL?: number; bypassCache?: boolean }
+): Promise<Response> => {
+  const { cacheTTL, bypassCache, ...fetchOptions } = options || {};
+  const method = fetchOptions.method?.toUpperCase() || 'GET';
+  const cacheKey = `${method}:${path}`;
+
+  // Only cache GET requests
+  if (method === 'GET' && !bypassCache) {
+    const cached = apiCache.get(cacheKey);
+    if (cached) {
+      return new Response(JSON.stringify(cached), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    credentials: 'include',
+    ...fetchOptions,
+  });
+
+  // Cache successful GET responses
+  if (method === 'GET' && response.ok) {
+    const data = await response.clone().json();
+    apiCache.set(cacheKey, data, cacheTTL);
+  }
+
+  return response;
 };
 
 // Helper fetch function that automatically parses JSON responses

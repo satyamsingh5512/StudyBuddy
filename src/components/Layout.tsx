@@ -12,7 +12,6 @@ import {
   LogOut,
   User,
   ChevronDown,
-  ClipboardList,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -32,7 +31,6 @@ const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/schedule', icon: Calendar, label: 'Schedule' },
   { path: '/reports', icon: FileText, label: 'Reports' },
-  { path: '/forms', icon: ClipboardList, label: 'Forms' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/notices', icon: Bell, label: 'Notices' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
