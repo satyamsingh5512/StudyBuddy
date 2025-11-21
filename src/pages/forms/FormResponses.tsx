@@ -391,14 +391,57 @@ export default function FormResponses() {
             </div>
 
             <div className="space-y-4">
-              {selectedResponse.answers?.map((answer) => (
-                <div key={answer.id} className="border-b pb-4">
-                  <h3 className="font-medium mb-2">{answer.field?.label}</h3>
-                  <div className="text-muted-foreground whitespace-pre-wrap">
-                    {answer.valueText || 'No answer provided'}
+              {selectedResponse.answers?.map((answer) => {
+                // Check if this is a file upload field
+                let isFileUpload = false;
+                let fileData: any = null;
+                
+                try {
+                  if (answer.valueText && answer.valueText.startsWith('{')) {
+                    const parsed = JSON.parse(answer.valueText);
+                    if (parsed.url && parsed.publicId) {
+                      isFileUpload = true;
+                      fileData = parsed;
+                    }
+                  }
+                } catch (e) {
+                  // Not a JSON file upload
+                }
+
+                return (
+                  <div key={answer.id} className="border-b pb-4">
+                    <h3 className="font-medium mb-2">{answer.field?.label}</h3>
+                    {isFileUpload && fileData ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                          <div className="text-3xl">📎</div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{fileData.originalName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(fileData.fileSize / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <a
+                            href={fileData.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm"
+                          >
+                            <Button size="sm" variant="outline">
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </Button>
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground whitespace-pre-wrap">
+                        {answer.valueText || 'No answer provided'}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Metadata */}
