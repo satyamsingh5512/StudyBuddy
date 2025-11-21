@@ -1,9 +1,9 @@
 // API configuration
-// Use same domain for API calls (Vercel will handle routing)
+// Backend is deployed on Render, frontend on Vercel
 export const API_URL =
   (import.meta as any).env?.VITE_API_URL || 
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? window.location.origin // Use same domain in production
+    ? 'https://studybuddy-api.onrender.com' // Your Render backend URL (update this!)
     : 'http://localhost:3001');
 
 // Helper to build API URLs
