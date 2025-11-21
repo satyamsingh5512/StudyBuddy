@@ -17,13 +17,6 @@ import userRoutes from './routes/users';
 import faqRoutes from './routes/faqs';
 import uploadRoutes from './routes/upload';
 import timerRoutes from './routes/timer';
-import formsRoutes from './routes/forms';
-import formFieldsRoutes from './routes/formFields';
-import formSectionsRoutes from './routes/formSections';
-import formResponsesRoutes from './routes/formResponses';
-import formAnalyticsRoutes from './routes/formAnalytics';
-import webhooksRoutes from './routes/webhooks';
-import collaboratorsRoutes from './routes/collaborators';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 
@@ -37,16 +30,42 @@ const app = express();
 app.set('trust proxy', 1);
 
 const httpServer = createServer(app);
+
+// CORS configuration - support multiple origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.CLIENT_URL || 'https://studybuddyone.vercel.app',
+].filter(Boolean);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   },
 });
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
@@ -102,15 +121,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/faqs', faqRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/timer', timerRoutes);
-
-// Forms routes
-app.use('/api/forms', formsRoutes);
-app.use('/api/form-fields', formFieldsRoutes);
-app.use('/api/form-sections', formSectionsRoutes);
-app.use('/api/form-responses', formResponsesRoutes);
-app.use('/api/form-analytics', formAnalyticsRoutes);
-app.use('/api/webhooks', webhooksRoutes);
-app.use('/api/collaborators', collaboratorsRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);

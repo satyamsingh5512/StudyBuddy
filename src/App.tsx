@@ -1,30 +1,26 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAtom } from 'jotai';
 import { Analytics } from '@vercel/analytics/react';
 import { userAtom } from './store/atoms';
-import Layout from './components/Layout';
-import Landing from './pages/Landing';
-import Onboarding from './pages/Onboarding';
-import Dashboard from './pages/Dashboard';
-import Schedule from './pages/Schedule';
-import Reports from './pages/Reports';
-import Leaderboard from './pages/Leaderboard';
-import Notices from './pages/Notices';
-import Chat from './pages/Chat';
-import Settings from './pages/Settings';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
 import LoadingScreen from './components/LoadingScreen';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
-import FormsDashboard from './pages/forms/FormsDashboard';
-import FormBuilder from './pages/forms/FormBuilder';
-import PublicForm from './pages/forms/PublicForm';
-import FormResponses from './pages/forms/FormResponses';
-import FormAnalytics from './pages/forms/FormAnalytics';
-import WebhookLogs from './pages/forms/WebhookLogs';
+
+// Lazy load components for better performance
+const Layout = lazy(() => import('./components/Layout'));
+const Landing = lazy(() => import('./pages/Landing'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Schedule = lazy(() => import('./pages/Schedule'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Notices = lazy(() => import('./pages/Notices'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -75,45 +71,41 @@ function App() {
   const needsOnboarding = user && !('onboardingDone' in user && user.onboardingDone);
 
   const getDefaultRoute = () => {
-    if (!user) return <Landing />;
+    if (!user) return <Suspense fallback={<LoadingScreen message="Loading..." />}><Landing /></Suspense>;
     if (needsOnboarding) return <Navigate to="/onboarding" replace />;
     return <Navigate to="/dashboard" replace />;
   };
 
   return (
     <>
-      <Routes>
-        {/* Public routes - accessible to everyone */}
-        <Route path="/" element={getDefaultRoute()} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/forms/f/:identifier" element={<PublicForm />} />
+      <Suspense fallback={<LoadingScreen message="Loading..." />}>
+        <Routes>
+          {/* Public routes - accessible to everyone */}
+          <Route path="/" element={getDefaultRoute()} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
-        {/* Onboarding route */}
-        {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
+          {/* Onboarding route */}
+          {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
 
-        {/* Protected routes - require authentication and onboarding */}
-        {user && !needsOnboarding ? (
-          <Route path="/" element={<Layout />}>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="schedule" element={<Schedule />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="leaderboard" element={<Leaderboard />} />
-            <Route path="notices" element={<Notices />} />
-            <Route path="chat" element={<Chat />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="forms" element={<FormsDashboard />} />
-            <Route path="forms/:formId/builder" element={<FormBuilder />} />
-            <Route path="forms/:formId/responses" element={<FormResponses />} />
-            <Route path="forms/:formId/analytics" element={<FormAnalytics />} />
-            <Route path="forms/:formId/webhook-logs" element={<WebhookLogs />} />
-          </Route>
-        ) : (
-          <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
-        )}
+          {/* Protected routes - require authentication and onboarding */}
+          {user && !needsOnboarding ? (
+            <Route path="/" element={<Layout />}>
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="schedule" element={<Schedule />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="leaderboard" element={<Leaderboard />} />
+              <Route path="notices" element={<Notices />} />
+              <Route path="chat" element={<Chat />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          ) : (
+            <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
+          )}
 
-        <Route path="*" element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />} />
+        </Routes>
+      </Suspense>
       <Toaster />
       <Analytics />
     </>
