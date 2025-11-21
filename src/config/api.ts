@@ -16,3 +16,22 @@ export const apiFetch = (path: string, options?: RequestInit) => {
     ...options,
   });
 };
+
+// Helper fetch function that automatically parses JSON responses
+export const apiFetchJSON = async <T = any>(path: string, options?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_URL}${path}`, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+};

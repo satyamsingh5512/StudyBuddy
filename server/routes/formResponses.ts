@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
+import { triggerWebhook } from '../utils/webhooks';
 
 interface AuthRequest extends Request {
   user?: {
@@ -235,9 +236,30 @@ router.post('/public/:identifier/submit', async (req: Request, res: Response): P
         },
       },
       include: {
-        answers: true,
+        answers: {
+          include: {
+            field: true,
+          },
+        },
       },
     });
+
+    // Trigger webhook asynchronously (don't wait for it)
+    triggerWebhook(
+      form.id,
+      'response.created',
+      {
+        responseId: response.id,
+        formTitle: form.title,
+        responderName: response.responderName,
+        responderEmail: response.responderEmail,
+        answers: response.answers.map(a => ({
+          fieldLabel: a.field.label,
+          value: a.value,
+        })),
+      },
+      response.id
+    ).catch(err => console.error('Webhook trigger error:', err));
 
     res.status(201).json({
       success: true,

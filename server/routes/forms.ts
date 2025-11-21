@@ -33,9 +33,12 @@ router.get('/', isAuthenticated, async (req: Request, res: Response): Promise<vo
 
     const forms = await prisma.form.findMany({
       where: {
-        ownerId: userId,
         isDeleted: false,
         ...(isArchived ? { archivedAt: { not: null } } : { archivedAt: null }),
+        OR: [
+          { ownerId: userId },
+          { collaborators: { some: { userId } } },
+        ],
       },
       include: {
         _count: {
@@ -66,8 +69,11 @@ router.get('/:id', isAuthenticated, async (req: Request, res: Response): Promise
     const form = await prisma.form.findFirst({
       where: {
         id: req.params.id,
-        ownerId: userId,
         isDeleted: false,
+        OR: [
+          { ownerId: userId },
+          { collaborators: { some: { userId } } },
+        ],
       },
       include: {
         sections: {
@@ -154,17 +160,27 @@ router.patch('/:id', isAuthenticated, async (req: Request, res: Response): Promi
       return;
     }
 
-    // Verify ownership
+    // Verify ownership or editor/admin access
     const form = await prisma.form.findFirst({
       where: {
         id: req.params.id,
-        ownerId: userId,
         isDeleted: false,
+        OR: [
+          { ownerId: userId },
+          { 
+            collaborators: { 
+              some: { 
+                userId,
+                role: { in: ['EDITOR', 'ADMIN'] },
+              } 
+            } 
+          },
+        ],
       },
     });
 
     if (!form) {
-      res.status(404).json({ error: 'Form not found' });
+      res.status(404).json({ error: 'Form not found or insufficient permissions' });
       return;
     }
 
