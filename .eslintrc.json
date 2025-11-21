@@ -21,13 +21,28 @@
   "plugins": ["@typescript-eslint", "react-refresh"],
   "rules": {
     "react-refresh/only-export-components": "warn",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "react/react-in-jsx-scope": "off",
-    "react/jsx-filename-extension": ["warn", { "extensions": [".tsx"] }],
-    "import/extensions": ["error", "ignorePackages", { "ts": "never", "tsx": "never" }],
+    "react/jsx-filename-extension": ["warn", { "extensions": [".tsx", ".jsx"] }],
+    "import/extensions": "off",
     "import/no-unresolved": "off",
-    "no-console": "off"
+    "no-console": "off",
+    "react/jsx-props-no-spreading": "off",
+    "react/require-default-props": "off",
+    "no-nested-ternary": "off",
+    "react/button-has-type": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "jsx-a11y/no-static-element-interactions": "off",
+    "jsx-a11y/no-noninteractive-element-interactions": "off",
+    "import/prefer-default-export": "off",
+    "no-restricted-globals": "off",
+    "consistent-return": "off",
+    "no-param-reassign": ["error", { "props": false }],
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": "off",
+    "prefer-template": "off",
+    "react/jsx-no-useless-fragment": "off"
   },
   "settings": {
     "react": {

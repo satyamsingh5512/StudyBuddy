@@ -42,6 +42,7 @@ model User {
   coachingMessages  CoachingMessage[]
   forms             Form[]
   formResponses     FormResponse[]
+  formCollaborations FormCollaborator[]
 
   @@index([schoolId])
   @@index([collegeId])
@@ -241,12 +242,18 @@ model Form {
   logoUrl                 String?
   confirmationMessage     String?          @db.Text
   allowMultipleSubmissions Boolean         @default(false)
+  webhookUrl              String?
+  webhookEnabled          Boolean          @default(false)
+  webhookEvents           String[]         @default(["response.created"])
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
   owner                   User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   sections                FormSection[]
   fields                  FormField[]
   responses               FormResponse[]
+  collaborators           FormCollaborator[]
+  webhookLogs             WebhookLog[]
+  activityLogs            FormActivityLog[]
 
   @@index([ownerId])
   @@index([customSlug])
@@ -314,4 +321,55 @@ model FormAnswer {
 
   @@index([responseId])
   @@index([fieldId])
+}
+
+model WebhookLog {
+  id            String   @id @default(cuid())
+  formId        String
+  responseId    String?
+  url           String
+  event         String
+  payload       String   @db.Text
+  statusCode    Int?
+  responseBody  String?  @db.Text
+  error         String?  @db.Text
+  attemptNumber Int      @default(1)
+  createdAt     DateTime @default(now())
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+model FormCollaborator {
+  id        String               @id @default(cuid())
+  formId    String
+  userId    String
+  role      FormCollaboratorRole @default(VIEWER)
+  invitedBy String?
+  invitedAt DateTime             @default(now())
+  form      Form                 @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, userId])
+  @@index([formId])
+  @@index([userId])
+}
+
+model FormActivityLog {
+  id          String   @id @default(cuid())
+  formId      String
+  userId      String?
+  action      String
+  description String   @db.Text
+  metadata    String?  @db.Text
+  createdAt   DateTime @default(now())
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+enum FormCollaboratorRole {
+  VIEWER
+  EDITOR
+  ADMIN
 }

@@ -22,6 +22,8 @@ import formFieldsRoutes from './routes/formFields';
 import formSectionsRoutes from './routes/formSections';
 import formResponsesRoutes from './routes/formResponses';
 import formAnalyticsRoutes from './routes/formAnalytics';
+import webhooksRoutes from './routes/webhooks';
+import collaboratorsRoutes from './routes/collaborators';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 
@@ -107,6 +109,8 @@ app.use('/api/form-fields', formFieldsRoutes);
 app.use('/api/form-sections', formSectionsRoutes);
 app.use('/api/form-responses', formResponsesRoutes);
 app.use('/api/form-analytics', formAnalyticsRoutes);
+app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/collaborators', collaboratorsRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);

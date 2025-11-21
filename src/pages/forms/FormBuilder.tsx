@@ -14,6 +14,8 @@ import {
   Link as LinkIcon,
   MoreVertical,
   Workflow,
+  Webhook,
+  UserPlus,
 } from 'lucide-react';
 import {
   DndContext,
@@ -43,6 +45,8 @@ import { soundManager } from '@/lib/sounds';
 import { FIELD_TYPE_LABELS, FIELD_TYPE_ICONS, type Form, type FormField, type FieldType } from '@/types/forms';
 import { type FieldLogic } from '@/lib/formLogic';
 import LogicBuilder from '@/components/forms/LogicBuilder';
+import WebhookSettings from '@/components/forms/WebhookSettings';
+import CollaborationSettings from '@/components/forms/CollaborationSettings';
 
 interface SortableFieldProps {
   field: FormField;
@@ -148,6 +152,8 @@ export default function FormBuilder() {
   const [fieldSidebar, setFieldSidebar] = useState(true);
   const [showLogicBuilder, setShowLogicBuilder] = useState(false);
   const [logicField, setLogicField] = useState<FormField | null>(null);
+  const [showWebhookSettings, setShowWebhookSettings] = useState(false);
+  const [showCollaboration, setShowCollaboration] = useState(false);
 
   // Form settings state
   const [title, setTitle] = useState('');
@@ -576,6 +582,14 @@ export default function FormBuilder() {
             <Button variant="outline" size="sm" onClick={() => setFieldSidebar(!fieldSidebar)}>
               <MoreVertical className="h-4 w-4" />
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowCollaboration(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowWebhookSettings(true)}>
+              <Webhook className="h-4 w-4 mr-2" />
+              Webhooks
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
@@ -802,6 +816,22 @@ export default function FormBuilder() {
             setShowLogicBuilder(false);
             setLogicField(null);
           }}
+        />
+      )}
+
+      {/* Webhook Settings Modal */}
+      {showWebhookSettings && formId && (
+        <WebhookSettings
+          formId={formId}
+          onClose={() => setShowWebhookSettings(false)}
+        />
+      )}
+
+      {/* Collaboration Settings Modal */}
+      {showCollaboration && formId && (
+        <CollaborationSettings
+          formId={formId}
+          onClose={() => setShowCollaboration(false)}
         />
       )}
     </div>

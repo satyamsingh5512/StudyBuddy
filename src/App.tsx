@@ -24,6 +24,7 @@ import FormBuilder from './pages/forms/FormBuilder';
 import PublicForm from './pages/forms/PublicForm';
 import FormResponses from './pages/forms/FormResponses';
 import FormAnalytics from './pages/forms/FormAnalytics';
+import WebhookLogs from './pages/forms/WebhookLogs';
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -105,6 +106,7 @@ function App() {
             <Route path="forms/:formId/builder" element={<FormBuilder />} />
             <Route path="forms/:formId/responses" element={<FormResponses />} />
             <Route path="forms/:formId/analytics" element={<FormAnalytics />} />
+            <Route path="forms/:formId/webhook-logs" element={<WebhookLogs />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
