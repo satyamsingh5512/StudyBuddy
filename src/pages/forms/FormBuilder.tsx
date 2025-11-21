@@ -143,6 +143,7 @@ export default function FormBuilder() {
   const { toast } = useToast();
   const [fields, setFields] = useState<FormField[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showFieldEditor, setShowFieldEditor] = useState(false);
@@ -188,6 +189,9 @@ export default function FormBuilder() {
     try {
       setLoading(true);
       const res = await apiFetch(`/api/forms/${formId}`);
+      
+      console.log('Load form response:', res.status, res.statusText);
+      
       if (res.ok) {
         const data = await res.json();
         setTitle(data.title);
@@ -198,20 +202,37 @@ export default function FormBuilder() {
         setCustomSlug(data.customSlug || '');
         loadFields();
       } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Form load failed:', res.status, errorData);
+        
+        const errorMsg = errorData.error || `Failed to load form (${res.status})`;
+        setLoadError(errorMsg);
+        
         toast({
-          title: 'Error',
-          description: 'Failed to load form',
+          title: 'Error Loading Form',
+          description: errorMsg,
           variant: 'destructive',
         });
-        navigate('/forms');
+        
+        // Wait a bit before redirecting so user can see the error
+        setTimeout(() => {
+          navigate('/forms');
+        }, 2000);
       }
     } catch (error) {
       console.error('Failed to load form:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load form';
+      setLoadError(errorMsg);
+      
       toast({
         title: 'Error',
-        description: 'Failed to load form',
+        description: errorMsg,
         variant: 'destructive',
       });
+      // Wait a bit before redirecting so user can see the error
+      setTimeout(() => {
+        navigate('/forms');
+      }, 2000);
     } finally {
       setLoading(false);
     }
