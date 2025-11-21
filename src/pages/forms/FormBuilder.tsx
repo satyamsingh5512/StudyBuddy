@@ -10,7 +10,6 @@ import {
   Trash2,
   GripVertical,
   Copy,
-  Palette,
   Link as LinkIcon,
   MoreVertical,
   Workflow,
@@ -42,7 +41,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
-import { FIELD_TYPE_LABELS, FIELD_TYPE_ICONS, type Form, type FormField, type FieldType } from '@/types/forms';
+import { FIELD_TYPE_LABELS, FIELD_TYPE_ICONS, type FormField, type FieldType } from '@/types/forms';
 import { type FieldLogic } from '@/lib/formLogic';
 import LogicBuilder from '@/components/forms/LogicBuilder';
 import WebhookSettings from '@/components/forms/WebhookSettings';
@@ -85,10 +84,10 @@ function SortableField({ field, onEdit, onDelete, onDuplicate, onConfigureLogic 
           className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="h-5 w-5" />
+          <GripVertical />
         </button>
 
-        <Icon className="h-5 w-5 mt-1 text-primary" />
+        <Icon />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -142,7 +141,6 @@ export default function FormBuilder() {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [form, setForm] = useState<Form | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -192,7 +190,6 @@ export default function FormBuilder() {
       const res = await apiFetch(`/api/forms/${formId}`);
       if (res.ok) {
         const data = await res.json();
-        setForm(data);
         setTitle(data.title);
         setDescription(data.description || '');
         setPrimaryColor(data.primaryColor || '#3b82f6');
@@ -551,7 +548,7 @@ export default function FormBuilder() {
                     className="w-full justify-start"
                     onClick={() => handleAddField(type)}
                   >
-                    <Icon className="h-4 w-4 mr-2" />
+                    <Icon />
                     {FIELD_TYPE_LABELS[type]}
                   </Button>
                 );

@@ -6,11 +6,9 @@ import {
   GraduationCap,
   Star,
   Calendar,
-  Heart,
   Briefcase,
   Users,
   MessageSquare,
-  TrendingUp,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

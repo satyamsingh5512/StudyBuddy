@@ -15,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { apiFetchJSON } from '@/config/api';
-import Layout from '@/components/Layout';
 import PageLoader from '@/components/PageLoader';
 
 interface WebhookLog {
@@ -109,9 +108,7 @@ export default function WebhookLogs() {
   if (loading) return <PageLoader />;
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
+    <div className="min-h-screen bg-background">{/* Header */}
         <div className="bg-background border-b sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -278,6 +275,5 @@ export default function WebhookLogs() {
           </div>
         )}
       </div>
-    </Layout>
   );
 }

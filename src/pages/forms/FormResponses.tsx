@@ -397,8 +397,8 @@ export default function FormResponses() {
                 let fileData: any = null;
                 
                 try {
-                  if (answer.valueText && answer.valueText.startsWith('{')) {
-                    const parsed = JSON.parse(answer.valueText);
+                  if (answer.value && answer.value.startsWith('{')) {
+                    const parsed = JSON.parse(answer.value);
                     if (parsed.url && parsed.publicId) {
                       isFileUpload = true;
                       fileData = parsed;
@@ -436,7 +436,7 @@ export default function FormResponses() {
                       </div>
                     ) : (
                       <div className="text-muted-foreground whitespace-pre-wrap">
-                        {answer.valueText || 'No answer provided'}
+                        {answer.value || 'No answer provided'}
                       </div>
                     )}
                   </div>
