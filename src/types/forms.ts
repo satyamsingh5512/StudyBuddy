@@ -1,5 +1,7 @@
 // Form types matching Prisma schema
 
+import type { FieldLogic } from '@/lib/formLogic';
+
 export type FormAccessType = 'PUBLIC' | 'AUTHENTICATED' | 'DOMAIN_LIMITED';
 
 export type FieldType =
@@ -64,7 +66,7 @@ export interface FormField {
   isRequired: boolean;
   order: number;
   config: FieldConfig | null;
-  logic: unknown | null;
+  logic: FieldLogic | null;
   section?: {
     id: string;
     title: string;

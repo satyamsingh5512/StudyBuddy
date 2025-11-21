@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
+import { isFieldVisible, isFieldRequired, getVisibleFields } from '@/lib/formLogic';
 import type { Form, FormField, FieldType } from '@/types/forms';
 
 export default function PublicForm() {
@@ -55,7 +56,11 @@ export default function PublicForm() {
   };
 
   const validateField = (field: FormField, value: string | string[] | undefined): string | null => {
-    if (field.isRequired && (!value || (Array.isArray(value) && value.length === 0) || value === '')) {
+    // Check if field is dynamically required based on logic
+    const isDynamicallyRequired = isFieldRequired(field, answers);
+    const isRequired = field.isRequired || isDynamicallyRequired;
+    
+    if (isRequired && (!value || (Array.isArray(value) && value.length === 0) || value === '')) {
       return `${field.label} is required`;
     }
 
@@ -94,14 +99,17 @@ export default function PublicForm() {
 
     if (!form) return;
 
-    // Validate all fields
+    // Get all fields and filter only visible ones based on conditional logic
     const newErrors: Record<string, string> = {};
     const allFields = [
       ...(form.fields || []),
       ...(form.sections?.flatMap((s) => s.fields || []) || []),
     ];
 
-    allFields.forEach((field) => {
+    // Only validate fields that are currently visible
+    const visibleFields = getVisibleFields(allFields, answers);
+
+    visibleFields.forEach((field) => {
       const error = validateField(field, answers[field.id]);
       if (error) {
         newErrors[field.id] = error;
@@ -158,7 +166,15 @@ export default function PublicForm() {
   };
 
   const renderField = (field: FormField) => {
+    // Check if field should be visible based on conditional logic
+    if (!isFieldVisible(field, answers)) {
+      return null;
+    }
+
     const error = errors[field.id];
+    // Check if field is dynamically required
+    const isDynamicallyRequired = isFieldRequired(field, answers);
+    const showRequired = field.isRequired || isDynamicallyRequired;
 
     switch (field.fieldType) {
       case 'SHORT_TEXT':
@@ -166,7 +182,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -192,7 +208,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -220,7 +236,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -254,7 +270,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -287,7 +303,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -310,7 +326,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -333,7 +349,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -360,7 +376,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
@@ -397,7 +413,7 @@ export default function PublicForm() {
           <div key={field.id} className="space-y-2">
             <Label>
               {field.label}
-              {field.isRequired && <span className="text-destructive ml-1">*</span>}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
             </Label>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>

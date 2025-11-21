@@ -73,7 +73,7 @@ export function evaluateConditions(
 
 // Check if field should be visible
 export function isFieldVisible(
-  field: { logic?: FieldLogic },
+  field: { logic?: FieldLogic | null },
   answers: Record<string, string | string[]>
 ): boolean {
   if (!field.logic) return true;
@@ -91,7 +91,7 @@ export function isFieldVisible(
 
 // Check if field should be required
 export function isFieldRequired(
-  field: { isRequired: boolean; logic?: FieldLogic },
+  field: { isRequired: boolean; logic?: FieldLogic | null },
   answers: Record<string, string | string[]>
 ): boolean {
   // Base required state
@@ -108,16 +108,16 @@ export function isFieldRequired(
 }
 
 // Get visible fields from form
-export function getVisibleFields(
-  fields: Array<{ id: string; logic?: FieldLogic }>,
+export function getVisibleFields<T extends { id: string; logic?: FieldLogic | null }>(
+  fields: T[],
   answers: Record<string, string | string[]>
-): Array<{ id: string; logic?: FieldLogic }> {
+): T[] {
   return fields.filter(field => isFieldVisible(field, answers));
 }
 
 // Validate answers considering logic
 export function validateWithLogic(
-  fields: Array<{ id: string; label: string; isRequired: boolean; logic?: FieldLogic }>,
+  fields: Array<{ id: string; label: string; isRequired: boolean; logic?: FieldLogic | null }>,
   answers: Record<string, string | string[]>
 ): Record<string, string> {
   const errors: Record<string, string> = {};
