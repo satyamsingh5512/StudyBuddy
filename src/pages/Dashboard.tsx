@@ -30,10 +30,6 @@ export default function Dashboard() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const { toast} = useToast();
 
-  useEffect(() => {
-    fetchTodos();
-  }, []);
-
   const fetchTodos = async () => {
     setLoading(true);
     const res = await apiFetch('/api/todos');
@@ -43,6 +39,10 @@ export default function Dashboard() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
 
   const addTodo = async () => {
     if (!newTodo.trim()) return;
