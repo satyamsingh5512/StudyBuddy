@@ -30,7 +30,7 @@ export default function StudyTimer() {
   const [, setUser] = useAtom(userAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved, 10) : 50;
+    return saved ? parseInt(saved) : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);

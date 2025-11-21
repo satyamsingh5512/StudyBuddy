@@ -1,22 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
-
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-  };
-}
-
-interface GeneratedTask {
-  title: string;
-  subject: string;
-  difficulty: string;
-  questionsTarget: number;
-}
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -24,25 +9,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 router.use(isAuthenticated);
 
-router.post('/study-plan', async (req: Request, res: Response): Promise<void> => {
+router.post('/study-plan', async (req, res) => {
   try {
-    const authReq = req as AuthRequest;
-    const userId = authReq.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
+    const userId = (req.user as any).id;
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+      return res.status(404).json({ error: 'User not found' });
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      res.status(503).json({ error: 'AI service not configured' });
-      return;
+      return res.status(503).json({ error: 'AI service not configured' });
     }
 
     const recentReports = await prisma.dailyReport.findMany({
@@ -79,34 +56,25 @@ Keep it concise and actionable.`;
     const text = response.text();
 
     res.json({ plan: text });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error: any) {
     console.error('AI Error:', error);
-    res.status(500).json({ error: 'Failed to generate study plan', details: errorMessage });
+    res.status(500).json({ error: 'Failed to generate study plan', details: error.message });
   }
 });
 
 // Generate tasks with AI
-router.post('/generate-tasks', async (req: Request, res: Response): Promise<void> => {
+router.post('/generate-tasks', async (req: any, res: any) => {
   try {
-    const authReq = req as AuthRequest;
     const { prompt, examGoal } = req.body;
-    const userId = authReq.user?.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+    const userId = req.user.id;
 
     if (!prompt) {
-      res.status(400).json({ error: 'Prompt is required' });
-      return;
+      return res.status(400).json({ error: 'Prompt is required' });
     }
 
     // Check if API key is configured
     if (!process.env.GEMINI_API_KEY) {
-      res.status(503).json({ error: 'AI service not configured' });
-      return;
+      return res.status(503).json({ error: 'AI service not configured' });
     }
 
     const fullPrompt = `You are a study planner for ${examGoal || 'exam'} preparation. 
@@ -133,15 +101,14 @@ Return ONLY a valid JSON array, no other text. Example:
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       console.error('AI response:', text);
-      res.status(500).json({ error: 'Failed to parse AI response', details: text });
-      return;
+      return res.status(500).json({ error: 'Failed to parse AI response', details: text });
     }
 
     const tasks = JSON.parse(jsonMatch[0]);
 
     // Create todos in database
     const createdTodos = await Promise.all(
-      tasks.map((task: GeneratedTask) =>
+      tasks.map((task: any) =>
         prisma.todo.create({
           data: {
             userId,
@@ -155,17 +122,16 @@ Return ONLY a valid JSON array, no other text. Example:
     );
 
     res.json({ success: true, tasks: createdTodos });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error: any) {
     console.error('AI task generation error:', error);
     res.status(500).json({ 
       error: 'Failed to generate tasks',
-      details: errorMessage
+      details: error.message || 'Unknown error'
     });
   }
 });
 
-router.post('/exam-info', async (req: Request, res: Response): Promise<void> => {
+router.post('/exam-info', async (req, res) => {
   try {
     const { examType } = req.body;
 
@@ -201,10 +167,9 @@ Provide accurate, up-to-date information for ${examType}.`;
     } else {
       res.json({ raw: text });
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error: any) {
     console.error('AI Error:', error);
-    res.status(500).json({ error: 'Failed to fetch exam information', details: errorMessage });
+    res.status(500).json({ error: 'Failed to fetch exam information', details: error.message });
   }
 });
 

@@ -17,6 +17,11 @@ import userRoutes from './routes/users';
 import faqRoutes from './routes/faqs';
 import uploadRoutes from './routes/upload';
 import timerRoutes from './routes/timer';
+import formsRoutes from './routes/forms';
+import formFieldsRoutes from './routes/formFields';
+import formSectionsRoutes from './routes/formSections';
+import formResponsesRoutes from './routes/formResponses';
+import formAnalyticsRoutes from './routes/formAnalytics';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 
@@ -95,6 +100,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/faqs', faqRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/timer', timerRoutes);
+
+// Forms routes
+app.use('/api/forms', formsRoutes);
+app.use('/api/form-fields', formFieldsRoutes);
+app.use('/api/form-sections', formSectionsRoutes);
+app.use('/api/form-responses', formResponsesRoutes);
+app.use('/api/form-analytics', formAnalyticsRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);

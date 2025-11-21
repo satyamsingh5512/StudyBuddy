@@ -40,6 +40,8 @@ model User {
   schoolMessages    SchoolMessage[]
   collegeMessages   CollegeMessage[]
   coachingMessages  CoachingMessage[]
+  forms             Form[]
+  formResponses     FormResponse[]
 
   @@index([schoolId])
   @@index([collegeId])
@@ -196,4 +198,120 @@ model Session {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+// ============================================
+// FORMS SYSTEM
+// ============================================
+
+enum FormAccessType {
+  PUBLIC              // Anyone can submit
+  AUTHENTICATED       // Requires login
+  DOMAIN_LIMITED      // Only specific email domain
+}
+
+enum FieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  MULTIPLE_CHOICE
+  CHECKBOXES
+  DROPDOWN
+  LINEAR_SCALE
+  DATE
+  TIME
+  NUMBER
+  RATING
+  FILE_UPLOAD        // Future feature
+}
+
+model Form {
+  id                      String           @id @default(cuid())
+  ownerId                 String
+  title                   String
+  description             String?          @db.Text
+  heroBadge               String?          // e.g. "📝 Feedback", "🎓 Survey"
+  customSlug              String?          @unique
+  isAcceptingResponses    Boolean          @default(true)
+  isDeleted               Boolean          @default(false)
+  archivedAt              DateTime?
+  accessType              FormAccessType   @default(PUBLIC)
+  allowedDomain           String?
+  primaryColor            String?          @default("#6366f1")
+  accentColor             String?          @default("#818cf8")
+  logoUrl                 String?
+  confirmationMessage     String?          @db.Text
+  allowMultipleSubmissions Boolean         @default(false)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  owner                   User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sections                FormSection[]
+  fields                  FormField[]
+  responses               FormResponse[]
+
+  @@index([ownerId])
+  @@index([customSlug])
+  @@index([isDeleted])
+}
+
+model FormSection {
+  id          String      @id @default(cuid())
+  formId      String
+  title       String
+  description String?     @db.Text
+  order       Int         @default(0)
+  form        Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  fields      FormField[]
+
+  @@index([formId, order])
+}
+
+model FormField {
+  id          String       @id @default(cuid())
+  formId      String
+  sectionId   String?
+  label       String
+  description String?      @db.Text
+  helpText    String?
+  fieldType   FieldType
+  isRequired  Boolean      @default(false)
+  order       Int          @default(0)
+  config      Json?        // Field-specific config: options, min/max, regex, etc.
+  logic       Json?        // Branching logic (future)
+  form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  section     FormSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  answers     FormAnswer[]
+
+  @@index([formId, order])
+  @@index([sectionId])
+}
+
+model FormResponse {
+  id              String       @id @default(cuid())
+  formId          String
+  responderUserId String?
+  responderEmail  String?
+  responderName   String?
+  submittedAt     DateTime     @default(now())
+  ipAddress       String?
+  userAgent       String?
+  isStarred       Boolean      @default(false)
+  isFlagged       Boolean      @default(false)
+  form            Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responder       User?        @relation(fields: [responderUserId], references: [id], onDelete: SetNull)
+  answers         FormAnswer[]
+
+  @@index([formId, submittedAt])
+  @@index([responderUserId])
+}
+
+model FormAnswer {
+  id         String       @id @default(cuid())
+  responseId String
+  fieldId    String
+  value      String       @db.Text
+  response   FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  field      FormField    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([fieldId])
 }

@@ -12,7 +12,6 @@ class SoundManager {
     return this.audioContext;
   }
 
-  // eslint-disable-next-line class-methods-use-this
   setEnabled(enabled: boolean, category?: SoundCategory) {
     if (category) {
       localStorage.setItem(`sound_${category}`, enabled.toString());
@@ -21,7 +20,6 @@ class SoundManager {
     }
   }
 
-  // eslint-disable-next-line class-methods-use-this
   isEnabled(category?: SoundCategory): boolean {
     // Check global setting first
     const globalEnabled = localStorage.getItem('soundEnabled');
