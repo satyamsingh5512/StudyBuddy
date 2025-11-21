@@ -428,7 +428,7 @@ export default function PublicForm() {
                     setErrors({ ...errors, [field.id]: '' });
                   }}
                   className={`text-2xl ${
-                    parseInt(answers[field.id] as string) >= value
+                    parseInt(answers[field.id] as string, 10) >= value
                       ? 'text-yellow-500'
                       : 'text-gray-300'
                   }`}
@@ -437,6 +437,97 @@ export default function PublicForm() {
                 </button>
               ))}
             </div>
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
+        );
+
+      case 'FILE_UPLOAD':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label>
+              {field.label}
+              {showRequired && <span className="text-destructive ml-1">*</span>}
+            </Label>
+            {field.description && (
+              <p className="text-sm text-muted-foreground">{field.description}</p>
+            )}
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  // Check file size (50MB limit)
+                  if (file.size > 50 * 1024 * 1024) {
+                    setErrors({ ...errors, [field.id]: 'File size must be less than 50MB' });
+                    return;
+                  }
+
+                  try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const res = await fetch('/api/upload/form-file', {
+                      method: 'POST',
+                      body: formData,
+                    });
+
+                    if (res.ok) {
+                      const data = await res.json();
+                      setAnswers({ 
+                        ...answers, 
+                        [field.id]: JSON.stringify({
+                          url: data.url,
+                          publicId: data.publicId,
+                          originalName: data.originalName,
+                          fileSize: data.fileSize,
+                          fileType: data.fileType,
+                        })
+                      });
+                      setErrors({ ...errors, [field.id]: '' });
+                      toast({
+                        title: 'Success',
+                        description: 'File uploaded successfully',
+                      });
+                    } else {
+                      const errorData = await res.json();
+                      setErrors({ ...errors, [field.id]: errorData.error || 'Upload failed' });
+                    }
+                  } catch (uploadError) {
+                    setErrors({ ...errors, [field.id]: 'Upload failed' });
+                  }
+                }}
+                className="hidden"
+                id={`file-${field.id}`}
+              />
+              <label htmlFor={`file-${field.id}`} className="cursor-pointer">
+                {answers[field.id] ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-green-600">✓ File uploaded</p>
+                    <p className="text-xs text-muted-foreground">
+                      {JSON.parse(answers[field.id] as string).originalName}
+                    </p>
+                    <Button type="button" variant="outline" size="sm">
+                      Change File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="mx-auto w-12 h-12 text-muted-foreground">
+                      📎
+                    </div>
+                    <p className="text-sm">Click to upload or drag and drop</p>
+                    <p className="text-xs text-muted-foreground">
+                      Max file size: 50MB
+                    </p>
+                  </div>
+                )}
+              </label>
+            </div>
+            {field.helpText && (
+              <p className="text-xs text-muted-foreground">{field.helpText}</p>
+            )}
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
         );
