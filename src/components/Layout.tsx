@@ -58,7 +58,7 @@ export default function Layout() {
             <Logo className="w-6 h-6" />
             {studying && (
               <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-600">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-600 opacity-75"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-600 opacity-75" />
               </span>
             )}
           </div>
@@ -101,8 +101,8 @@ export default function Layout() {
             {studying && (
               <div className="flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-green-600/10 text-green-600">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-600 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-600 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600" />
                 </span>
                 Studying
               </div>
@@ -113,21 +113,21 @@ export default function Layout() {
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none">
+                <button type="button" className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none">
                   <div className="text-right">
                     <p className="text-sm font-medium">
-                      {(user as any)?.username ? `@${(user as any).username}` : user?.name}
+                      {user?.username ? `@${user.username}` : user?.name}
                     </p>
                     <p className="text-xs text-muted-foreground">{user?.totalPoints} points</p>
                   </div>
                   <div className="relative">
                     <img
                       src={user?.avatar || 'https://via.placeholder.com/32'}
-                      alt={(user as any)?.username || user?.name}
+                      alt={user?.username || user?.name || 'User'}
                       className="h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/20 transition-all"
                     />
                     {studying && (
-                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background"></span>
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background" />
                     )}
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />

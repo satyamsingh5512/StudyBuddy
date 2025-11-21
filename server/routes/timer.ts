@@ -1,22 +1,38 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
+
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+  };
+}
 
 const prisma = new PrismaClient();
 const router = Router();
 
 // Save study session
-router.post('/session', isAuthenticated, async (req: any, res: any) => {
+router.post('/session', isAuthenticated, async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
     const { minutes } = req.body;
+    const userId = authReq.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     
     if (!minutes || minutes < 1) {
-      return res.status(400).json({ error: 'Invalid session duration' });
+      res.status(400).json({ error: 'Invalid session duration' });
+      return;
     }
 
     // Update user's total study time
     const user = await prisma.user.update({
-      where: { id: req.user.id },
+      where: { id: userId },
       data: {
         totalStudyMinutes: {
           increment: minutes,

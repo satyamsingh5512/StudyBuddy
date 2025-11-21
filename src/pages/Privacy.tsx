@@ -109,7 +109,7 @@ export default function Privacy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-3">Children's Privacy</h2>
+            <h2 className="text-xl font-semibold mb-3">Children&apos;s Privacy</h2>
             <p>
               StudyBuddy is designed for students of all ages. If you are under 18, please ensure you have parental consent 
               before using our platform. We do not knowingly collect personal information from children under 13 without 
@@ -121,7 +121,7 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold mb-3">Changes to This Policy</h2>
             <p>
               We may update this Privacy Policy from time to time. We will notify you of any significant changes by 
-              posting the new policy on this page and updating the "Last updated" date.
+              posting the new policy on this page and updating the &quot;Last updated&quot; date.
             </p>
           </section>
 
