@@ -13,6 +13,7 @@ import {
   Palette,
   Link as LinkIcon,
   MoreVertical,
+  Workflow,
 } from 'lucide-react';
 import {
   DndContext,
@@ -40,15 +41,18 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 import { FIELD_TYPE_LABELS, FIELD_TYPE_ICONS, type Form, type FormField, type FieldType } from '@/types/forms';
+import { type FieldLogic } from '@/lib/formLogic';
+import LogicBuilder from '@/components/forms/LogicBuilder';
 
 interface SortableFieldProps {
   field: FormField;
   onEdit: (field: FormField) => void;
   onDelete: (id: string) => void;
   onDuplicate: (field: FormField) => void;
+  onConfigureLogic: (field: FormField) => void;
 }
 
-function SortableField({ field, onEdit, onDelete, onDuplicate }: SortableFieldProps) {
+function SortableField({ field, onEdit, onDelete, onDuplicate, onConfigureLogic }: SortableFieldProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
   });
@@ -101,6 +105,14 @@ function SortableField({ field, onEdit, onDelete, onDuplicate }: SortableFieldPr
               <Button
                 size="sm"
                 variant="ghost"
+                onClick={() => onConfigureLogic(field)}
+                title="Conditional Logic"
+              >
+                <Workflow className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => onDuplicate(field)}
                 title="Duplicate"
               >
@@ -134,6 +146,8 @@ export default function FormBuilder() {
   const [showFieldEditor, setShowFieldEditor] = useState(false);
   const [selectedField, setSelectedField] = useState<FormField | null>(null);
   const [fieldSidebar, setFieldSidebar] = useState(true);
+  const [showLogicBuilder, setShowLogicBuilder] = useState(false);
+  const [logicField, setLogicField] = useState<FormField | null>(null);
 
   // Form settings state
   const [title, setTitle] = useState('');
@@ -430,6 +444,44 @@ export default function FormBuilder() {
     }
   };
 
+  const handleConfigureLogic = (field: FormField) => {
+    soundManager.playClick();
+    setLogicField(field);
+    setShowLogicBuilder(true);
+  };
+
+  const handleSaveLogic = async (logic: FieldLogic | null) => {
+    if (!logicField) return;
+    
+    try {
+      soundManager.playClick();
+      const res = await apiFetch(`/api/form-fields/${logicField.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          logic
+        })
+      });
+
+      if (res.ok) {
+        loadFields();
+        setShowLogicBuilder(false);
+        setLogicField(null);
+        toast({ 
+          title: 'Success', 
+          description: logic ? 'Logic saved successfully' : 'Logic removed successfully' 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save logic:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save logic',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -564,6 +616,7 @@ export default function FormBuilder() {
                     onEdit={handleEditField}
                     onDelete={handleDeleteField}
                     onDuplicate={handleDuplicateField}
+                    onConfigureLogic={handleConfigureLogic}
                   />
                 ))}
               </SortableContext>
@@ -736,6 +789,20 @@ export default function FormBuilder() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Logic Builder Modal */}
+      {showLogicBuilder && logicField && (
+        <LogicBuilder
+          field={logicField}
+          allFields={fields}
+          onSave={handleSaveLogic}
+          onClose={() => {
+            soundManager.playClick();
+            setShowLogicBuilder(false);
+            setLogicField(null);
+          }}
+        />
       )}
     </div>
   );
