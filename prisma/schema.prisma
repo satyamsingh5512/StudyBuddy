@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String        @id @default(cuid())
+  email             String        @unique
+  name              String
+  username          String?       @unique
+  googleId          String        @unique
+  avatar            String?
+  avatarType        String        @default("photo")
+  onboardingDone    Boolean       @default(false)
+  examGoal          String        @default("JEE")
+  examDate          DateTime?
+  examAttempt       Int?
+  studentClass      String?
+  batch             String?
+  syllabus          String?       @db.Text
+  schoolId          String?
+  collegeId         String?
+  coachingId        String?
+  totalPoints       Int           @default(0)
+  totalStudyMinutes Int           @default(0)
+  streak            Int           @default(0)
+  lastActive        DateTime      @default(now())
+  showProfile       Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  school            School?       @relation(fields: [schoolId], references: [id])
+  college           College?      @relation(fields: [collegeId], references: [id])
+  coaching          Coaching?     @relation(fields: [coachingId], references: [id])
+  todos             Todo[]
+  reports           DailyReport[]
+  chatMessages      ChatMessage[]
+  schoolMessages    SchoolMessage[]
+  collegeMessages   CollegeMessage[]
+  coachingMessages  CoachingMessage[]
+  forms             Form[]
+  formResponses     FormResponse[]
+  formCollaborations FormCollaborator[]
+
+  @@index([schoolId])
+  @@index([collegeId])
+  @@index([coachingId])
+}
+
+model School {
+  id        String          @id @default(cuid())
+  name      String
+  city      String?
+  state     String?
+  createdAt DateTime        @default(now())
+  users     User[]
+  messages  SchoolMessage[]
+
+  @@unique([name, city])
+  @@index([name])
+}
+
+model College {
+  id        String           @id @default(cuid())
+  name      String
+  city      String?
+  state     String?
+  createdAt DateTime         @default(now())
+  users     User[]
+  messages  CollegeMessage[]
+
+  @@unique([name, city])
+  @@index([name])
+}
+
+model Coaching {
+  id        String            @id @default(cuid())
+  name      String
+  city      String?
+  state     String?
+  createdAt DateTime          @default(now())
+  users     User[]
+  messages  CoachingMessage[]
+
+  @@unique([name, city])
+  @@index([name])
+}
+
+model SchoolMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  schoolId  String
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, createdAt])
+}
+
+model CollegeMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  collegeId String
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId, createdAt])
+}
+
+model CoachingMessage {
+  id         String   @id @default(cuid())
+  userId     String
+  coachingId String
+  message    String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coaching   Coaching @relation(fields: [coachingId], references: [id], onDelete: Cascade)
+
+  @@index([coachingId, createdAt])
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  examType    String   // "JEE", "NEET", "UPSC", etc.
+  question    String
+  answer      String   @db.Text
+  order       Int      @default(0)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([examType, published])
+}
+
+model Todo {
+  id             String    @id @default(cuid())
+  userId         String
+  title          String
+  subject        String
+  difficulty     String
+  questionsTarget Int
+  completed      Boolean   @default(false)
+  scheduledTime  DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DailyReport {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @default(now())
+  tasksPlanned    Int
+  tasksCompleted  Int
+  questionsEasy   Int      @default(0)
+  questionsMedium Int      @default(0)
+  questionsHard   Int      @default(0)
+  studyHours      Float
+  understanding   Int
+  completionPct   Float
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([date])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Notice {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String
+  createdAt DateTime @default(now())
+  published Boolean  @default(true)
+
+  @@index([published])
+  @@index([createdAt])
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// ============================================
+// FORMS SYSTEM
+// ============================================
+
+enum FormAccessType {
+  PUBLIC              // Anyone can submit
+  AUTHENTICATED       // Requires login
+  DOMAIN_LIMITED      // Only specific email domain
+}
+
+enum FieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  MULTIPLE_CHOICE
+  CHECKBOXES
+  DROPDOWN
+  LINEAR_SCALE
+  DATE
+  TIME
+  NUMBER
+  RATING
+  FILE_UPLOAD        // Future feature
+}
+
+model Form {
+  id                      String           @id @default(cuid())
+  ownerId                 String
+  title                   String
+  description             String?          @db.Text
+  heroBadge               String?          // e.g. "📝 Feedback", "🎓 Survey"
+  customSlug              String?          @unique
+  isAcceptingResponses    Boolean          @default(true)
+  isDeleted               Boolean          @default(false)
+  archivedAt              DateTime?
+  accessType              FormAccessType   @default(PUBLIC)
+  allowedDomain           String?
+  primaryColor            String?          @default("#6366f1")
+  accentColor             String?          @default("#818cf8")
+  logoUrl                 String?
+  confirmationMessage     String?          @db.Text
+  allowMultipleSubmissions Boolean         @default(false)
+  webhookUrl              String?
+  webhookEnabled          Boolean          @default(false)
+  webhookEvents           String[]         @default(["response.created"])
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  owner                   User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sections                FormSection[]
+  fields                  FormField[]
+  responses               FormResponse[]
+  collaborators           FormCollaborator[]
+  webhookLogs             WebhookLog[]
+  activityLogs            FormActivityLog[]
+
+  @@index([ownerId])
+  @@index([customSlug])
+  @@index([isDeleted])
+}
+
+model FormSection {
+  id          String      @id @default(cuid())
+  formId      String
+  title       String
+  description String?     @db.Text
+  order       Int         @default(0)
+  form        Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  fields      FormField[]
+
+  @@index([formId, order])
+}
+
+model FormField {
+  id          String       @id @default(cuid())
+  formId      String
+  sectionId   String?
+  label       String
+  description String?      @db.Text
+  helpText    String?
+  fieldType   FieldType
+  isRequired  Boolean      @default(false)
+  order       Int          @default(0)
+  config      Json?        // Field-specific config: options, min/max, regex, etc.
+  logic       Json?        // Branching logic (future)
+  form        Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  section     FormSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  answers     FormAnswer[]
+
+  @@index([formId, order])
+  @@index([sectionId])
+}
+
+model FormResponse {
+  id              String       @id @default(cuid())
+  formId          String
+  responderUserId String?
+  responderEmail  String?
+  responderName   String?
+  submittedAt     DateTime     @default(now())
+  ipAddress       String?
+  userAgent       String?
+  isStarred       Boolean      @default(false)
+  isFlagged       Boolean      @default(false)
+  form            Form         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responder       User?        @relation(fields: [responderUserId], references: [id], onDelete: SetNull)
+  answers         FormAnswer[]
+
+  @@index([formId, submittedAt])
+  @@index([responderUserId])
+}
+
+model FormAnswer {
+  id         String       @id @default(cuid())
+  responseId String
+  fieldId    String
+  value      String       @db.Text
+  response   FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  field      FormField    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([fieldId])
+}
+
+model WebhookLog {
+  id            String   @id @default(cuid())
+  formId        String
+  responseId    String?
+  url           String
+  event         String
+  payload       String   @db.Text
+  statusCode    Int?
+  responseBody  String?  @db.Text
+  error         String?  @db.Text
+  attemptNumber Int      @default(1)
+  createdAt     DateTime @default(now())
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+model FormCollaborator {
+  id        String               @id @default(cuid())
+  formId    String
+  userId    String
+  role      FormCollaboratorRole @default(VIEWER)
+  invitedBy String?
+  invitedAt DateTime             @default(now())
+  form      Form                 @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, userId])
+  @@index([formId])
+  @@index([userId])
+}
+
+model FormActivityLog {
+  id          String   @id @default(cuid())
+  formId      String
+  userId      String?
+  action      String
+  description String   @db.Text
+  metadata    String?  @db.Text
+  createdAt   DateTime @default(now())
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+enum FormCollaboratorRole {
+  VIEWER
+  EDITOR
+  ADMIN
+}
