@@ -22,6 +22,7 @@ export default function Schedule() {
     return today.toISOString().split('T')[0];
   });
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 10 PM
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -82,14 +83,20 @@ export default function Schedule() {
   };
 
   const handleCellClick = async (day: string, hour: number) => {
+    if (creating) return; // Prevent multiple clicks
+    
+    console.log('Cell clicked:', day, hour);
     const entry = getEntry(day, hour);
     if (entry) {
+      console.log('Editing existing entry:', entry);
       setEditingId(entry.id);
       setEditText(entry.text);
     } else {
       // Create new entry
       const date = getDateForDayHour(day);
+      console.log('Creating new entry for date:', date);
       
+      setCreating(true);
       try {
         const response = await fetch(`${API_URL}/schedule`, {
           method: 'POST',
@@ -105,8 +112,11 @@ export default function Schedule() {
           }),
         });
 
+        console.log('Response status:', response.status);
+        
         if (response.ok) {
           const created = await response.json();
+          console.log('Created schedule:', created);
           setSchedule(prev => [...prev, {
             id: created.id,
             day,
@@ -116,9 +126,16 @@ export default function Schedule() {
           }]);
           setEditingId(created.id);
           setEditText('');
+        } else {
+          const error = await response.text();
+          console.error('Failed to create schedule:', error);
+          alert('Failed to create schedule. Please try again.');
         }
       } catch (error) {
         console.error('Error creating schedule:', error);
+        alert('Error creating schedule. Check console for details.');
+      } finally {
+        setCreating(false);
       }
     }
   };
