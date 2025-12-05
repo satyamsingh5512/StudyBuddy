@@ -4,9 +4,11 @@ import { useAtom } from 'jotai';
 import { Analytics } from '@vercel/analytics/react';
 import { userAtom } from './store/atoms';
 import LoadingScreen from './components/LoadingScreen';
+import ServerWakeup from './components/ServerWakeup';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
+import { wakeupServer } from './lib/serverWakeup';
 
 // Lazy load components for better performance
 const Layout = lazy(() => import('./components/Layout'));
@@ -31,37 +33,50 @@ function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWakeup, setShowWakeup] = useState(true);
 
   useEffect(() => {
     let soundPlayed = false;
     
-    // Add timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      setUser(null);
-      setIsLoading(false);
-    }, 5000); // 5 second timeout
+    const initializeApp = async () => {
+      // First, wake up the server if needed
+      await wakeupServer();
+      setShowWakeup(false);
 
-    apiFetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        clearTimeout(timeoutId);
-        setUser(data);
-        // Play login sound when user successfully authenticates
-        if (data && !soundPlayed) {
-          setTimeout(() => soundManager.playLogin(), 100);
-          soundPlayed = true;
-        }
-        // Add a small delay for smooth transition
-        setTimeout(() => setIsLoading(false), 500);
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
         setUser(null);
-        setTimeout(() => setIsLoading(false), 500);
-      });
+        setIsLoading(false);
+      }, 10000); // 10 second timeout (increased for cold starts)
 
-    return () => clearTimeout(timeoutId);
+      apiFetch('/api/auth/me')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          clearTimeout(timeoutId);
+          setUser(data);
+          // Play login sound when user successfully authenticates
+          if (data && !soundPlayed) {
+            setTimeout(() => soundManager.playLogin(), 100);
+            soundPlayed = true;
+          }
+          // Add a small delay for smooth transition
+          setTimeout(() => setIsLoading(false), 500);
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          setUser(null);
+          setTimeout(() => setIsLoading(false), 500);
+        });
+
+      return () => clearTimeout(timeoutId);
+    };
+
+    initializeApp();
   }, [setUser]);
+
+  if (showWakeup) {
+    return <ServerWakeup />;
+  }
 
   if (isLoading) {
     return <LoadingScreen message="Loading StudyBuddy" />;

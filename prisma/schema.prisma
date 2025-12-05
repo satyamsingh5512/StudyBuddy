@@ -201,6 +201,23 @@ model Session {
   @@index([expiresAt])
 }
 
+model Schedule {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime // The specific date for this schedule entry
+  startTime String   // e.g., "08:00"
+  endTime   String   // e.g., "09:00"
+  title     String
+  subject   String?
+  notes     String?  @db.Text
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([date])
+}
+
 // ============================================
 // FORMS SYSTEM
 // ============================================
