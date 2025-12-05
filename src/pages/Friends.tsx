@@ -14,7 +14,8 @@ import {
   Check,
   X,
   Ban,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
 import { API_URL } from '@/config/api';
 
@@ -110,18 +111,44 @@ export default function Friends() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (query: string) => {
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
 
     try {
       setLoading(true);
+      // Use fast search endpoint
       const response = await fetch(
-        `${API_URL}/friends/search?query=${encodeURIComponent(searchQuery)}`,
+        `${API_URL}/username/search/fast?q=${encodeURIComponent(query)}`,
         { credentials: 'include' }
       );
       if (response.ok) {
         const data = await response.json();
-        setSearchResults(data);
+        
+        // Check friendship status for each user
+        const usersWithStatus = await Promise.all(
+          data.map(async (user: User) => {
+            const friendshipResponse = await fetch(
+              `${API_URL}/friends/list`,
+              { credentials: 'include' }
+            );
+            
+            if (friendshipResponse.ok) {
+              const friends = await friendshipResponse.json();
+              const isFriend = friends.some((f: any) => f.id === user.id);
+              
+              if (isFriend) {
+                return { ...user, friendshipStatus: 'ACCEPTED' };
+              }
+            }
+            
+            return user;
+          })
+        );
+        
+        setSearchResults(usersWithStatus);
       }
     } catch (error) {
       console.error('Error searching users:', error);
@@ -139,7 +166,7 @@ export default function Friends() {
         body: JSON.stringify({ receiverId: userId }),
       });
       if (response.ok) {
-        handleSearch(); // Refresh search results
+        handleSearch(searchQuery); // Refresh search results
       }
     } catch (error) {
       console.error('Error sending friend request:', error);
@@ -304,12 +331,13 @@ export default function Friends() {
               <Input
                 placeholder="Search by username or name..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  handleSearch(e.target.value);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
               />
-              <Button onClick={handleSearch} disabled={loading}>
-                <Search className="h-4 w-4" />
-              </Button>
+              {loading && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
             </div>
 
             {searchResults.length > 0 && (

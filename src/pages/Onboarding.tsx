@@ -3,11 +3,11 @@ import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
+import UsernameInput from '@/components/UsernameInput';
 import { apiFetch } from '@/config/api';
 import {
   Select,
@@ -49,6 +49,7 @@ export default function Onboarding() {
   const [user, setUser] = useAtom(userAtom);
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
+  const [usernameValid, setUsernameValid] = useState(false);
   const [avatarType, setAvatarType] = useState<'photo' | 'animated'>('photo');
   const [uploadedAvatar, setUploadedAvatar] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState('adventurer');
@@ -157,22 +158,18 @@ export default function Onboarding() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="username">Choose a username</Label>
-                <Input
-                  id="username"
-                  placeholder="e.g., study_master_2024"
+                <UsernameInput
                   value={username}
-                  onChange={(e) =>
-                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-                  }
-                  maxLength={20}
+                  onChange={setUsername}
+                  onValidationChange={setUsernameValid}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Lowercase letters, numbers, and underscores only
+                  This will be your unique identifier on StudyBuddy
                 </p>
               </div>
 
               <div className="flex gap-4 pt-4">
-                <Button onClick={() => setStep(2)} disabled={!username.trim()} className="flex-1">
+                <Button onClick={() => setStep(2)} disabled={!usernameValid} className="flex-1">
                   Next
                 </Button>
               </div>

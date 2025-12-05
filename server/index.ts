@@ -20,6 +20,7 @@ import timerRoutes from './routes/timer';
 import scheduleRoutes from './routes/schedule';
 import friendsRoutes from './routes/friends';
 import messagesRoutes from './routes/messages';
+import usernameRoutes from './routes/username';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 
@@ -127,6 +128,7 @@ app.use('/api/timer', timerRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/username', usernameRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);

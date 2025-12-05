@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { Plus, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Sparkles, Loader2, Trash2, Users } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -187,13 +188,26 @@ export default function Dashboard() {
   const displayName = useMemo(() => user?.name || 'there', [user?.name]);
   const daysUntilExam = useMemo(() => getDaysUntil(user?.examDate || ''), [user?.examDate]);
 
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
-        <p className="text-sm text-muted-foreground">
-          {daysUntilExam} days until {user?.examGoal}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
+          <p className="text-sm text-muted-foreground">
+            {daysUntilExam} days until {user?.examGoal}
+          </p>
+        </div>
+        <Button
+          onClick={() => navigate('/friends')}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+        >
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Find Friends</span>
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
