@@ -8,7 +8,7 @@ import http from 'http';
 export class KeepAliveService {
   private intervalId: NodeJS.Timeout | null = null;
 
-  private readonly PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+  private readonly PING_INTERVAL = 10 * 60 * 1000; // 10 minutes (more aggressive)
 
   private readonly serverUrl: string;
 
