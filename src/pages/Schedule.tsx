@@ -72,7 +72,7 @@ export default function Schedule() {
     return schedule.find(e => e.day === day && e.hour === hour);
   };
 
-  const getDateForDayHour = (day: string, hour: number) => {
+  const getDateForDayHour = (day: string) => {
     const date = new Date(selectedDate);
     const currentDay = (date.getDay() + 6) % 7; // Convert to Mon=0
     const targetDay = days.indexOf(day);
@@ -88,7 +88,7 @@ export default function Schedule() {
       setEditText(entry.text);
     } else {
       // Create new entry
-      const date = getDateForDayHour(day, hour);
+      const date = getDateForDayHour(day);
       
       try {
         const response = await fetch(`${API_URL}/schedule`, {
