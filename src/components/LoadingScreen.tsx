@@ -18,15 +18,11 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative w-16 h-16">
-          <Logo className="w-16 h-16 text-foreground" animated />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex items-center gap-1">
-              <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
+        <Logo className="w-16 h-16 text-foreground" animated />
+        <div className="flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="h-1 w-1 rounded-full bg-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
         <p className="text-sm text-muted-foreground">
           {message}
