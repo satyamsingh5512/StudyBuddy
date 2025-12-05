@@ -18,6 +18,8 @@ import faqRoutes from './routes/faqs';
 import uploadRoutes from './routes/upload';
 import timerRoutes from './routes/timer';
 import scheduleRoutes from './routes/schedule';
+import friendsRoutes from './routes/friends';
+import messagesRoutes from './routes/messages';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 
@@ -123,6 +125,8 @@ app.use('/api/faqs', faqRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/timer', timerRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/friends', friendsRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Socket.io setup
 setupSocketHandlers(io);
