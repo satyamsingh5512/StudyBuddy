@@ -30,6 +30,19 @@
 - **Real-time Messaging**: Instant chat with Socket.io
 - **Profile Visibility**: Control who can see your profile and progress
 
+### 👥 Friend System
+- **User Search**: Find users by username or name
+- **Friend Requests**: Send and receive friend requests
+- **Friend Management**: Accept, reject, or unfriend users
+- **Private Messaging**: Chat one-on-one with friends
+- **Message History**: View conversation history with each friend
+- **Read Receipts**: See when messages are read
+- **Block Users**: Block unwanted users from contacting you
+- **Unblock**: Manage and unblock previously blocked users
+- **Friend List**: View all your friends in one place
+- **Online Status**: See when friends were last active
+- **Conversation List**: Quick access to all your chats
+
 ### 📢 Notices & Updates
 - **Exam Notices**: Stay updated with important exam announcements
 - **Category Filters**: Filter notices by exam type (JEE, NEET, UPSC, etc.)

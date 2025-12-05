@@ -37,6 +37,8 @@ const navItems = [
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/notices', icon: Bell, label: 'Notices' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
+  { path: '/friends', icon: User, label: 'Friends' },
+  { path: '/messages', icon: MessageSquare, label: 'Messages' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 

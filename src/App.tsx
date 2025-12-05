@@ -20,6 +20,8 @@ const Reports = lazy(() => import('./pages/Reports'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Notices = lazy(() => import('./pages/Notices'));
 const Chat = lazy(() => import('./pages/Chat'));
+const Friends = lazy(() => import('./pages/Friends'));
+const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
@@ -112,6 +114,9 @@ function App() {
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="notices" element={<Notices />} />
               <Route path="chat" element={<Chat />} />
+              <Route path="friends" element={<Friends />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="messages/:userId" element={<Messages />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           ) : (
