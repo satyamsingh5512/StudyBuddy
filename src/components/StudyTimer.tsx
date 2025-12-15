@@ -239,16 +239,42 @@ export default function StudyTimer() {
 
         {/* Timer Display */}
         {studyTime > 0 && (
-          <div className="space-y-3 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-mono text-2xl font-bold">{formatTime(studyTime)}</span>
-              <span className="text-muted-foreground">{Math.floor(progress)}%</span>
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Circular Progress */}
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 80 80">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="36"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="transparent"
+                    className="text-muted/20"
+                  />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="36"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="transparent"
+                    strokeDasharray={2 * Math.PI * 36}
+                    strokeDashoffset={2 * Math.PI * 36 - (progress / 100) * 2 * Math.PI * 36}
+                    className="text-primary transition-all duration-1000"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-mono font-bold">{Math.floor(progress)}%</span>
+                </div>
+              </div>
             </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-600 transition-all duration-1000"
-                style={{ width: `${progress}%` }}
-              />
+            
+            {/* Time Display */}
+            <div className="text-center">
+              <div className="font-mono text-xl font-bold">{formatTime(studyTime)}</div>
             </div>
 
             {/* Action Buttons */}
