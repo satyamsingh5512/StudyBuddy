@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom } from '@/store/atoms';
 import { Play, Pause, Settings, RotateCcw, Clock, Maximize, Wifi, WifiOff } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -29,7 +29,6 @@ interface Lap {
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
-  const [, setUser] = useAtom(userAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
     return saved ? parseInt(saved) : 50;
