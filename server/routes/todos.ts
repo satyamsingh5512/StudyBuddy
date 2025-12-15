@@ -21,13 +21,30 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const todo = await prisma.todo.create({
-      data: {
-        ...req.body,
-        userId: (req.user as any).id,
-      },
+    // Immediately respond with optimistic data
+    const optimisticTodo = {
+      id: `temp-${Date.now()}`,
+      ...req.body,
+      userId: (req.user as any).id,
+      createdAt: new Date(),
+    };
+    
+    // Send immediate response
+    res.json(optimisticTodo);
+    
+    // Save to database in background
+    setImmediate(async () => {
+      try {
+        await prisma.todo.create({
+          data: {
+            ...req.body,
+            userId: (req.user as any).id,
+          },
+        });
+      } catch (error) {
+        console.error('Background todo save failed:', error);
+      }
     });
-    res.json(todo);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create todo' });
   }
@@ -35,24 +52,32 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
-    const existingTodo = await prisma.todo.findUnique({
-      where: { id: req.params.id },
-    });
+    // Immediate response for better UX
+    res.json({ success: true, ...req.body });
+    
+    // Background processing
+    setImmediate(async () => {
+      try {
+        const existingTodo = await prisma.todo.findUnique({
+          where: { id: req.params.id },
+        });
 
-    const todo = await prisma.todo.update({
-      where: { id: req.params.id },
-      data: req.body,
+        await prisma.todo.update({
+          where: { id: req.params.id },
+          data: req.body,
+        });
+        
+        // Award 1 point when completing a task (regardless of difficulty)
+        if (req.body.completed && existingTodo && !existingTodo.completed) {
+          await prisma.user.update({
+            where: { id: (req.user as any).id },
+            data: { totalPoints: { increment: 1 } },
+          });
+        }
+      } catch (error) {
+        console.error('Background todo update failed:', error);
+      }
     });
-    
-    // Award 1 point when completing a task (regardless of difficulty)
-    if (req.body.completed && existingTodo && !existingTodo.completed) {
-      await prisma.user.update({
-        where: { id: (req.user as any).id },
-        data: { totalPoints: { increment: 1 } }, // 1 point per completed task
-      });
-    }
-    
-    res.json(todo);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update todo' });
   }
