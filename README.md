@@ -1,60 +1,37 @@
 # StudyBuddy
 
-AI-powered study companion for exam preparation with real-time collaboration features.
+AI-powered study companion for competitive exam preparation with real-time collaboration and analytics.
 
-## Features
+## ✨ Key Features
 
-### 🎯 Study Management
-- **Smart Todo List** - Task management with difficulty levels and question targets
-- **Study Timer** - Pomodoro-style timer with visual indicators
-- **Daily Reports** - Track study hours, completion rates, and progress
-- **AI Task Generation** - Generate personalized study tasks using AI
+**🎯 Smart Study Management**
+- AI-powered task generation and todo management
+- Pomodoro timer with fullscreen focus mode
+- Real-time progress tracking and analytics
 
-### 📊 Progress Tracking
-- **Dashboard** - Overview of tasks, points, and streak
-- **Leaderboard** - Compete with other students
-- **Study Analytics** - Detailed reports and insights
-- **Streak System** - Maintain daily study streaks
+**📊 Advanced Analytics**
+- Daily study insights with interactive charts
+- Session tracking and productivity metrics
+- Weekly performance analysis
 
-### 💬 Community Features
-- **Real-time Chat** - Global chat with online status indicators
-- **Message Notifications** - Sound alerts for new messages
-- **Read Receipts** - See when messages are read
-- **Privacy Controls** - Choose who can view your profile
-- **Profile Viewing** - Click usernames to view profiles
-- **Message Deletion** - Delete your own messages
+**💬 Social Learning**
+- Real-time chat with study community
+- Friend system and leaderboards
+- Collaborative study sessions
 
-### 🎨 User Experience
-- **Dark/Light Theme** - Toggle with smooth transitions
-- **Sound Effects** - Subtle audio feedback
-- **Responsive Design** - Works on all devices
-- **Loading Animations** - Smooth page transitions
-- **Custom Avatars** - Upload photos or use animated avatars
+**🚀 Modern Experience**
+- Instant offline support with auto-sync
+- Responsive design for all devices
+- Smooth animations and intuitive UI
 
-### 🔐 Authentication & Onboarding
-- **Google OAuth** - Secure sign-in
-- **Personalized Onboarding** - Set exam goals, class, and batch
-- **Avatar Customization** - Choose from multiple avatar styles
-- **Exam-specific FAQs** - Get relevant information for your exam
+## 🌐 Live Demo
 
-### 📢 Notices & Updates
-- **Exam Notices** - Important dates and announcements
-- **Category Filters** - Organized by type (Exam Dates, Forms, Tips)
-- **Real-time Updates** - Stay informed about changes
+**[studybuddyone.vercel.app](https://studybuddyone.vercel.app)**
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-**Frontend:** React, TypeScript, Tailwind CSS, Jotai  
-**Backend:** Express.js, Socket.io, Prisma  
-**Database:** PostgreSQL (Neon)  
-**AI:** Google Gemini API  
-**Storage:** Cloudinary  
-**Auth:** Passport.js (Google OAuth)
-
-## Live Demo
-
-🌐 [https://studybuddyone.vercel.app](https://studybuddyone.vercel.app)
+React • TypeScript • Express.js • PostgreSQL • Socket.io • Google AI
 
 ---
 
-Built with ❤️ for students preparing for competitive exams
+*Built for students, by students* 🎓
