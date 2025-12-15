@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom } from '@/store/atoms';
-import { Play, Pause, Settings, RotateCcw, Clock, Maximize, Wifi, WifiOff } from 'lucide-react';
+import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
-import { useNetworkStatus } from '@/lib/networkStatus';
+
 import FullscreenTimer from './FullscreenTimer';
 import {
   Dialog,
@@ -38,7 +38,7 @@ export default function StudyTimer() {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [laps, setLaps] = useState<Lap[]>([]);
   const { toast } = useToast();
-  const { isOnline } = useNetworkStatus();
+
 
   const POMODORO_DURATION = pomodoroDuration * 60;
 
@@ -61,14 +61,12 @@ export default function StudyTimer() {
       }
     } catch (error) {
       console.error('Failed to save session:', error);
-      if (!isOnline) {
-        toast({
-          title: 'Saved offline',
-          description: 'Session will sync when connection is restored',
-        });
-      }
+      toast({
+        title: 'Session saved offline',
+        description: 'Will sync when connection is restored',
+      });
     }
-  }, [toast, isOnline]);
+  }, [toast]);
 
   useEffect(() => {
     if (!studying) return;
@@ -167,32 +165,24 @@ export default function StudyTimer() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div>
-              <h3 className="font-medium">Study Timer</h3>
-              <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroDuration} min focus</p>
-            </div>
-            <div className="flex items-center">
-              {isOnline ? (
-                <Wifi className="h-3 w-3 text-green-500" />
-              ) : (
-                <WifiOff className="h-3 w-3 text-red-500" />
-              )}
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-medium">Study Timer</h3>
+            <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroDuration} min focus</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 self-end sm:self-auto">
             <Button
               size="icon"
               variant="ghost"
               onClick={() => setShowFullscreen(true)}
               title="Fullscreen Focus Mode"
+              className="shrink-0"
             >
               <Maximize className="h-4 w-4" />
             </Button>
             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" onClick={handleOpenSettings}>
+                <Button size="icon" variant="ghost" onClick={handleOpenSettings} className="shrink-0">
                   <Settings className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -230,7 +220,7 @@ export default function StudyTimer() {
               size="icon"
               onClick={toggleStudying}
               variant={studying ? 'default' : 'outline'}
-              className={studying ? 'bg-green-600 hover:bg-green-700' : ''}
+              className={`shrink-0 ${studying ? 'bg-green-600 hover:bg-green-700' : ''}`}
             >
               {studying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
@@ -283,24 +273,24 @@ export default function StudyTimer() {
                 size="sm"
                 variant="outline"
                 onClick={addLap}
-                className="transition-all hover:scale-105 active:scale-95"
+                className="transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
               >
-                <Clock className="h-3 w-3 mr-1" />
-                Lap
+                <Clock className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Lap</span>
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={clearTimer}
-                className="transition-all hover:scale-105 active:scale-95"
+                className="transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
               >
-                <RotateCcw className="h-3 w-3 mr-1" />
-                Clear
+                <RotateCcw className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">Clear</span>
               </Button>
               <Button
                 size="sm"
                 onClick={stopAndSave}
-                className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
+                className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
               >
                 Save
               </Button>

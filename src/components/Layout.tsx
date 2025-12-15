@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { useState } from 'react';
 import { userAtom, studyingAtom } from '@/store/atoms';
+import { useNetworkStatus } from '@/lib/networkStatus';
 import {
   LayoutDashboard,
   Calendar,
@@ -46,6 +47,7 @@ export default function Layout() {
   const [user] = useAtom(userAtom);
   const [studying] = useAtom(studyingAtom);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isOnline } = useNetworkStatus();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -128,8 +130,13 @@ export default function Layout() {
                 alt={(user as any)?.username || user?.name}
                 className="h-10 w-10 rounded-full ring-2 ring-border"
               />
+              {/* Network Status */}
+              <span className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                isOnline ? 'bg-green-500' : 'bg-red-500'
+              }`}></span>
+              {/* Studying Status */}
               {studying && (
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background"></span>
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -213,8 +220,13 @@ export default function Layout() {
                       alt={(user as any)?.username || user?.name}
                       className="h-8 w-8 rounded-full ring-2 ring-transparent group-hover:ring-primary/20 transition-all duration-200"
                     />
+                    {/* Network Status */}
+                    <span className={`absolute top-0 right-0 h-2 w-2 rounded-full border border-background ${
+                      isOnline ? 'bg-green-500' : 'bg-red-500'
+                    }`}></span>
+                    {/* Studying Status */}
                     {studying && (
-                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-600 border-2 border-background"></span>
+                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-blue-600 border border-background"></span>
                     )}
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors duration-200" />

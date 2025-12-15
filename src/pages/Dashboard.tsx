@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Sparkles, Loader2, Trash2, Users } from 'lucide-react';
+import { Plus, Sparkles, Loader2, Trash2, Users, TrendingUp } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -208,7 +208,8 @@ export default function Dashboard() {
             size="sm"
             className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
           >
-            📊 <span className="hidden sm:inline">Analytics</span>
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Analytics</span>
           </Button>
           <Button
             onClick={() => navigate('/friends')}
