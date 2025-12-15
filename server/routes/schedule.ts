@@ -5,11 +5,19 @@ import { isAuthenticated } from '../middleware/auth';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Get schedules for a specific date range
 router.get('/', isAuthenticated, async (req, res) => {
   try {
     const userId = req.user!.id;
     const { startDate, endDate } = req.query;
+
+    console.log('Fetching schedules for user:', userId);
+    console.log('Date range:', { startDate, endDate });
 
     const schedules = await prisma.schedule.findMany({
       where: {
@@ -25,6 +33,7 @@ router.get('/', isAuthenticated, async (req, res) => {
       ],
     });
 
+    console.log('Found schedules:', schedules.length);
     res.json(schedules);
   } catch (error) {
     console.error('Error fetching schedules:', error);
@@ -38,41 +47,24 @@ router.post('/', isAuthenticated, async (req, res) => {
     const userId = req.user!.id;
     const { date, startTime, endTime, title, subject, notes } = req.body;
 
-    // Immediate optimistic response
-    const optimisticSchedule = {
-      id: `temp-${Date.now()}`,
-      userId,
-      date: new Date(date),
-      startTime,
-      endTime,
-      title: title || '',
-      subject: subject || '',
-      notes: notes || '',
-      completed: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    console.log('Creating schedule for user:', userId);
+    console.log('Schedule data:', { date, startTime, endTime, title, subject, notes });
 
-    res.json(optimisticSchedule);
-
-    // Background save
-    setImmediate(async () => {
-      try {
-        await prisma.schedule.create({
-          data: {
-            userId,
-            date: new Date(date),
-            startTime,
-            endTime,
-            title: title || '',
-            subject: subject || '',
-            notes: notes || '',
-          },
-        });
-      } catch (error) {
-        console.error('Background schedule save failed:', error);
-      }
+    // Create the schedule entry immediately for better UX
+    const schedule = await prisma.schedule.create({
+      data: {
+        userId,
+        date: new Date(date),
+        startTime,
+        endTime,
+        title: title || '',
+        subject: subject || '',
+        notes: notes || '',
+      },
     });
+
+    console.log('Schedule created successfully:', schedule.id);
+    res.json(schedule);
   } catch (error) {
     console.error('Error creating schedule:', error);
     res.status(500).json({ error: 'Failed to create schedule' });
@@ -86,28 +78,28 @@ router.put('/:id', isAuthenticated, async (req, res) => {
     const userId = req.user!.id;
     const { date, startTime, endTime, title, subject, notes, completed } = req.body;
 
-    // Immediate response
-    res.json({ success: true });
+    console.log('Updating schedule:', id, 'for user:', userId);
 
-    // Background update
-    setImmediate(async () => {
-      try {
-        await prisma.schedule.updateMany({
-          where: { id, userId },
-          data: {
-            ...(date && { date: new Date(date) }),
-            ...(startTime && { startTime }),
-            ...(endTime && { endTime }),
-            ...(title !== undefined && { title }),
-            ...(subject !== undefined && { subject }),
-            ...(notes !== undefined && { notes }),
-            ...(completed !== undefined && { completed }),
-          },
-        });
-      } catch (error) {
-        console.error('Background schedule update failed:', error);
-      }
+    const updateData: any = {};
+    if (date) updateData.date = new Date(date);
+    if (startTime) updateData.startTime = startTime;
+    if (endTime) updateData.endTime = endTime;
+    if (title !== undefined) updateData.title = title;
+    if (subject !== undefined) updateData.subject = subject;
+    if (notes !== undefined) updateData.notes = notes;
+    if (completed !== undefined) updateData.completed = completed;
+
+    const result = await prisma.schedule.updateMany({
+      where: { id, userId },
+      data: updateData,
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    console.log('Schedule updated successfully');
+    res.json({ success: true });
   } catch (error) {
     console.error('Error updating schedule:', error);
     res.status(500).json({ error: 'Failed to update schedule' });
