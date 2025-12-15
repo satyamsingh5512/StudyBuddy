@@ -223,24 +223,24 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 xs:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
+          <CardContent className="pt-4 xs:pt-6">
+            <div className="text-xl xs:text-2xl font-bold">
               {completedCount}/{todos.length}
             </div>
             <p className="text-xs text-muted-foreground">Tasks completed</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{user?.totalPoints}</div>
+          <CardContent className="pt-4 xs:pt-6">
+            <div className="text-xl xs:text-2xl font-bold">{user?.totalPoints}</div>
             <p className="text-xs text-muted-foreground">Total points</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{user?.streak}</div>
+          <CardContent className="pt-4 xs:pt-6">
+            <div className="text-xl xs:text-2xl font-bold">{user?.streak}</div>
             <p className="text-xs text-muted-foreground">Day streak</p>
           </CardContent>
         </Card>

@@ -163,36 +163,47 @@ export default function StudyTimer() {
   };
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h3 className="font-medium">Study Timer</h3>
-            <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroDuration} min focus</p>
+    <Card className="w-full">
+      <CardContent className="p-3 sm:p-4 md:pt-6">
+        {/* Header - Fully Responsive */}
+        <div className="flex flex-col xs:flex-row xs:items-start sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-sm sm:text-base truncate">Study Timer</h3>
+            <p className="text-xs text-muted-foreground">
+              Pomodoro: <span className="font-medium">{pomodoroDuration}min</span> focus
+            </p>
           </div>
-          <div className="flex gap-2 self-end sm:self-auto">
+          
+          {/* Controls - Always Horizontal */}
+          <div className="flex gap-1.5 sm:gap-2 shrink-0">
             <Button
-              size="icon"
+              size="sm"
               variant="ghost"
               onClick={() => setShowFullscreen(true)}
               title="Fullscreen Focus Mode"
-              className="shrink-0"
+              className="h-8 w-8 p-0 shrink-0"
             >
-              <Maximize className="h-4 w-4" />
+              <Maximize className="h-3.5 w-3.5" />
             </Button>
+            
             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" onClick={handleOpenSettings} className="shrink-0">
-                  <Settings className="h-4 w-4" />
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={handleOpenSettings} 
+                  className="h-8 w-8 p-0 shrink-0"
+                >
+                  <Settings className="h-3.5 w-3.5" />
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="w-[90vw] max-w-md">
                 <DialogHeader>
                   <DialogTitle>Timer Settings</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="duration">Pomodoro Duration (minutes)</Label>
+                    <Label htmlFor="duration">Duration (minutes)</Label>
                     <Input
                       id="duration"
                       type="number"
@@ -205,9 +216,10 @@ export default function StudyTimer() {
                           saveDuration();
                         }
                       }}
+                      className="mt-1"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Set your preferred focus duration (1-120 minutes)
+                      Set focus duration (1-120 minutes)
                     </p>
                   </div>
                   <Button onClick={saveDuration} className="w-full">
@@ -216,24 +228,28 @@ export default function StudyTimer() {
                 </div>
               </DialogContent>
             </Dialog>
+            
             <Button
-              size="icon"
+              size="sm"
               onClick={toggleStudying}
               variant={studying ? 'default' : 'outline'}
-              className={`shrink-0 ${studying ? 'bg-green-600 hover:bg-green-700' : ''}`}
+              className={`h-8 w-8 p-0 shrink-0 ${studying ? 'bg-green-600 hover:bg-green-700' : ''}`}
             >
-              {studying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {studying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             </Button>
           </div>
         </div>
 
-        {/* Timer Display */}
+        {/* Timer Display - Ultra Responsive */}
         {studyTime > 0 && (
-          <div className="space-y-4 animate-in fade-in duration-300">
-            {/* Circular Progress */}
-            <div className="flex items-center justify-center">
+          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
+            {/* Circular Progress - Responsive Size */}
+            <div className="flex items-center justify-center py-2">
               <div className="relative">
-                <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 80 80">
+                <svg 
+                  className="w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 transform -rotate-90" 
+                  viewBox="0 0 80 80"
+                >
                   <circle
                     cx="40"
                     cy="40"
@@ -257,58 +273,66 @@ export default function StudyTimer() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-mono font-bold">{Math.floor(progress)}%</span>
+                  <span className="text-xs xs:text-sm font-mono font-bold">
+                    {Math.floor(progress)}%
+                  </span>
                 </div>
               </div>
             </div>
             
-            {/* Time Display */}
+            {/* Time Display - Responsive Typography */}
             <div className="text-center">
-              <div className="font-mono text-xl font-bold">{formatTime(studyTime)}</div>
+              <div className="font-mono text-lg xs:text-xl sm:text-2xl font-bold">
+                {formatTime(studyTime)}
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Action Buttons - Fully Responsive Grid */}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={addLap}
-                className="transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
+                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
               >
-                <Clock className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Lap</span>
+                <Clock className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:mr-1" />
+                <span className="hidden xs:inline ml-1 sm:ml-0">Lap</span>
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={clearTimer}
-                className="transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
+                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
               >
-                <RotateCcw className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Clear</span>
+                <RotateCcw className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:mr-1" />
+                <span className="hidden xs:inline ml-1 sm:ml-0">Clear</span>
               </Button>
               <Button
                 size="sm"
                 onClick={stopAndSave}
-                className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm"
+                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
               >
                 Save
               </Button>
             </div>
 
-            {/* Laps Display */}
+            {/* Laps Display - Responsive */}
             {laps.length > 0 && (
-              <div className="mt-4 space-y-1 animate-in slide-in-from-top duration-300">
-                <h4 className="text-xs font-medium text-muted-foreground">Laps</h4>
-                <div className="max-h-32 overflow-y-auto space-y-1">
+              <div className="space-y-1 sm:space-y-2 animate-in slide-in-from-top duration-300">
+                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Laps</h4>
+                <div className="max-h-24 xs:max-h-28 sm:max-h-32 overflow-y-auto space-y-1">
                   {laps.map((lap, index) => (
                     <div
                       key={lap.id}
-                      className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1 animate-in fade-in slide-in-from-top duration-200"
+                      className="flex items-center justify-between text-xs xs:text-sm bg-muted/50 rounded px-2 xs:px-3 py-1 xs:py-1.5 animate-in fade-in slide-in-from-top duration-200"
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      <span className="text-muted-foreground">Lap {laps.length - index}</span>
-                      <span className="font-mono">{formatTime(lap.time)}</span>
+                      <span className="text-muted-foreground">
+                        Lap {laps.length - index}
+                      </span>
+                      <span className="font-mono font-medium">
+                        {formatTime(lap.time)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -317,8 +341,13 @@ export default function StudyTimer() {
           </div>
         )}
 
+        {/* Idle State - Responsive */}
         {studyTime === 0 && !studying && (
-          <p className="text-sm text-muted-foreground">Click play to start studying</p>
+          <div className="text-center py-4 sm:py-6">
+            <p className="text-xs xs:text-sm text-muted-foreground">
+              Click play to start studying
+            </p>
+          </div>
         )}
       </CardContent>
       
