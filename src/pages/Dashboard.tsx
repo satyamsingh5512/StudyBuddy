@@ -88,24 +88,45 @@ export default function Dashboard() {
   }, [fetchTodos]);
 
   const addTodo = useCallback(async () => {
-    if (!newTodo.trim()) return;
+    if (!newTodo.trim()) {
+      toast({ 
+        title: 'Empty task', 
+        description: 'Please enter a task description',
+        variant: 'destructive' 
+      });
+      return;
+    }
     
-    const res = await apiFetch('/api/todos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: newTodo,
-        subject: 'General',
-        difficulty: 'medium',
-        questionsTarget: 10,
-      }),
-    });
+    try {
+      const res = await apiFetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTodo.trim(),
+          subject: 'General',
+          difficulty: 'medium',
+          questionsTarget: 10,
+        }),
+      });
 
-    if (res.ok) {
-      setNewTodo('');
-      fetchTodos();
-      soundManager.playAdd();
-      toast({ title: 'Todo added successfully' });
+      if (res.ok) {
+        setNewTodo('');
+        fetchTodos();
+        soundManager.playAdd();
+        toast({ 
+          title: 'Task added!', 
+          description: 'Press Enter to add more tasks quickly' 
+        });
+      } else {
+        throw new Error('Failed to add task');
+      }
+    } catch (error) {
+      console.error('Error adding todo:', error);
+      toast({ 
+        title: 'Failed to add task', 
+        description: 'Please try again',
+        variant: 'destructive' 
+      });
     }
   }, [newTodo, fetchTodos, toast]);
 
@@ -258,10 +279,15 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Add task or describe what you want to study..."
+                  placeholder="Add task or describe what you want to study... (Press Enter to save)"
                   value={newTodo}
                   onChange={(e) => setNewTodo(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addTodo()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      addTodo();
+                    }
+                  }}
                 />
                 <Button onClick={addTodo} size="icon" title="Add task">
                   <Plus className="h-4 w-4" />
