@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom } from '@/store/atoms';
 import { 
   Play, 
   Pause, 
@@ -33,7 +33,6 @@ interface FullscreenTimerProps {
 export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProps) {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
-  const [, setUser] = useAtom(userAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
     return saved ? parseInt(saved) : 50;
