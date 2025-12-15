@@ -9,6 +9,7 @@ import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
 import { wakeupServer } from './lib/serverWakeup';
+import { useNetworkStatus } from './lib/networkStatus';
 
 // Lazy load components for better performance
 const Layout = lazy(() => import('./components/Layout'));
@@ -35,6 +36,9 @@ function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize network status monitoring
+  useNetworkStatus();
   const [showWakeup, setShowWakeup] = useState(true);
 
   useEffect(() => {

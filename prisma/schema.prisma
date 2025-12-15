@@ -49,6 +49,7 @@ model User {
   receivedMessages       DirectMessage[] @relation("ReceivedMessages")
   blockedUsers           Block[] @relation("BlockedBy")
   blockedByUsers         Block[] @relation("Blocked")
+  timerSessions          TimerSession[]
 
   @@index([schoolId])
   @@index([collegeId])
@@ -450,4 +451,21 @@ enum FormCollaboratorRole {
   VIEWER
   EDITOR
   ADMIN
+}
+
+// ============================================
+// TIMER SESSIONS FOR ANALYTICS
+// ============================================
+
+model TimerSession {
+  id          String   @id @default(cuid())
+  userId      String
+  duration    Int      // Duration in minutes
+  sessionType String   @default("pomodoro") // "pomodoro", "fullscreen", "manual"
+  startedAt   DateTime @default(now())
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([completedAt])
 }

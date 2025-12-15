@@ -11,6 +11,7 @@ import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
 import StudyTimer from '@/components/StudyTimer';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
@@ -69,6 +70,7 @@ export default function Dashboard() {
   const [newTodo, setNewTodo] = useState('');
   const [loading, setLoading] = useState(true);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const { toast} = useToast();
 
   const fetchTodos = useCallback(async () => {
@@ -199,15 +201,25 @@ export default function Dashboard() {
             {daysUntilExam} days until {user?.examGoal}
           </p>
         </div>
-        <Button
-          onClick={() => navigate('/friends')}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-        >
-          <Users className="h-4 w-4" />
-          <span className="hidden sm:inline">Find Friends</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+          >
+            📊 <span className="hidden sm:inline">Analytics</span>
+          </Button>
+          <Button
+            onClick={() => navigate('/friends')}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+          >
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Find Friends</span>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -234,65 +246,69 @@ export default function Dashboard() {
         <StudyTimer />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Tasks</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add task or describe what you want to study..."
-                value={newTodo}
-                onChange={(e) => setNewTodo(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addTodo()}
-              />
-              <Button onClick={addTodo} size="icon" title="Add task">
-                <Plus className="h-4 w-4" />
+      {showAnalytics ? (
+        <AnalyticsDashboard />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Tasks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add task or describe what you want to study..."
+                  value={newTodo}
+                  onChange={(e) => setNewTodo(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && addTodo()}
+                />
+                <Button onClick={addTodo} size="icon" title="Add task">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button 
+                onClick={generateWithAI} 
+                disabled={aiGenerating || !newTodo.trim()}
+                variant="outline"
+                className="w-full"
+                size="sm"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating with AI...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate Tasks with AI
+                  </>
+                )}
               </Button>
             </div>
-            <Button 
-              onClick={generateWithAI} 
-              disabled={aiGenerating || !newTodo.trim()}
-              variant="outline"
-              className="w-full"
-              size="sm"
-            >
-              {aiGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating with AI...
-                </>
+
+            <div className="space-y-2">
+              {loading ? (
+                <SkeletonList count={3} />
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Tasks with AI
+                  {todos.map((todo) => (
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onToggle={toggleTodo}
+                      onDelete={deleteTodo}
+                    />
+                  ))}
+                  {todos.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-8">No tasks yet</p>
+                  )}
                 </>
               )}
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            {loading ? (
-              <SkeletonList count={3} />
-            ) : (
-              <>
-                {todos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onToggle={toggleTodo}
-                    onDelete={deleteTodo}
-                  />
-                ))}
-                {todos.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-8">No tasks yet</p>
-                )}
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
-import { Play, Pause, Settings, RotateCcw, Clock } from 'lucide-react';
+import { Play, Pause, Settings, RotateCcw, Clock, Maximize, Wifi, WifiOff } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
+import { useNetworkStatus } from '@/lib/networkStatus';
+import FullscreenTimer from './FullscreenTimer';
 import {
   Dialog,
   DialogContent,
@@ -34,8 +36,10 @@ export default function StudyTimer() {
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const [laps, setLaps] = useState<Lap[]>([]);
   const { toast } = useToast();
+  const { isOnline } = useNetworkStatus();
 
   const POMODORO_DURATION = pomodoroDuration * 60;
 
@@ -51,16 +55,21 @@ export default function StudyTimer() {
 
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user);
         toast({
           title: 'Session saved!',
-          description: `+${minutes} points earned (1 point per minute)`,
+          description: data.message || `+${minutes} points earned`,
         });
       }
     } catch (error) {
       console.error('Failed to save session:', error);
+      if (!isOnline) {
+        toast({
+          title: 'Saved offline',
+          description: 'Session will sync when connection is restored',
+        });
+      }
     }
-  }, [setUser, toast]);
+  }, [toast, isOnline]);
 
   useEffect(() => {
     if (!studying) return;
@@ -160,11 +169,28 @@ export default function StudyTimer() {
     <Card>
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-medium">Study Timer</h3>
-            <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroDuration} min focus</p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h3 className="font-medium">Study Timer</h3>
+              <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroDuration} min focus</p>
+            </div>
+            <div className="flex items-center">
+              {isOnline ? (
+                <Wifi className="h-3 w-3 text-green-500" />
+              ) : (
+                <WifiOff className="h-3 w-3 text-red-500" />
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowFullscreen(true)}
+              title="Fullscreen Focus Mode"
+            >
+              <Maximize className="h-4 w-4" />
+            </Button>
             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
                 <Button size="icon" variant="ghost" onClick={handleOpenSettings}>
@@ -280,6 +306,11 @@ export default function StudyTimer() {
           <p className="text-sm text-muted-foreground">Click play to start studying</p>
         )}
       </CardContent>
+      
+      <FullscreenTimer 
+        isOpen={showFullscreen} 
+        onClose={() => setShowFullscreen(false)} 
+      />
     </Card>
   );
 }
