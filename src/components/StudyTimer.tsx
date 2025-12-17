@@ -69,7 +69,7 @@ export default function StudyTimer() {
   }, [toast]);
 
   useEffect(() => {
-    if (!studying) return;
+    if (!studying || showFullscreen) return;
 
     const interval = setInterval(() => {
       setStudyTime((prev) => {
@@ -97,7 +97,7 @@ export default function StudyTimer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
+  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
 
   const toggleStudying = () => {
     setStudying(!studying);

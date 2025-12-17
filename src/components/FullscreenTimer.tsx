@@ -63,7 +63,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
   }, [toast]);
 
   useEffect(() => {
-    if (!studying) return;
+    if (!studying || !isOpen) return;
 
     const interval = setInterval(() => {
       setStudyTime((prev) => {
@@ -86,7 +86,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
+  }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
 
   // Handle escape key to exit fullscreen
   useEffect(() => {
