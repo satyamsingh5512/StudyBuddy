@@ -23,12 +23,18 @@ import messagesRoutes from './routes/messages';
 import usernameRoutes from './routes/username';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
+import { initializeDatabase } from './utils/initDatabase';
 
 dotenv.config();
 
 const prisma = new PrismaClient();
 
-const app = express();
+// Initialize database before starting server
+async function startServer() {
+  // Initialize database schema if needed
+  await initializeDatabase();
+
+  const app = express();
 
 // Trust proxy - required for secure cookies behind Render's proxy
 app.set('trust proxy', 1);
@@ -182,4 +188,12 @@ process.on('SIGINT', () => {
     console.log('✅ Server closed');
     process.exit(0);
   });
+});
+
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
 });
