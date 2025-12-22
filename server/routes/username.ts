@@ -13,6 +13,8 @@ async function initializeTrie() {
 
   try {
     console.log('🔄 Initializing username trie...');
+    
+    // Check if the table exists first
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -23,6 +25,13 @@ async function initializeTrie() {
         examGoal: true,
         totalPoints: true,
       },
+    }).catch((error) => {
+      // If table doesn't exist yet, return empty array
+      if (error.code === 'P2021' || error.message.includes('does not exist')) {
+        console.log('⚠️  User table not found, skipping trie initialization');
+        return [];
+      }
+      throw error;
     });
 
     usernameTrie.clear();
@@ -36,6 +45,7 @@ async function initializeTrie() {
     console.log(`✅ Trie initialized with ${users.length} users`);
   } catch (error) {
     console.error('❌ Error initializing trie:', error);
+    // Don't throw - allow server to start even if trie init fails
   }
 }
 
