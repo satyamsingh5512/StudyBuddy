@@ -43,7 +43,7 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
 
     setChecking(true);
     try {
-      const response = await fetch(`${API_URL}/username/check/${username}`);
+      const response = await fetch(`${API_URL}/api/username/check/${username}`);
       const data = await response.json();
 
       if (data.available) {
