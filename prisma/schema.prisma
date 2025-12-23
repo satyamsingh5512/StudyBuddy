@@ -21,7 +21,7 @@ model User {
   examAttempt       Int?
   studentClass      String?
   batch             String?
-  syllabus          String?       @db.Text
+  syllabus          String?
   schoolId          String?
   collegeId         String?
   coachingId        String?
@@ -137,7 +137,7 @@ model FAQ {
   id          String   @id @default(cuid())
   examType    String   // "JEE", "NEET", "UPSC", etc.
   question    String
-  answer      String   @db.Text
+  answer      String
   order       Int      @default(0)
   published   Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -218,7 +218,7 @@ model Schedule {
   endTime   String   // e.g., "09:00"
   title     String
   subject   String?
-  notes     String?  @db.Text
+  notes     String?
   completed Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -257,7 +257,7 @@ model DirectMessage {
   id         String   @id @default(cuid())
   senderId   String
   receiverId String
-  message    String   @db.Text
+  message    String
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
   sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
@@ -309,7 +309,7 @@ model Form {
   id                      String           @id @default(cuid())
   ownerId                 String
   title                   String
-  description             String?          @db.Text
+  description             String?
   heroBadge               String?          // e.g. "📝 Feedback", "🎓 Survey"
   customSlug              String?          @unique
   isAcceptingResponses    Boolean          @default(true)
@@ -320,7 +320,7 @@ model Form {
   primaryColor            String?          @default("#6366f1")
   accentColor             String?          @default("#818cf8")
   logoUrl                 String?
-  confirmationMessage     String?          @db.Text
+  confirmationMessage     String?
   allowMultipleSubmissions Boolean         @default(false)
   webhookUrl              String?
   webhookEnabled          Boolean          @default(false)
@@ -344,7 +344,7 @@ model FormSection {
   id          String      @id @default(cuid())
   formId      String
   title       String
-  description String?     @db.Text
+  description String?
   order       Int         @default(0)
   form        Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
   fields      FormField[]
@@ -357,7 +357,7 @@ model FormField {
   formId      String
   sectionId   String?
   label       String
-  description String?      @db.Text
+  description String?
   helpText    String?
   fieldType   FieldType
   isRequired  Boolean      @default(false)
@@ -395,7 +395,7 @@ model FormAnswer {
   id         String       @id @default(cuid())
   responseId String
   fieldId    String
-  value      String       @db.Text
+  value      String
   response   FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   field      FormField    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
@@ -409,10 +409,10 @@ model WebhookLog {
   responseId    String?
   url           String
   event         String
-  payload       String   @db.Text
+  payload       String
   statusCode    Int?
-  responseBody  String?  @db.Text
-  error         String?  @db.Text
+  responseBody  String?
+  error         String?
   attemptNumber Int      @default(1)
   createdAt     DateTime @default(now())
   form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
@@ -440,8 +440,8 @@ model FormActivityLog {
   formId      String
   userId      String?
   action      String
-  description String   @db.Text
-  metadata    String?  @db.Text
+  description String
+  metadata    String?
   createdAt   DateTime @default(now())
   form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
 
