@@ -21,9 +21,11 @@ import scheduleRoutes from './routes/schedule';
 import friendsRoutes from './routes/friends';
 import messagesRoutes from './routes/messages';
 import usernameRoutes from './routes/username';
+import backupRoutes from './routes/backup';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 import { initializeDatabase } from './utils/initDatabase';
+import { initMongoDB, scheduleBackups, closeMongoDB } from './utils/databaseSync';
 
 dotenv.config();
 
@@ -33,6 +35,13 @@ const prisma = new PrismaClient();
 async function startServer() {
   // Initialize database schema if needed
   await initializeDatabase();
+
+  // Initialize MongoDB backup (optional)
+  const mongoConnected = await initMongoDB();
+  if (mongoConnected) {
+    // Schedule automatic backups every 24 hours
+    scheduleBackups(24);
+  }
 
   const app = express();
 
@@ -135,6 +144,7 @@ async function startServer() {
   app.use('/api/friends', friendsRoutes);
   app.use('/api/messages', messagesRoutes);
   app.use('/api/username', usernameRoutes);
+  app.use('/api/backup', backupRoutes);
 
   // Socket.io setup
   setupSocketHandlers(io);
@@ -175,6 +185,7 @@ async function startServer() {
   process.on('SIGTERM', () => {
     console.log('\n🛑 SIGTERM received, shutting down gracefully...');
     keepAliveService.stop();
+    closeMongoDB();
     httpServer.close(() => {
       console.log('✅ Server closed');
       process.exit(0);
@@ -184,6 +195,7 @@ async function startServer() {
   process.on('SIGINT', () => {
     console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
     keepAliveService.stop();
+    closeMongoDB();
     httpServer.close(() => {
       console.log('✅ Server closed');
       process.exit(0);

@@ -61,6 +61,7 @@
     "jotai": "^2.10.3",
     "json2csv": "^6.0.0-alpha.2",
     "lucide-react": "^0.454.0",
+    "mongodb": "^7.0.0",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "passport": "^0.7.0",
