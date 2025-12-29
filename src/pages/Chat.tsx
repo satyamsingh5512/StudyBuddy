@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Check, CheckCheck, Trash2, User as UserIcon, MessageCircle, Users, Sparkles } from 'lucide-react';
+import { Send, Check, CheckCheck, Trash2, MessageCircle, Users, Sparkles } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/components/ui/use-toast';
 import { API_URL } from '@/config/api';

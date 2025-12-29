@@ -106,7 +106,7 @@ export default function Settings() {
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 text-center">
               <Clock className="h-6 w-6 text-blue-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold">{Math.floor((user?.totalStudyMinutes || 0) / 60)}h</p>
+              <p className="text-2xl font-bold">{Math.floor(((user as any)?.totalStudyMinutes || 0) / 60)}h</p>
               <p className="text-xs text-muted-foreground">Study Time</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 border border-violet-500/20 text-center">
