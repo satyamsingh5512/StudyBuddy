@@ -28,6 +28,9 @@ const getRankGradient = (index: number) => {
   return 'from-transparent to-transparent border-border/50';
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _unused = null;
+
 export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +46,6 @@ export default function Leaderboard() {
   }, []);
 
   const topThree = users.slice(0, 3);
-  const rest = users.slice(3);
 
   return (
     <div className="space-y-8 pb-8">
