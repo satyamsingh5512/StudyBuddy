@@ -1,26 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom } from '@/store/atoms';
-import { 
-  Play, 
-  Pause, 
-  X, 
-  Settings
-} from 'lucide-react';
+import { Play, Pause, X, Minimize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 
 interface FullscreenTimerProps {
   isOpen: boolean;
@@ -30,257 +16,154 @@ interface FullscreenTimerProps {
 export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProps) {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
-  const [pomodoroDuration, setPomodoroDuration] = useState(() => {
-    const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved) : 50;
-  });
-  const [tempDuration, setTempDuration] = useState(pomodoroDuration);
-  const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
 
-  const POMODORO_DURATION = pomodoroDuration * 60;
+  const pomodoroDuration = parseInt(localStorage.getItem('pomodoroDuration') || '50') * 60;
+  const progress = Math.min((studyTime / pomodoroDuration) * 100, 100);
 
   const saveSession = useCallback(async (minutes: number) => {
     if (minutes < 1) return;
-
     try {
       const res = await apiFetch('/api/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ minutes, sessionType: 'fullscreen' }),
       });
-
       if (res.ok) {
         const data = await res.json();
-        toast({
-          title: 'Session saved!',
-          description: data.message || `+${minutes} points earned`,
-        });
+        toast({ title: '🎉 Session saved!', description: data.message || `+${minutes} points earned` });
       }
-    } catch (error) {
-      console.error('Failed to save session:', error);
+    } catch {
+      toast({ title: 'Session saved offline' });
     }
   }, [toast]);
 
   useEffect(() => {
-    if (!studying || !isOpen) return;
-
+    if (!isOpen || !studying) return;
     const interval = setInterval(() => {
       setStudyTime((prev) => {
         const newTime = prev + 1;
-        // Check if Pomodoro completed
-        if (newTime >= POMODORO_DURATION) {
+        if (newTime >= pomodoroDuration) {
           setStudying(false);
           soundManager.playTimerComplete();
-          const minutes = Math.floor(newTime / 60);
-          saveSession(minutes);
-          toast({
-            title: 'Pomodoro Complete! 🎉',
-            description: `Excellent focus! You studied for ${pomodoroDuration} minutes.`,
-          });
+          saveSession(Math.floor(newTime / 60));
+          toast({ title: '🎉 Pomodoro Complete!' });
           setStudyTime(0);
           return 0;
         }
         return newTime;
       });
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
+  }, [isOpen, studying, setStudyTime, pomodoroDuration, toast, setStudying, saveSession]);
 
-  // Handle escape key to exit fullscreen
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-      if (e.key === ' ' && isOpen) {
-        e.preventDefault();
-        toggleStudying();
-      }
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === ' ') { e.preventDefault(); setStudying(!studying); soundManager.playClick(); }
     };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyPress);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
-
-  const toggleStudying = () => {
-    setStudying(!studying);
-    soundManager.playClick();
-  };
-
-  const stopAndSave = () => {
-    if (studyTime > 0) {
-      const minutes = Math.floor(studyTime / 60);
-      if (minutes > 0) {
-        saveSession(minutes);
-      }
-      setStudying(false);
-      setStudyTime(0);
-    }
-    onClose();
-  };
-
-  const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
-
-  const saveDuration = () => {
-    if (tempDuration >= 1 && tempDuration <= 120) {
-      setPomodoroDuration(tempDuration);
-      localStorage.setItem('pomodoroDuration', tempDuration.toString());
-      setShowSettings(false);
-      toast({ 
-        title: 'Timer updated', 
-        description: `Focus duration set to ${tempDuration} minutes` 
-      });
-    }
-  };
-
-  // Circular progress calculation
-  const circumference = 2 * Math.PI * 120; // radius = 120
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, studying, setStudying]);
 
   if (!isOpen) return null;
 
+  const toggleStudying = () => { setStudying(!studying); soundManager.playClick(); };
+
   return (
-    <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
-      {/* Header */}
-      <div className="absolute top-6 left-0 right-0 flex items-center justify-between px-6">
-        <div className="text-sm text-muted-foreground">
-          Focus Session • {pomodoroDuration} min
-        </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={showSettings} onOpenChange={setShowSettings}>
-            <DialogTrigger asChild>
-              <Button size="icon" variant="ghost">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Timer Settings</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="duration">Duration (minutes)</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={tempDuration}
-                    onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        saveDuration();
-                      }
-                    }}
-                  />
-                </div>
-                <Button onClick={saveDuration} className="w-full">
-                  Save
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Button size="icon" variant="ghost" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="fixed inset-0 z-50 bg-background flex items-center justify-center overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-violet-500/20 rounded-full blur-[120px] animate-float" />
+        <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-fuchsia-500/20 rounded-full blur-[120px] animate-float animation-delay-200" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] animate-float animation-delay-400" />
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col items-center justify-center space-y-8">
-        {/* Circular Timer */}
-        <div className="relative">
-          <svg className="w-64 h-64 transform -rotate-90" viewBox="0 0 256 256">
-            {/* Background circle */}
-            <circle
-              cx="128"
-              cy="128"
-              r="120"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="transparent"
-              className="text-muted/20"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="128"
-              cy="128"
-              r="120"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="transparent"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              className="text-primary transition-all duration-1000 ease-out"
-              strokeLinecap="round"
-            />
-          </svg>
-          
-          {/* Timer Display */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-4xl font-mono font-bold tracking-wider">
-                {formatTime(studyTime)}
-              </div>
-              {studyTime > 0 && (
-                <div className="text-sm text-muted-foreground mt-1">
-                  {Math.floor(progress)}% complete
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Close Button */}
+      <Button variant="ghost" size="icon" onClick={onClose}
+        className="absolute top-6 right-6 h-12 w-12 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 hover:bg-card/80 z-10">
+        <X className="h-5 w-5" />
+      </Button>
 
-        {/* Status */}
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-semibold">
-            {studying ? 'Focus Mode Active' : 'Ready to Focus'}
-          </h2>
-          <p className="text-muted-foreground">
-            {studying 
-              ? 'Stay focused and avoid distractions' 
-              : 'Press space or click play to begin'
-            }
-          </p>
+      {/* Minimize Button */}
+      <Button variant="ghost" size="icon" onClick={onClose}
+        className="absolute top-6 left-6 h-12 w-12 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50 hover:bg-card/80 z-10">
+        <Minimize2 className="h-5 w-5" />
+      </Button>
+
+      {/* Main Content */}
+      <div className="relative flex flex-col items-center gap-12 p-8">
+        {/* Circular Progress */}
+        <div className="relative">
+          {/* Glow Effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur-3xl opacity-30 animate-pulse-glow" />
+          
+          {/* Progress Ring */}
+          <svg className="w-80 h-80 sm:w-96 sm:h-96 transform -rotate-90 relative">
+            {/* Background Circle */}
+            <circle cx="50%" cy="50%" r="45%" strokeWidth="8" fill="transparent"
+              className="stroke-muted/20" />
+            
+            {/* Progress Circle */}
+            <circle cx="50%" cy="50%" r="45%" strokeWidth="8" fill="transparent"
+              stroke="url(#fullscreenGradient)"
+              strokeDasharray={2 * Math.PI * 45 * 4}
+              strokeDashoffset={2 * Math.PI * 45 * 4 - (progress / 100) * 2 * Math.PI * 45 * 4}
+              strokeLinecap="round"
+              className="transition-all duration-1000 drop-shadow-[0_0_20px_rgba(139,92,246,0.5)]"
+            />
+            
+            <defs>
+              <linearGradient id="fullscreenGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#8b5cf6" />
+                <stop offset="50%" stopColor="#d946ef" />
+                <stop offset="100%" stopColor="#ec4899" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Time Display */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-6xl sm:text-8xl font-bold font-mono tracking-tight bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">
+              {formatTime(studyTime)}
+            </span>
+            <span className="text-xl sm:text-2xl text-muted-foreground mt-2">
+              {Math.round(progress)}% complete
+            </span>
+          </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-4">
-          <Button
-            size="lg"
-            onClick={toggleStudying}
-            className="w-16 h-16 rounded-full"
-            variant={studying ? "destructive" : "default"}
-          >
-            {studying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+        <div className="flex items-center gap-6">
+          <Button size="lg" onClick={toggleStudying}
+            className={`h-20 w-20 rounded-3xl shadow-2xl transition-all duration-300 hover:scale-110 ${
+              studying 
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30' 
+                : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 shadow-violet-500/30'
+            }`}>
+            {studying ? <Pause className="h-10 w-10" /> : <Play className="h-10 w-10 ml-1" />}
           </Button>
-
-          {studyTime > 0 && (
-            <Button
-              variant="outline"
-              onClick={stopAndSave}
-              className="px-6"
-            >
-              Save & Exit
-            </Button>
-          )}
         </div>
 
-        {/* Keyboard Shortcuts */}
-        <div className="text-xs text-muted-foreground text-center">
-          <div className="flex items-center gap-4">
-            <span>Space - Play/Pause</span>
-            <span>Esc - Exit</span>
+        {/* Keyboard Hints */}
+        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <kbd className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border/50 font-mono text-xs">Space</kbd>
+            <span>Play/Pause</span>
           </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border/50 font-mono text-xs">Esc</kbd>
+            <span>Exit</span>
+          </div>
+        </div>
+
+        {/* Session Info */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-3 rounded-full bg-card/50 backdrop-blur-sm border border-border/50">
+          <div className={`h-2 w-2 rounded-full ${studying ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
+          <span className="text-sm font-medium">
+            {studying ? 'Focus Mode Active' : 'Paused'}
+          </span>
         </div>
       </div>
     </div>
