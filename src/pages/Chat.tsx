@@ -5,17 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Check, CheckCheck, Trash2, User as UserIcon } from 'lucide-react';
+import { Send, Check, CheckCheck, Trash2, User as UserIcon, MessageCircle, Users, Sparkles } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/components/ui/use-toast';
 import { API_URL } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Message {
   id: string;
@@ -40,7 +35,6 @@ interface UserProfile {
   avatar?: string;
   examGoal?: string;
   streak?: number;
-  totalPoints?: number;
 }
 
 export default function Chat() {
@@ -55,74 +49,40 @@ export default function Chat() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const newSocket = io(API_URL, {
-      withCredentials: true,
-    });
+    const newSocket = io(API_URL, { withCredentials: true });
 
-    newSocket.on('connect', () => {
-      newSocket.emit('join-chat', user?.id);
-    });
-
+    newSocket.on('connect', () => newSocket.emit('join-chat', user?.id));
     newSocket.on('chat-history', (history: Message[]) => {
       setMessages(history);
-      // Count unread messages
-      const unread = history.filter((m) => !m.read && m.user.id !== user?.id).length;
-      setUnreadCount(unread);
+      setUnreadCount(history.filter((m) => !m.read && m.user.id !== user?.id).length);
     });
-
     newSocket.on('new-message', (message: Message) => {
       setMessages((prev) => [...prev, message]);
-      
-      // Play sound and increment unread if message is from another user
       if (message.user.id !== user?.id) {
         soundManager.playMessageNotification();
         setUnreadCount((prev) => prev + 1);
       }
     });
-
-    newSocket.on('message-deleted', (messageId: string) => {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    });
-
-    newSocket.on('online-users', (users: string[]) => {
-      setOnlineUsers(new Set(users));
-    });
-
-    newSocket.on('user-online', (userId: string) => {
-      setOnlineUsers((prev) => new Set([...prev, userId]));
-    });
-
+    newSocket.on('message-deleted', (messageId: string) => setMessages((prev) => prev.filter((m) => m.id !== messageId)));
+    newSocket.on('online-users', (users: string[]) => setOnlineUsers(new Set(users)));
+    newSocket.on('user-online', (userId: string) => setOnlineUsers((prev) => new Set([...prev, userId])));
     newSocket.on('user-offline', (userId: string) => {
-      setOnlineUsers((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(userId);
-        return newSet;
-      });
+      setOnlineUsers((prev) => { const s = new Set(prev); s.delete(userId); return s; });
     });
-
-    newSocket.on('rate-limit', (data: { message: string; remainingSeconds: number }) => {
-      toast({
-        title: 'Slow mode',
-        description: `Wait ${data.remainingSeconds}s before sending another message`,
-        variant: 'destructive',
-      });
+    newSocket.on('rate-limit', (data: { remainingSeconds: number }) => {
+      toast({ title: 'Slow mode', description: `Wait ${data.remainingSeconds}s`, variant: 'destructive' });
     });
 
     setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
+    return () => { newSocket.close(); };
   }, [user?.id, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    
-    // Mark messages as read when viewing chat
     if (messages.length > 0 && socket) {
-      const unreadMessages = messages.filter((m) => !m.read && m.user.id !== user?.id);
-      if (unreadMessages.length > 0) {
-        socket.emit('mark-read', unreadMessages.map((m) => m.id));
+      const unread = messages.filter((m) => !m.read && m.user.id !== user?.id);
+      if (unread.length > 0) {
+        socket.emit('mark-read', unread.map((m) => m.id));
         setUnreadCount(0);
       }
     }
@@ -130,120 +90,113 @@ export default function Chat() {
 
   const sendMessage = () => {
     if (!newMessage.trim() || !socket) return;
-
     socket.emit('send-message', { message: newMessage });
     setNewMessage('');
   };
 
-  const deleteMessage = (messageId: string) => {
-    if (!socket) return;
-    socket.emit('delete-message', messageId);
-  };
+  const deleteMessage = (messageId: string) => socket?.emit('delete-message', messageId);
 
   const viewProfile = (userId: string) => {
-    const message = messages.find((m) => m.user.id === userId);
-    if (!message) return;
-
-    if (message.user.showProfile === false) {
-      toast({
-        title: 'Profile hidden',
-        description: 'This user has chosen to keep their profile private',
-      });
+    const msg = messages.find((m) => m.user.id === userId);
+    if (!msg) return;
+    if (msg.user.showProfile === false) {
+      toast({ title: 'Profile hidden', description: 'This user has a private profile' });
       return;
     }
-
     setSelectedProfile({
-      id: message.user.id,
-      name: message.user.name,
-      username: message.user.username,
-      avatar: message.user.avatar,
-      examGoal: message.user.examGoal,
-      streak: message.user.streak,
-      totalPoints: 0, // Can be fetched from API if needed
+      id: msg.user.id, name: msg.user.name, username: msg.user.username,
+      avatar: msg.user.avatar, examGoal: msg.user.examGoal, streak: msg.user.streak,
     });
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Community Chat</h1>
+    <div className="space-y-6 pb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between animate-slide-up">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold flex items-center gap-3">
+            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-violet-500/25">
+              <MessageCircle className="h-6 w-6 text-white" />
+            </div>
+            Community Chat
+          </h1>
+          <p className="text-muted-foreground mt-2">Connect with fellow students</p>
+        </div>
         {unreadCount > 0 && (
-          <Badge variant="destructive" className="text-lg px-3 py-1">
+          <Badge className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 text-sm rounded-full shadow-lg">
             {unreadCount} unread
           </Badge>
         )}
       </div>
 
-      <Card className="h-[600px] flex flex-col">
-        <CardHeader>
+      <Card className="h-[600px] flex flex-col overflow-hidden rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm animate-scale-in">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-indigo-500/5 to-violet-500/5">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Global Chat</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Slow mode: 1 message per 30 seconds
-              </p>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-violet-500" />
+                Global Chat
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Slow mode: 30 seconds</p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              {onlineUsers.size} online
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{onlineUsers.size} online</span>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-            {messages.map((msg) => {
+        
+        <CardContent className="flex-1 flex flex-col p-0">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, index) => {
               const isOnline = onlineUsers.has(msg.user.id);
-              const isOwnMessage = msg.user.id === user?.id;
+              const isOwn = msg.user.id === user?.id;
               const displayName = msg.user.username || msg.user.name;
               
               return (
-                <div key={msg.id} className="flex gap-3 group">
-                  <div className="relative">
-                    <button
-                      onClick={() => viewProfile(msg.user.id)}
-                      className="hover:opacity-80 transition-opacity"
-                    >
-                      <img
-                        src={msg.user.avatar || 'https://via.placeholder.com/40'}
-                        alt={displayName}
-                        className="h-8 w-8 rounded-full cursor-pointer"
-                      />
-                      {isOnline && (
-                        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
+                <div 
+                  key={msg.id} 
+                  className={`flex gap-3 group animate-slide-up ${isOwn ? 'flex-row-reverse' : ''}`}
+                  style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
+                >
+                  <button onClick={() => viewProfile(msg.user.id)} className="flex-shrink-0 relative">
+                    <img src={msg.user.avatar || 'https://via.placeholder.com/40'} alt={displayName}
+                      className="h-10 w-10 rounded-full ring-2 ring-border hover:ring-violet-500/50 transition-all" />
+                    {isOnline && (
+                      <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
+                    )}
+                  </button>
+                  
+                  <div className={`flex-1 max-w-[75%] ${isOwn ? 'text-right' : ''}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {!isOwn && (
+                        <button onClick={() => viewProfile(msg.user.id)} className="font-semibold text-sm hover:text-violet-500 transition-colors">
+                          {displayName}
+                        </button>
                       )}
-                    </button>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => viewProfile(msg.user.id)}
-                        className="font-medium text-sm hover:underline"
-                      >
-                        {displayName}
-                      </button>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(msg.createdAt).toLocaleTimeString()}
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      {isOwnMessage && (
+                      {isOwn && (
                         <>
-                          <span className="text-xs text-muted-foreground">
-                            {msg.read ? (
-                              <CheckCheck className="h-3 w-3 text-blue-500" />
-                            ) : (
-                              <Check className="h-3 w-3" />
-                            )}
-                          </span>
-                          <button
-                            onClick={() => deleteMessage(msg.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto"
-                            title="Delete message"
-                          >
+                          {msg.read ? <CheckCheck className="h-3 w-3 text-blue-500" /> : <Check className="h-3 w-3 text-muted-foreground" />}
+                          <button onClick={() => deleteMessage(msg.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
                             <Trash2 className="h-3 w-3 text-destructive hover:text-destructive/80" />
                           </button>
                         </>
                       )}
                     </div>
-                    <p className="text-sm mt-1">{msg.message}</p>
+                    <div className={`inline-block px-4 py-2.5 rounded-2xl ${
+                      isOwn 
+                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-br-md' 
+                        : 'bg-muted/50 rounded-bl-md'
+                    }`}>
+                      <p className="text-sm">{msg.message}</p>
+                    </div>
                   </div>
                 </div>
               );
@@ -251,62 +204,59 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="flex gap-2">
-            <Input
-              placeholder="Type a message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            />
-            <Button onClick={sendMessage}>
-              <Send className="h-4 w-4" />
-            </Button>
+          {/* Input */}
+          <div className="p-4 border-t border-border/50 bg-gradient-to-r from-indigo-500/5 to-violet-500/5">
+            <div className="flex gap-3">
+              <Input
+                placeholder="Type a message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                className="h-12 rounded-2xl border-2 border-border/50 focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10"
+              />
+              <Button onClick={sendMessage} size="icon"
+                className="h-12 w-12 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 shadow-lg shadow-violet-500/25 transition-all hover:-translate-y-1">
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* User Profile Dialog */}
+      {/* Profile Dialog */}
       <Dialog open={!!selectedProfile} onOpenChange={() => setSelectedProfile(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>User Profile</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader><DialogTitle>User Profile</DialogTitle></DialogHeader>
           {selectedProfile && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex items-center gap-4">
-                <img
-                  src={selectedProfile.avatar || 'https://via.placeholder.com/80'}
-                  alt={selectedProfile.username || selectedProfile.name}
-                  className="h-20 w-20 rounded-full"
-                />
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur-xl opacity-50" />
+                  <img src={selectedProfile.avatar || 'https://via.placeholder.com/80'} alt={selectedProfile.name}
+                    className="relative h-20 w-20 rounded-full ring-4 ring-violet-500/30" />
+                </div>
                 <div>
-                  <h3 className="text-lg font-semibold">
-                    {selectedProfile.username || selectedProfile.name}
-                  </h3>
-                  {selectedProfile.username && (
-                    <p className="text-sm text-muted-foreground">{selectedProfile.name}</p>
-                  )}
+                  <h3 className="text-xl font-bold">{selectedProfile.username || selectedProfile.name}</h3>
+                  {selectedProfile.username && <p className="text-sm text-muted-foreground">{selectedProfile.name}</p>}
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 {selectedProfile.examGoal && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Exam Goal</p>
-                    <p className="font-medium">{selectedProfile.examGoal}</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 border border-violet-500/20">
+                    <p className="text-xs text-muted-foreground">Exam Goal</p>
+                    <p className="font-bold mt-1">{selectedProfile.examGoal}</p>
                   </div>
                 )}
                 {selectedProfile.streak !== undefined && (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Streak</p>
-                    <p className="font-medium">{selectedProfile.streak} days 🔥</p>
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+                    <p className="text-xs text-muted-foreground">Streak</p>
+                    <p className="font-bold mt-1">{selectedProfile.streak} days 🔥</p>
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <UserIcon className="h-4 w-4" />
-                <span>
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className={onlineUsers.has(selectedProfile.id) ? 'text-emerald-500' : 'text-muted-foreground'}>
                   {onlineUsers.has(selectedProfile.id) ? 'Online' : 'Offline'}
                 </span>
               </div>

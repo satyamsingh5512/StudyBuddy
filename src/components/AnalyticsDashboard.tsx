@@ -3,14 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { apiFetch } from '@/config/api';
 import { formatTime } from '@/lib/utils';
-import { 
-  Clock, 
-  Target, 
-  TrendingUp, 
-  Calendar,
-  BarChart3,
-  Activity
-} from 'lucide-react';
+import { Clock, Target, TrendingUp, Calendar, BarChart3, Activity, Sparkles, Zap } from 'lucide-react';
 
 interface AnalyticsData {
   date: string;
@@ -31,31 +24,24 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
   const [timeRange, setTimeRange] = useState(7);
 
   useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        const res = await apiFetch(`/api/timer/analytics?days=${timeRange}`);
+        if (res.ok) setAnalytics(await res.json());
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchAnalytics();
   }, [timeRange]);
-
-  const fetchAnalytics = async () => {
-    try {
-      setLoading(true);
-      const res = await apiFetch(`/api/timer/analytics?days=${timeRange}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAnalytics(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
   const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
   const totalSessions = analytics.reduce((sum, day) => sum + day.sessions, 0);
-  const avgUnderstanding = analytics.length > 0 
-    ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length 
-    : 0;
-
+  const avgUnderstanding = analytics.length > 0 ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length : 0;
   const maxHours = Math.max(...analytics.map(d => d.studyHours), 1);
   const maxTasks = Math.max(...analytics.map(d => d.tasksCompleted), 1);
 
@@ -64,45 +50,59 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
     if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    if (date.toDateString() === yesterday.toDateString()) return 'Yest';
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
   if (loading) {
     return (
-      <Card className={className}>
+      <Card className={`rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm ${className}`}>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="flex items-center justify-center py-16">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur-xl opacity-50 animate-pulse" />
+              <div className="relative h-12 w-12 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const StatCard = ({ icon: Icon, label, value, gradient, subtext }: { icon: any; label: string; value: string; gradient: string; subtext?: string }) => (
+    <div className="group relative overflow-hidden rounded-2xl p-5 bg-card/50 backdrop-blur-sm border border-border/50 hover:border-violet-500/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-500/10">
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-5 transition-opacity`} />
+      <div className={`absolute -top-4 -right-4 w-20 h-20 bg-gradient-to-br ${gradient} rounded-full opacity-10 blur-2xl`} />
+      <div className="relative flex items-center gap-4">
+        <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold">{value}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          {subtext && <p className="text-xs text-violet-500 mt-0.5">{subtext}</p>}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Study Analytics</h2>
-          <p className="text-muted-foreground">Track your learning progress</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-violet-500" />
+            Study Analytics
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">Track your learning progress</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 p-1 bg-muted/50 rounded-2xl">
           {[7, 14, 30].map((days) => (
-            <Button
-              key={days}
-              variant={timeRange === days ? 'default' : 'outline'}
-              size="sm"
+            <Button key={days} variant={timeRange === days ? 'default' : 'ghost'} size="sm"
               onClick={() => setTimeRange(days)}
-            >
+              className={`rounded-xl transition-all ${timeRange === days ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-lg' : ''}`}>
               {days}d
             </Button>
           ))}
@@ -110,189 +110,92 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Study Time</p>
-                <p className="text-2xl font-bold">{formatTime(Math.round(totalStudyHours * 3600))}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Target className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                <p className="text-2xl font-bold">{totalTasks}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Activity className="h-5 w-5 text-orange-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Focus Sessions</p>
-                <p className="text-2xl font-bold">{totalSessions}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-purple-500" />
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Understanding</p>
-                <p className="text-2xl font-bold">{avgUnderstanding.toFixed(1)}/10</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Clock} label="Total Study Time" value={formatTime(Math.round(totalStudyHours * 3600))} gradient="from-blue-500 to-cyan-500" />
+        <StatCard icon={Target} label="Tasks Completed" value={totalTasks.toString()} gradient="from-emerald-500 to-teal-500" />
+        <StatCard icon={Activity} label="Focus Sessions" value={totalSessions.toString()} gradient="from-orange-500 to-amber-500" />
+        <StatCard icon={TrendingUp} label="Avg Understanding" value={`${avgUnderstanding.toFixed(1)}/10`} gradient="from-violet-500 to-purple-600" />
       </div>
 
-      {/* Study Hours Chart - Vertical Bars */}
-      <Card className="border-2 border-blue-100 dark:border-blue-900/30">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
-          <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-            <BarChart3 className="h-5 w-5" />
+      {/* Study Hours Chart */}
+      <Card className="overflow-hidden rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <BarChart3 className="h-5 w-5 text-blue-500" />
             Daily Study Hours
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="h-72 flex items-end justify-between gap-3 p-6 bg-gradient-to-t from-blue-50/50 to-transparent dark:from-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30">
+          <div className="h-64 flex items-end justify-between gap-2 sm:gap-4">
             {analytics.map((day, index) => (
-              <div key={day.date} className="flex flex-col items-center gap-3 flex-1 group">
-                {/* Vertical Bar */}
-                <div className="relative w-full max-w-14 h-52 bg-gradient-to-t from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-lg overflow-hidden shadow-sm border border-blue-200/50 dark:border-blue-800/30">
+              <div key={day.date} className="flex flex-col items-center gap-2 flex-1 group">
+                {/* Value */}
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {day.studyHours.toFixed(1)}h
+                </span>
+                {/* Bar */}
+                <div className="relative w-full max-w-12 h-44 bg-gradient-to-t from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl overflow-hidden">
                   <div
-                    className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400 transition-all duration-1000 ease-out rounded-lg shadow-lg group-hover:shadow-blue-300/50 dark:group-hover:shadow-blue-600/30"
-                    style={{ 
-                      height: `${(day.studyHours / maxHours) * 100}%`,
-                      animationDelay: `${index * 200}ms`
-                    }}
+                    className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 via-blue-500 to-cyan-400 rounded-xl transition-all duration-1000 ease-out group-hover:shadow-lg group-hover:shadow-blue-500/30"
+                    style={{ height: `${(day.studyHours / maxHours) * 100}%`, animationDelay: `${index * 100}ms` }}
                   />
-                  {/* Glow Effect */}
-                  <div
-                    className="absolute bottom-0 w-full bg-gradient-to-t from-blue-400/60 to-transparent blur-sm transition-all duration-1000"
-                    style={{ 
-                      height: `${(day.studyHours / maxHours) * 100}%`,
-                      animationDelay: `${index * 200}ms`
-                    }}
-                  />
-                  {/* Value Label */}
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-sm font-bold text-blue-700 dark:text-blue-300 bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded-md shadow-sm border border-blue-200 dark:border-blue-700">
-                    {day.studyHours > 0 ? `${day.studyHours.toFixed(1)}h` : '0h'}
-                  </div>
+                  <div className="absolute bottom-0 w-full bg-gradient-to-t from-blue-400/40 to-transparent blur-sm transition-all duration-1000"
+                    style={{ height: `${(day.studyHours / maxHours) * 100}%` }} />
                 </div>
-                
-                {/* Date Label - Fixed and Enhanced */}
-                <div className="text-sm font-semibold text-center text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 min-w-0 whitespace-nowrap">
-                  {getDateLabel(day.date).split(' ')[0]}
-                </div>
+                {/* Label */}
+                <span className="text-xs font-medium text-muted-foreground">{getDateLabel(day.date)}</span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Combined Progress Overview - Vertical Bars */}
-      <Card className="border-2 border-gradient-to-r from-emerald-100 to-blue-100 dark:from-emerald-900/30 dark:to-blue-900/30">
-        <CardHeader className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 dark:from-emerald-950/30 dark:via-teal-950/30 dark:to-blue-950/30">
-          <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-            <TrendingUp className="h-5 w-5" />
-            Daily Progress Overview
+      {/* Combined Progress */}
+      <Card className="overflow-hidden rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-emerald-500/5 to-blue-500/5">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            Daily Progress
           </CardTitle>
-          <div className="flex items-center gap-6 text-sm mt-2">
+          <div className="flex items-center gap-4 text-xs mt-2">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gradient-to-t from-blue-600 to-blue-400 rounded-md shadow-sm"></div>
-              <span className="font-medium text-blue-700 dark:text-blue-300">Study Hours</span>
+              <div className="w-3 h-3 rounded bg-gradient-to-t from-blue-600 to-cyan-400" />
+              <span className="text-muted-foreground">Study Hours</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-md shadow-sm"></div>
-              <span className="font-medium text-emerald-700 dark:text-emerald-300">Tasks Completed</span>
+              <div className="w-3 h-3 rounded bg-gradient-to-t from-emerald-600 to-teal-400" />
+              <span className="text-muted-foreground">Tasks</span>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="h-72 flex items-end justify-between gap-2 sm:gap-3 p-6 bg-gradient-to-t from-emerald-50/30 via-teal-50/20 to-blue-50/30 dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-blue-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+          <div className="h-56 flex items-end justify-between gap-2 sm:gap-3">
             {analytics.map((day, index) => (
-              <div key={`combined-${day.date}`} className="flex flex-col items-center gap-3 flex-1 group">
-                {/* Dual Vertical Bars */}
-                <div className="flex gap-2 items-end h-52">
-                  {/* Study Hours Bar */}
-                  <div className="relative w-5 sm:w-7 bg-gradient-to-t from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-lg overflow-hidden shadow-sm border border-blue-200/50 dark:border-blue-800/30">
-                    <div
-                      className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400 transition-all duration-1000 ease-out rounded-lg shadow-md group-hover:shadow-blue-300/50 dark:group-hover:shadow-blue-600/30"
-                      style={{ 
-                        height: `${(day.studyHours / maxHours) * 100}%`,
-                        animationDelay: `${index * 200}ms`
-                      }}
-                    />
-                    {/* Glow Effect */}
-                    <div
-                      className="absolute bottom-0 w-full bg-gradient-to-t from-blue-400/40 to-transparent blur-sm transition-all duration-1000"
-                      style={{ 
-                        height: `${(day.studyHours / maxHours) * 100}%`,
-                        animationDelay: `${index * 200}ms`
-                      }}
-                    />
+              <div key={`combined-${day.date}`} className="flex flex-col items-center gap-2 flex-1 group">
+                <div className="flex gap-1 items-end h-40">
+                  {/* Hours Bar */}
+                  <div className="relative w-4 sm:w-6 bg-blue-100 dark:bg-blue-900/30 rounded-lg overflow-hidden">
+                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 to-cyan-400 rounded-lg transition-all duration-1000"
+                      style={{ height: `${(day.studyHours / maxHours) * 100}%`, animationDelay: `${index * 100}ms` }} />
                   </div>
-                  
                   {/* Tasks Bar */}
-                  <div className="relative w-5 sm:w-7 bg-gradient-to-t from-emerald-100 to-emerald-50 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-lg overflow-hidden shadow-sm border border-emerald-200/50 dark:border-emerald-800/30">
-                    <div
-                      className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 via-emerald-500 to-emerald-400 transition-all duration-1000 ease-out rounded-lg shadow-md group-hover:shadow-emerald-300/50 dark:group-hover:shadow-emerald-600/30"
-                      style={{ 
-                        height: `${(day.tasksCompleted / maxTasks) * 100}%`,
-                        animationDelay: `${index * 200 + 100}ms`
-                      }}
-                    />
-                    {/* Glow Effect */}
-                    <div
-                      className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-400/40 to-transparent blur-sm transition-all duration-1000"
-                      style={{ 
-                        height: `${(day.tasksCompleted / maxTasks) * 100}%`,
-                        animationDelay: `${index * 200 + 100}ms`
-                      }}
-                    />
+                  <div className="relative w-4 sm:w-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg overflow-hidden">
+                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-lg transition-all duration-1000"
+                      style={{ height: `${(day.tasksCompleted / maxTasks) * 100}%`, animationDelay: `${index * 100 + 50}ms` }} />
                   </div>
                 </div>
-                
-                {/* Values */}
-                <div className="text-xs text-center font-medium">
-                  <div className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md mb-1 border border-blue-200 dark:border-blue-800">
-                    {day.studyHours.toFixed(1)}h
-                  </div>
-                  <div className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
-                    {day.tasksCompleted} tasks
-                  </div>
-                </div>
-                
-                {/* Date Label - Enhanced */}
-                <div className="text-sm font-semibold text-center text-gray-700 dark:text-gray-300 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/30 dark:to-blue-900/30 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 min-w-0 whitespace-nowrap shadow-sm">
-                  {getDateLabel(day.date).split(' ')[0]}
-                </div>
+                <span className="text-xs font-medium text-muted-foreground">{getDateLabel(day.date)}</span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Session Types Breakdown - Vertical Bars */}
-      <Card className="border-2 border-purple-100 dark:border-purple-900/30">
-        <CardHeader className="bg-gradient-to-r from-purple-50 via-pink-50 to-violet-50 dark:from-purple-950/30 dark:via-pink-950/30 dark:to-violet-950/30">
-          <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
-            <Activity className="h-5 w-5" />
+      {/* Session Types */}
+      <Card className="overflow-hidden rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Zap className="h-5 w-5 text-violet-500" />
             Focus Session Types
           </CardTitle>
         </CardHeader>
@@ -304,109 +207,70 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
               });
               return acc;
             }, {} as Record<string, number>);
-
             const maxSessions = Math.max(...Object.values(sessionTypeTotals), 1);
-            const sessionEntries = Object.entries(sessionTypeTotals);
+            const entries = Object.entries(sessionTypeTotals);
             
-            if (sessionEntries.length === 0) {
+            if (entries.length === 0) {
               return (
-                <div className="text-center py-8 text-purple-600/60 dark:text-purple-400/60 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl border border-purple-100 dark:border-purple-900/30 p-6">
-                  <Activity className="h-12 w-12 mx-auto mb-3 text-purple-400/50" />
-                  <p className="font-medium">No session data available</p>
-                  <p className="text-sm mt-1">Start a focus session to see your session types breakdown</p>
+                <div className="text-center py-12">
+                  <Activity className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground">No session data yet</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1">Start a focus session to see breakdown</p>
                 </div>
               );
             }
 
             const colors = [
-              { from: 'from-purple-600', via: 'via-purple-500', to: 'to-purple-400', glow: 'from-purple-400/60' },
-              { from: 'from-pink-600', via: 'via-pink-500', to: 'to-pink-400', glow: 'from-pink-400/60' },
-              { from: 'from-violet-600', via: 'via-violet-500', to: 'to-violet-400', glow: 'from-violet-400/60' },
-              { from: 'from-indigo-600', via: 'via-indigo-500', to: 'to-indigo-400', glow: 'from-indigo-400/60' },
-              { from: 'from-fuchsia-600', via: 'via-fuchsia-500', to: 'to-fuchsia-400', glow: 'from-fuchsia-400/60' }
+              'from-violet-600 to-purple-500',
+              'from-fuchsia-600 to-pink-500',
+              'from-indigo-600 to-violet-500',
+              'from-pink-600 to-rose-500',
             ];
 
             return (
-              <div className="h-64 flex items-end justify-center gap-6 p-6 bg-gradient-to-t from-purple-50/50 via-pink-50/30 to-transparent dark:from-purple-950/20 dark:via-pink-950/10 rounded-xl border border-purple-100 dark:border-purple-900/30">
-                {sessionEntries.map(([type, count], index) => {
-                  const colorSet = colors[index % colors.length];
-                  return (
-                    <div key={type} className="flex flex-col items-center gap-3 group">
-                      {/* Vertical Bar */}
-                      <div className="relative w-16 h-48 bg-gradient-to-t from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-800/20 rounded-lg overflow-hidden shadow-sm border border-purple-200/50 dark:border-purple-800/30">
-                        <div
-                          className={`absolute bottom-0 w-full bg-gradient-to-t ${colorSet.from} ${colorSet.via} ${colorSet.to} transition-all duration-1000 ease-out rounded-lg shadow-lg group-hover:shadow-purple-300/50 dark:group-hover:shadow-purple-600/30`}
-                          style={{ 
-                            height: `${(count / maxSessions) * 100}%`,
-                            animationDelay: `${index * 200}ms`
-                          }}
-                        />
-                        {/* Glow Effect */}
-                        <div
-                          className={`absolute bottom-0 w-full bg-gradient-to-t ${colorSet.glow} to-transparent blur-sm transition-all duration-1000`}
-                          style={{ 
-                            height: `${(count / maxSessions) * 100}%`,
-                            animationDelay: `${index * 200}ms`
-                          }}
-                        />
-                        {/* Value Label */}
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-sm font-bold text-purple-700 dark:text-purple-300 bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded-md shadow-sm border border-purple-200 dark:border-purple-700">
-                          {count}
-                        </div>
-                      </div>
-                      
-                      {/* Type Label */}
-                      <div className="text-sm font-semibold text-center text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 capitalize min-w-0 whitespace-nowrap">
-                        {type}
-                      </div>
+              <div className="h-48 flex items-end justify-center gap-8">
+                {entries.map(([type, count], index) => (
+                  <div key={type} className="flex flex-col items-center gap-3 group">
+                    <span className="text-sm font-bold text-violet-600 dark:text-violet-400">{count}</span>
+                    <div className="relative w-16 h-36 bg-violet-100 dark:bg-violet-900/30 rounded-xl overflow-hidden">
+                      <div className={`absolute bottom-0 w-full bg-gradient-to-t ${colors[index % colors.length]} rounded-xl transition-all duration-1000 group-hover:shadow-lg group-hover:shadow-violet-500/30`}
+                        style={{ height: `${(count / maxSessions) * 100}%`, animationDelay: `${index * 150}ms` }} />
                     </div>
-                  );
-                })}
+                    <span className="text-xs font-medium text-muted-foreground capitalize">{type}</span>
+                  </div>
+                ))}
               </div>
             );
           })()}
         </CardContent>
       </Card>
 
-      {/* Weekly Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+      {/* Weekly Insights */}
+      <Card className="overflow-hidden rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Calendar className="h-5 w-5 text-amber-500" />
             Weekly Insights
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Most Productive Day</p>
-              <p className="text-lg">
-                {analytics.length > 0 
-                  ? getDateLabel(
-                      analytics.reduce((max, day) => 
-                        day.studyHours > max.studyHours ? day : max
-                      ).date
-                    )
-                  : 'No data'
-                }
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+              <p className="text-sm font-medium text-muted-foreground">Most Productive Day</p>
+              <p className="text-xl font-bold mt-1 text-amber-600 dark:text-amber-400">
+                {analytics.length > 0 ? getDateLabel(analytics.reduce((max, day) => day.studyHours > max.studyHours ? day : max).date) : 'No data'}
               </p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Daily Average</p>
-              <p className="text-lg">
-                {analytics.length > 0 
-                  ? `${(totalStudyHours / analytics.length).toFixed(1)}h/day`
-                  : '0h/day'
-                }
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+              <p className="text-sm font-medium text-muted-foreground">Daily Average</p>
+              <p className="text-xl font-bold mt-1 text-blue-600 dark:text-blue-400">
+                {analytics.length > 0 ? `${(totalStudyHours / analytics.length).toFixed(1)}h/day` : '0h/day'}
               </p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Sessions per Day</p>
-              <p className="text-lg">
-                {analytics.length > 0 
-                  ? `${(totalSessions / analytics.length).toFixed(1)} avg`
-                  : '0 avg'
-                }
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 border border-violet-500/20">
+              <p className="text-sm font-medium text-muted-foreground">Sessions per Day</p>
+              <p className="text-xl font-bold mt-1 text-violet-600 dark:text-violet-400">
+                {analytics.length > 0 ? `${(totalSessions / analytics.length).toFixed(1)} avg` : '0 avg'}
               </p>
             </div>
           </div>
