@@ -7,7 +7,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, onFocus, disableSound = false, disabled, placeholder, value, onChange, defaultValue, name, id }, ref) => {
+  ({ className, type, onFocus, onKeyDown, disableSound = false, disabled, placeholder, value, onChange, defaultValue, name, id, ...props }, ref) => {
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       // Play input focus sound
       if (!disableSound && !disabled) {
@@ -25,6 +25,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         onFocus={handleFocus}
+        onKeyDown={onKeyDown}
         disabled={disabled}
         placeholder={placeholder}
         value={value}
@@ -33,6 +34,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         name={name}
         id={id}
         ref={ref}
+        {...props}
       />
     );
   }
