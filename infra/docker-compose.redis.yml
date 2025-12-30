@@ -1,0 +1,44 @@
+# Redis for Local Development
+# File: infra/docker-compose.redis.yml
+#
+# Usage:
+#   docker-compose -f infra/docker-compose.redis.yml up -d
+#
+# This provides:
+#   - Redis for rate limiting, caching, and Socket.IO adapter
+#   - Redis Commander UI at http://localhost:8081
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: studybuddy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 100mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: studybuddy-redis-ui
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+# Environment variables to add to .env:
+# REDIS_URL=redis://localhost:6379
