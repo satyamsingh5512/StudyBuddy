@@ -12,11 +12,11 @@
  * After: Only re-renders when THIS task changes
  */
 
-import React, { useCallback, memo } from 'react';
+import { useCallback, memo } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import { Trash2 } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
-import { taskAtomFamily, toggleTaskAtom, deleteTaskAtom, Task } from '@/store/taskAtoms';
+import { taskAtomFamily, toggleTaskAtom, deleteTaskAtom } from '@/store/taskAtoms';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 import { useToast } from './ui/use-toast';
@@ -73,9 +73,6 @@ const TaskItem = memo(function TaskItem({ taskId }: TaskItemProps) {
   // Memoized delete handler with optimistic update
   const handleDelete = useCallback(async () => {
     if (!task) return;
-
-    // Store task for potential rollback
-    const deletedTask = { ...task };
 
     // Optimistic delete
     deleteTask(taskId);
