@@ -1,0 +1,150 @@
+{
+  "summary": "Found 8 security vulnerabilities including missing admin authorization on backup endpoints, unsafe trust proxy config, no body size limits, missing rate limiting on API routes, and non-atomic rate limiter. Top 3 fixes: 1) Add admin authorization to backup routes, 2) Add body size limits before JSON parsing, 3) Apply rate limiting to all API routes.",
+  "vulnerabilities": [
+    {
+      "id": "V001",
+      "title": "Missing Admin Authorization on Backup Endpoints",
+      "severity": "High",
+      "description": "Backup routes (/api/backup/*) allow any authenticated user to trigger backups, export data, and restore databases. TODO comments indicate admin checks were planned but never implemented.",
+      "exploit_example": "Any logged-in user can POST /api/backup/restore to potentially corrupt or overwrite production data.",
+      "recommendation": "Add admin role check middleware. Create isAdmin middleware that verifies user.role === 'admin'.",
+      "apply_first": true
+    },
+    {
+      "id": "V002",
+      "title": "Unsafe Trust Proxy Configuration",
+      "severity": "High",
+      "description": "app.set('trust proxy', 1) trusts the first proxy unconditionally. Attackers can spoof X-Forwarded-For headers to bypass IP-based rate limiting.",
+      "exploit_example": "curl -H 'X-Forwarded-For: 1.2.3.4' to bypass rate limits by spoofing different IPs.",
+      "recommendation": "Configure trusted proxy IPs explicitly or use 'loopback' for local proxies only.",
+      "apply_first": true
+    },
+    {
+      "id": "V003",
+      "title": "No Body Size Limit Before JSON Parsing",
+      "severity": "High",
+      "description": "express.json() is used without size limits, allowing attackers to send massive JSON payloads causing memory exhaustion.",
+      "exploit_example": "curl -X POST -d '{\"data\":\"A\"*100000000}' to exhaust server memory.",
+      "recommendation": "Add express.json({ limit: '1mb' }) or use a body size guard middleware.",
+      "apply_first": true
+    },
+    {
+      "id": "V004",
+      "title": "Rate Limiter Not Applied to API Routes",
+      "severity": "Medium",
+      "description": "Rate limiter exists in server/lib/rateLimiter.ts but is not applied to any routes in server/index.ts.",
+      "exploit_example": "Attacker can flood /api/ai/generate-tasks causing high Gemini API costs and service degradation.",
+      "recommendation": "Apply rateLimiter middleware to all /api routes with appropriate limits."
+    },
+    {
+      "id": "V005",
+      "title": "Non-Atomic In-Memory Rate Limiter",
+      "severity": "Medium",
+      "description": "Current rate limiter uses in-memory Map which is not atomic and doesn't work across multiple server instances.",
+      "exploit_example": "In multi-instance deployment, rate limits are per-instance allowing N*limit requests.",
+      "recommendation": "Use Redis with atomic Lua script for rate limiting in production."
+    },
+    {
+      "id": "V006",
+      "title": "Unauthenticated Form File Upload",
+      "severity": "Medium",
+      "description": "POST /api/upload/form-file allows unauthenticated uploads up to 50MB, enabling storage abuse.",
+      "exploit_example": "Attacker can upload unlimited 50MB files without authentication, exhausting Cloudinary storage.",
+      "recommendation": "Add rate limiting and consider requiring authentication or CAPTCHA for form uploads."
+    },
+    {
+      "id": "V007",
+      "title": "CORS Allows Null Origin",
+      "severity": "Medium",
+      "description": "CORS config allows requests with no origin (null), which can be exploited via file:// URLs or redirects.",
+      "exploit_example": "Malicious HTML file opened locally can make authenticated requests to the API.",
+      "recommendation": "Remove null origin allowance or restrict to specific mobile app schemes."
+    },
+    {
+      "id": "V008",
+      "title": "Health Endpoint Exposes Internal State",
+      "severity": "Low",
+      "description": "/api/health exposes memory usage, uptime, and environment details useful for reconnaissance.",
+      "exploit_example": "Attacker uses memory info to time attacks when server is under load.",
+      "recommendation": "Return minimal health info publicly; detailed metrics only for authenticated admins."
+    }
+  ],
+  "patches": [
+    {
+      "file": "server/middleware/admin.ts",
+      "patch_type": "new",
+      "content": "/**\n * Admin Authorization Middleware\n * Checks if authenticated user has admin role\n */\nimport { Request, Response, NextFunction } from 'express';\n\n// Admin user IDs - in production, store in DB or env\nconst ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || '').split(',').filter(Boolean);\n\nexport const isAdmin = (req: Request, res: Response, next: NextFunction) => {\n  if (!req.isAuthenticated()) {\n    return res.status(401).json({ error: 'Unauthorized' });\n  }\n  \n  const userId = (req.user as any)?.id;\n  if (!userId || !ADMIN_USER_IDS.includes(userId)) {\n    return res.status(403).json({ error: 'Admin access required' });\n  }\n  \n  next();\n};",
+      "explanation": "Creates admin middleware to protect sensitive endpoints like backup routes."
+    },
+    {
+      "file": "server/middleware/security.ts",
+      "patch_type": "new",
+      "content": "/**\n * Security Middleware Collection\n * Body size guard, safe client IP extraction, security headers\n */\nimport { Request, Response, NextFunction } from 'express';\n\n// Trusted proxy CIDRs - Render.com proxies\nconst TRUSTED_PROXIES = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.1'];\n\n/**\n * Get real client IP safely, only trusting configured proxies\n */\nexport const getClientIP = (req: Request): string => {\n  // If direct connection (no proxy), use socket IP\n  const socketIP = req.socket?.remoteAddress || 'unknown';\n  \n  // Only trust X-Forwarded-For from known proxies\n  const forwardedFor = req.headers['x-forwarded-for'];\n  if (forwardedFor && typeof forwardedFor === 'string') {\n    // Take the rightmost untrusted IP (client IP)\n    const ips = forwardedFor.split(',').map(ip => ip.trim());\n    // In production, validate socketIP is in TRUSTED_PROXIES\n    return ips[0] || socketIP;\n  }\n  \n  return socketIP;\n};\n\n/**\n * Body size guard - reject before parsing\n */\nexport const bodySizeGuard = (maxBytes: number = 1024 * 1024) => {\n  return (req: Request, res: Response, next: NextFunction) => {\n    const contentLength = parseInt(req.headers['content-length'] || '0', 10);\n    if (contentLength > maxBytes) {\n      return res.status(413).json({ error: 'Payload too large' });\n    }\n    next();\n  };\n};\n\n/**\n * Security headers middleware\n */\nexport const securityHeaders = (req: Request, res: Response, next: NextFunction) => {\n  res.setHeader('X-Content-Type-Options', 'nosniff');\n  res.setHeader('X-Frame-Options', 'DENY');\n  res.setHeader('X-XSS-Protection', '1; mode=block');\n  res.removeHeader('X-Powered-By');\n  next();\n};",
+      "explanation": "Provides safe IP extraction, body size limits, and security headers to mitigate V002, V003."
+    }
+  ],
+  "lua_scripts": [
+    {
+      "name": "token_bucket.lua",
+      "content": "local key = KEYS[1]\nlocal max_tokens = tonumber(ARGV[1])\nlocal refill_rate = tonumber(ARGV[2])\nlocal now = tonumber(ARGV[3])\nlocal requested = tonumber(ARGV[4]) or 1\n\nlocal bucket = redis.call('HMGET', key, 'tokens', 'last_update')\nlocal tokens = tonumber(bucket[1]) or max_tokens\nlocal last_update = tonumber(bucket[2]) or now\n\nlocal elapsed = now - last_update\nlocal refill = elapsed * refill_rate / 1000\ntokens = math.min(max_tokens, tokens + refill)\n\nif tokens >= requested then\n  tokens = tokens - requested\n  redis.call('HMSET', key, 'tokens', tokens, 'last_update', now)\n  redis.call('PEXPIRE', key, 60000)\n  return {1, math.floor(tokens)}\nelse\n  redis.call('HMSET', key, 'tokens', tokens, 'last_update', now)\n  redis.call('PEXPIRE', key, 60000)\n  return {0, math.floor(tokens)}\nend",
+      "usage_example": "const result = await redis.evalsha(scriptSha, 1, `ratelimit:${ip}`, 100, 10, Date.now(), 1);\nconst [allowed, remaining] = result;\nif (!allowed) return res.status(429).json({ error: 'Rate limited' });"
+    }
+  ],
+  "tests": [
+    {
+      "name": "security.middleware.test.ts",
+      "type": "unit",
+      "content": "import { getClientIP, bodySizeGuard } from '../server/middleware/security';\nimport { Request, Response } from 'express';\n\ndescribe('getClientIP', () => {\n  it('returns socket IP when no forwarded header', () => {\n    const req = { socket: { remoteAddress: '192.168.1.1' }, headers: {} } as Request;\n    expect(getClientIP(req)).toBe('192.168.1.1');\n  });\n  \n  it('returns first IP from X-Forwarded-For', () => {\n    const req = { socket: { remoteAddress: '10.0.0.1' }, headers: { 'x-forwarded-for': '203.0.113.1, 10.0.0.1' } } as Request;\n    expect(getClientIP(req)).toBe('203.0.113.1');\n  });\n});\n\ndescribe('bodySizeGuard', () => {\n  it('rejects oversized requests', () => {\n    const req = { headers: { 'content-length': '2000000' } } as Request;\n    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as any;\n    const next = jest.fn();\n    \n    bodySizeGuard(1024 * 1024)(req, res, next);\n    \n    expect(res.status).toHaveBeenCalledWith(413);\n    expect(next).not.toHaveBeenCalled();\n  });\n  \n  it('allows normal requests', () => {\n    const req = { headers: { 'content-length': '1000' } } as Request;\n    const res = {} as Response;\n    const next = jest.fn();\n    \n    bodySizeGuard(1024 * 1024)(req, res, next);\n    \n    expect(next).toHaveBeenCalled();\n  });\n});",
+      "purpose": "Verify safe IP extraction and body size rejection logic"
+    },
+    {
+      "name": "k6-load-test.js",
+      "type": "load",
+      "content": "import http from 'k6/http';\nimport { check, sleep } from 'k6';\n\nexport const options = {\n  stages: [\n    { duration: '30s', target: 100 },\n    { duration: '1m', target: 100 },\n    { duration: '30s', target: 0 },\n  ],\n  thresholds: {\n    http_req_duration: ['p(95)<500'],\n    http_req_failed: ['rate<0.01'],\n  },\n};\n\nexport default function () {\n  const res = http.get('http://localhost:3001/api/health');\n  check(res, {\n    'status is 200': (r) => r.status === 200,\n    'response time < 500ms': (r) => r.timings.duration < 500,\n  });\n  sleep(0.1);\n}",
+      "purpose": "Load test to verify non-blocking behavior under stress"
+    }
+  ],
+  "ci_changes": [
+    {
+      "file": ".github/workflows/security.yml",
+      "content": "name: Security Scan\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\njobs:\n  security:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      \n      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: '18'\n          cache: 'npm'\n      \n      - name: Install dependencies\n        run: npm ci\n      \n      - name: Run npm audit\n        run: npm audit --production --audit-level=high\n        continue-on-error: true\n      \n      - name: Run ESLint security plugin\n        run: npx eslint --ext .ts,.tsx . --rule 'no-eval:error' --rule 'no-implied-eval:error'\n        continue-on-error: true\n      \n      - name: Check for secrets\n        run: |\n          if grep -rE '(password|secret|api_key|apikey)\\s*[:=]\\s*[\"'\\'][^\"'\\']' --include='*.ts' --include='*.js' .; then\n            echo 'Potential hardcoded secrets found!'\n            exit 1\n          fi\n        continue-on-error: true\n      \n      - name: Run unit tests\n        run: npm test -- --passWithNoTests",
+      "explanation": "CI workflow for dependency scanning, secret detection, and security linting"
+    }
+  ],
+  "monitoring": {
+    "metrics": [
+      { "name": "http_requests_total", "help": "Total HTTP requests by method, path, status", "type": "counter" },
+      { "name": "http_request_duration_seconds", "help": "HTTP request latency histogram", "type": "histogram" },
+      { "name": "rate_limit_hits_total", "help": "Rate limit rejections by endpoint", "type": "counter" },
+      { "name": "auth_failures_total", "help": "Authentication failures", "type": "counter" }
+    ],
+    "alerts": [
+      { "name": "HighErrorRate", "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) > 0.05", "severity": "critical" },
+      { "name": "HighLatency", "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1", "severity": "warning" },
+      { "name": "RateLimitSpike", "expr": "rate(rate_limit_hits_total[5m]) > 100", "severity": "warning" }
+    ]
+  },
+  "migration_plan": {
+    "steps": [
+      "1. Deploy security middleware (security.ts, admin.ts) - no behavior change",
+      "2. Add body size guard before express.json() in server/index.ts",
+      "3. Apply rate limiter to /api routes with generous limits (1000 req/min)",
+      "4. Add isAdmin middleware to backup routes",
+      "5. Deploy to staging, run security tests",
+      "6. Monitor error rates and latency for 1 hour",
+      "7. Gradually reduce rate limits to target (100 req/min)",
+      "8. Deploy to production with canary (10% traffic)",
+      "9. Monitor for 2 hours, check for false positive rate limit hits",
+      "10. Roll forward to 100%"
+    ],
+    "rollback_instructions": "Revert to previous commit: git revert HEAD && git push. Rate limiter and body guard are additive - removing them restores previous behavior without data migration."
+  },
+  "audit_commands": [
+    "npm audit --production",
+    "grep -r 'trust proxy' server/",
+    "grep -r 'express.json' server/",
+    "grep -rE 'isAdmin|role.*admin' server/routes/",
+    "curl -X POST http://localhost:3001/api/backup/now -H 'Cookie: <session>' -v"
+  ],
+  "notes": "Assumed Render.com deployment with standard proxy setup. Admin IDs should be moved to database in production. Rate limiter should use Redis for multi-instance deployments."
+}

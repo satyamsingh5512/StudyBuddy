@@ -26,6 +26,8 @@ import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 import { initializeDatabase } from './utils/initDatabase';
 import { initMongoDB, scheduleBackups, closeMongoDB } from './utils/databaseSync';
+import { bodySizeGuard, securityHeaders } from './middleware/security';
+import { rateLimiter } from './lib/rateLimiter';
 
 dotenv.config();
 
@@ -89,7 +91,18 @@ async function startServer() {
     })
   );
 
-  app.use(express.json());
+  // Security middleware
+  app.use(securityHeaders);
+  app.use(bodySizeGuard(2 * 1024 * 1024)); // 2MB limit before parsing
+
+  // Rate limiting for API routes
+  app.use('/api/', rateLimiter({ 
+    maxRequests: 100, 
+    windowMs: 60000,
+    message: 'Too many requests, please try again later'
+  }));
+
+  app.use(express.json({ limit: '1mb' }));
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -112,8 +125,20 @@ async function startServer() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Health check endpoint
+  // Health check endpoint (minimal info for public)
   app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Detailed health check (authenticated only)
+  app.get('/api/health/detailed', (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
     
