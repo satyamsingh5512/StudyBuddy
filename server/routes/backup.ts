@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
+import { isAdmin } from '../middleware/admin';
 import { 
   fullBackupToMongo, 
   exportMongoToJSON,
@@ -9,14 +10,9 @@ import {
 const router = Router();
 
 // Manual backup trigger (admin only)
-router.post('/backup/now', isAuthenticated, async (req: any, res: any) => {
+router.post('/backup/now', isAuthenticated, isAdmin, async (req: any, res: any) => {
   try {
-    // TODO: Add admin check
-    // if (req.user.role !== 'admin') {
-    //   return res.status(403).json({ error: 'Admin access required' });
-    // }
-
-    console.log(`📦 Manual backup triggered by user ${req.user.id}`);
+    console.log(`📦 Manual backup triggered by admin ${req.user.id}`);
     const success = await fullBackupToMongo();
 
     if (success) {
@@ -38,15 +34,13 @@ router.post('/backup/now', isAuthenticated, async (req: any, res: any) => {
 });
 
 // Export MongoDB backup to JSON
-router.get('/backup/export', isAuthenticated, async (req: any, res: any) => {
+router.get('/backup/export', isAuthenticated, isAdmin, async (req: any, res: any) => {
   try {
-    // TODO: Add admin check
-
     const outputPath = './mongodb-backup.json';
     const success = await exportMongoToJSON(outputPath);
 
     if (success) {
-      res.download(outputPath, 'studybuddy-backup.json', (err) => {
+      res.download(outputPath, 'studybuddy-backup.json', (err: Error | null) => {
         if (err) {
           console.error('Download error:', err);
         }
@@ -64,11 +58,9 @@ router.get('/backup/export', isAuthenticated, async (req: any, res: any) => {
 });
 
 // Restore from MongoDB (use with caution!)
-router.post('/backup/restore', isAuthenticated, async (req: any, res: any) => {
+router.post('/backup/restore', isAuthenticated, isAdmin, async (req: any, res: any) => {
   try {
-    // TODO: Add admin check and confirmation
-
-    console.log(`⚠️  Restore triggered by user ${req.user.id}`);
+    console.log(`⚠️  Restore triggered by admin ${req.user.id}`);
     const success = await restoreFromMongo();
 
     if (success) {
