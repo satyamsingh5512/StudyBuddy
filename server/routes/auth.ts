@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { isGoogleAuthConfigured } from '../config/passport';
+import { authRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
+
+// Apply auth rate limiter to all auth routes
+router.use(authRateLimiter);
 
 router.get('/google', (req, res, next) => {
   if (!isGoogleAuthConfigured) {
