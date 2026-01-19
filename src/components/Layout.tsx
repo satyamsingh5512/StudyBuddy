@@ -29,6 +29,7 @@ import {
 } from './ui/dropdown-menu';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import BuddyChat from './BuddyChat';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
@@ -261,6 +262,9 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      {/* Buddy Chat Widget */}
+      <BuddyChat />
     </div>
   );
 }

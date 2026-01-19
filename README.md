@@ -16,6 +16,14 @@ AI-powered study companion for competitive exam preparation with intelligent tas
 - Supports all major competitive exams (JEE, NEET, GATE, UPSC, etc.)
 - 10x faster than traditional AI (300 tokens/sec)
 
+### Buddy Chat - AI Assistant
+- Floating chat widget accessible from any page
+- Conversational AI for study planning and task creation
+- One-click task addition from chat suggestions
+- Natural language task generation
+- Study advice and motivation
+- Minimizable chat interface
+
 ### Exam News & Updates
 - Latest announcements and notifications for JEE, NEET, GATE, UPSC, CAT, NDA, CLAT
 - Important dates and deadlines
@@ -140,6 +148,7 @@ npm run android:dev
 
 ## 📚 Documentation
 
+- [Buddy Chat](./BUDDY_CHAT.md) - AI chat assistant guide
 - [Rate Limiting](./RATE_LIMITING.md) - Comprehensive rate limiting guide
 - [CORS Setup](./CORS_SETUP.md) - CORS configuration and troubleshooting
 - [Environment Setup](./.env.example) - Environment variables template

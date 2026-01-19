@@ -219,4 +219,154 @@ Provide accurate, up-to-date information for ${examType}.`;
   }
 });
 
+// Buddy Chat - Conversational AI assistant
+router.post('/buddy-chat', async (req: any, res: any) => {
+  try {
+    const { message, examGoal } = req.body;
+    const userId = req.user.id;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Use Groq if available, fallback to Gemini
+    const useGroq = !!process.env.GROQ_API_KEY;
+
+    // Get user context
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const recentTodos = await prisma.todo.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    const recentTopics = Array.from(new Set(recentTodos.map(t => t.subject)));
+    const daysUntilExam = user?.examDate
+      ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : undefined;
+
+    let response: string;
+    let tasks: any[] = [];
+
+    if (useGroq) {
+      const { groq } = await import('../lib/groqClient');
+      
+      // Determine if user is asking for task creation
+      const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
+      
+      if (isTaskRequest) {
+        // Generate tasks
+        const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
+The user has ${daysUntilExam || 'many'} days until their exam.
+Recent topics: ${recentTopics.join(', ') || 'None yet'}
+
+When the user asks for tasks, respond with:
+1. A friendly message acknowledging their request
+2. A JSON array of 3-5 tasks
+
+Format your response as:
+[Friendly message]
+
+TASKS:
+[JSON array here]
+
+Each task should have: title, subject, difficulty (easy/medium/hard), questionsTarget (5-50)`;
+
+        const completion = await groq.chat.completions.create({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message },
+          ],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.7,
+          max_tokens: 1024,
+        });
+
+        const fullResponse = completion.choices[0]?.message?.content || '';
+        
+        // Extract tasks if present
+        const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
+        if (tasksMatch) {
+          try {
+            tasks = JSON.parse(tasksMatch[1]);
+            response = fullResponse.split('TASKS:')[0].trim();
+          } catch {
+            response = fullResponse;
+          }
+        } else {
+          response = fullResponse;
+        }
+      } else {
+        // General conversation
+        const systemPrompt = `You are Buddy, a friendly and encouraging AI study assistant for ${examGoal || 'exam'} preparation.
+Be conversational, supportive, and helpful. Keep responses concise (2-3 sentences).
+The user has ${daysUntilExam || 'many'} days until their exam.
+Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
+
+        const completion = await groq.chat.completions.create({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message },
+          ],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.8,
+          max_tokens: 512,
+        });
+
+        response = completion.choices[0]?.message?.content || 'I can help you create study tasks! Just ask me.';
+      }
+    } else {
+      // Fallback to Gemini
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: 'AI service not configured' });
+      }
+
+      const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
+      
+      const prompt = isTaskRequest
+        ? `You are Buddy, a study assistant. User asked: "${message}"
+        
+Generate 3-5 study tasks for ${examGoal || 'exam'} preparation.
+Respond with a friendly message, then "TASKS:" followed by a JSON array.
+
+Example:
+Great! I'll create some tasks for you.
+
+TASKS:
+[{"title":"...","subject":"...","difficulty":"medium","questionsTarget":20}]`
+        : `You are Buddy, a friendly study assistant for ${examGoal || 'exam'} prep.
+User said: "${message}"
+Respond in 2-3 friendly sentences.`;
+
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await model.generateContent(prompt);
+      const fullResponse = await result.response.text();
+      
+      const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
+      if (tasksMatch) {
+        try {
+          tasks = JSON.parse(tasksMatch[1]);
+          response = fullResponse.split('TASKS:')[0].trim();
+        } catch {
+          response = fullResponse;
+        }
+      } else {
+        response = fullResponse;
+      }
+    }
+
+    res.json({ 
+      response,
+      tasks: tasks.length > 0 ? tasks : undefined,
+      provider: useGroq ? 'groq' : 'gemini',
+    });
+  } catch (error: any) {
+    console.error('Buddy chat error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get response from Buddy',
+      details: error.message || 'Unknown error'
+    });
+  }
+});
+
 export default router;
