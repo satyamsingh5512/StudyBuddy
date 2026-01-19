@@ -3,12 +3,16 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
 import { generateTasksWithGroq, generateStudyPlan } from '../lib/groqClient';
+import { aiRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 router.use(isAuthenticated);
+
+// Apply AI rate limiter to all AI routes
+router.use(aiRateLimiter);
 
 router.post('/study-plan', async (req, res) => {
   try {
@@ -41,7 +45,7 @@ router.post('/study-plan', async (req, res) => {
       recentReports.reduce((sum, r) => sum + r.completionPct, 0) / (recentReports.length || 1);
 
     // Get recent topics from todos
-    const recentTopics = [...new Set(todos.slice(0, 5).map(t => t.subject))];
+    const recentTopics = Array.from(new Set(todos.slice(0, 5).map(t => t.subject)));
 
     let plan: string;
 
@@ -108,7 +112,7 @@ router.post('/generate-tasks', async (req: any, res: any) => {
         ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : undefined;
 
-      const recentTopics = [...new Set(recentTodos.map(t => t.subject))];
+      const recentTopics = Array.from(new Set(recentTodos.map(t => t.subject)));
 
       tasks = await generateTasksWithGroq(prompt, examGoal || user?.examGoal || 'exam', {
         recentTopics,
