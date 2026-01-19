@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Plus, Loader2, Sparkles, Minimize2 } from 'lucide-react';
+import { X, Send, Plus, Loader2, Minimize2 } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { apiFetch } from '@/config/api';
