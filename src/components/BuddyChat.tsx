@@ -130,12 +130,12 @@ export default function BuddyChat() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center group"
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center group border border-border"
         aria-label="Open Buddy Chat"
       >
         <MessageSquare className="h-6 w-6" />
-        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 animate-pulse"></span>
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 animate-pulse border-2 border-background"></span>
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md border border-border">
           Chat with Buddy
         </div>
       </button>
@@ -148,33 +148,33 @@ export default function BuddyChat() {
         isMinimized
           ? 'bottom-6 right-6 w-80 h-14'
           : 'bottom-6 right-6 w-96 h-[600px] md:w-[420px]'
-      } bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden`}
+      } bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden`}
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+      <div className="bg-primary text-primary-foreground p-4 flex items-center justify-between border-b border-border/50">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-background/20 flex items-center justify-center backdrop-blur-sm">
               <Sparkles className="h-5 w-5" />
             </div>
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 border-2 border-white"></span>
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-primary"></span>
           </div>
           <div>
             <h3 className="font-semibold">Buddy</h3>
-            <p className="text-xs text-white/80">AI Study Assistant</p>
+            <p className="text-xs opacity-80">AI Study Assistant</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-background/20 rounded-lg transition-colors"
             aria-label={isMinimized ? 'Maximize' : 'Minimize'}
           >
             <Minimize2 className="h-4 w-4" />
           </button>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-background/20 rounded-lg transition-colors"
             aria-label="Close chat"
           >
             <X className="h-4 w-4" />
@@ -185,20 +185,20 @@ export default function BuddyChat() {
       {!isMinimized && (
         <>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                     message.role === 'user'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground border border-border'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                   
                   {/* Task suggestions */}
                   {message.tasks && message.tasks.length > 0 && (
@@ -207,29 +207,29 @@ export default function BuddyChat() {
                       {message.tasks.map((task, index) => (
                         <div
                           key={index}
-                          className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2 text-xs"
+                          className="bg-background rounded-lg p-2.5 text-xs border border-border hover:border-primary/50 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
-                              <p className="font-medium text-gray-900 dark:text-white">
+                              <p className="font-medium text-foreground mb-1.5">
                                 {task.title}
                               </p>
-                              <div className="flex items-center gap-2 mt-1 text-gray-600 dark:text-gray-400">
-                                <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">
                                   {task.subject}
                                 </span>
-                                <span className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs">
+                                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-xs font-medium">
                                   {task.difficulty}
                                 </span>
-                                <span className="text-xs">{task.questionsTarget} Qs</span>
+                                <span className="text-xs text-muted-foreground">{task.questionsTarget} Qs</span>
                               </div>
                             </div>
                             <button
                               onClick={() => handleAddTask(task)}
-                              className="flex-shrink-0 p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                              className="flex-shrink-0 p-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors shadow-sm"
                               title="Add to tasks"
                             >
-                              <Plus className="h-3 w-3" />
+                              <Plus className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
@@ -237,7 +237,7 @@ export default function BuddyChat() {
                     </div>
                   )}
                   
-                  <p className="text-xs opacity-50 mt-1">
+                  <p className="text-xs opacity-50 mt-1.5">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -249,10 +249,10 @@ export default function BuddyChat() {
             
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 border border-gray-200 dark:border-gray-700">
+                <div className="bg-muted rounded-2xl px-4 py-3 border border-border">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">
                       Buddy is thinking...
                     </span>
                   </div>
@@ -264,21 +264,21 @@ export default function BuddyChat() {
           </div>
 
           {/* Input */}
-          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-4 bg-card border-t border-border">
             <div className="flex items-end gap-2">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask Buddy to create tasks..."
-                className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white max-h-24"
+                className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:text-muted-foreground max-h-24"
                 rows={1}
                 disabled={isLoading}
               />
               <Button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="h-10 w-10 p-0 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+                className="h-10 w-10 p-0 rounded-xl"
               >
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -287,7 +287,7 @@ export default function BuddyChat() {
                 )}
               </Button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Try: "Create 5 physics tasks" or "Help me plan tomorrow's study"
             </p>
           </div>
