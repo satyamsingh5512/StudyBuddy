@@ -2,11 +2,15 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
 import { groq } from '../lib/groqClient';
+import { newsRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 router.use(isAuthenticated);
+
+// Apply news rate limiter to all news routes
+router.use(newsRateLimiter);
 
 // Cache for news to avoid excessive API calls
 const newsCache = new Map<string, { data: any[]; timestamp: number }>();
