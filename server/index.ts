@@ -23,10 +23,11 @@ import messagesRoutes from './routes/messages';
 import usernameRoutes from './routes/username';
 import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
+import healthRoutes from './routes/health';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 import { initializeDatabase } from './utils/initDatabase';
-import { initMongoDB, scheduleBackups, closeMongoDB } from './utils/databaseSync';
+import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
 import { prisma } from './lib/prisma';
@@ -38,12 +39,16 @@ async function startServer() {
   // Initialize database schema if needed
   await initializeDatabase();
 
-  // Initialize MongoDB backup (optional)
-  const mongoConnected = await initMongoDB();
-  if (mongoConnected) {
-    // Schedule automatic backups every 24 hours
-    scheduleBackups(24);
-  }
+  // Initialize MongoDB connection (non-blocking)
+  getMongoDb().then(db => {
+    if (db) {
+      console.log('✅ MongoDB ready for async sync');
+    } else {
+      console.log('⚠️  MongoDB not configured - sync worker will not run');
+    }
+  }).catch(error => {
+    console.error('❌ MongoDB initialization error:', error);
+  });
 
   const app = express();
 
@@ -190,6 +195,7 @@ async function startServer() {
   app.use('/api/username', usernameRoutes);
   app.use('/api/backup', backupRoutes);
   app.use('/api/news', newsRoutes);
+  app.use('/api/health', healthRoutes);
 
   // Global error handler (must be after all routes)
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -248,7 +254,7 @@ async function startServer() {
   process.on('SIGTERM', () => {
     console.log('\n🛑 SIGTERM received, shutting down gracefully...');
     keepAliveService.stop();
-    closeMongoDB();
+    closeMongoDb();
     httpServer.close(() => {
       console.log('✅ Server closed');
       process.exit(0);
@@ -258,7 +264,7 @@ async function startServer() {
   process.on('SIGINT', () => {
     console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
     keepAliveService.stop();
-    closeMongoDB();
+    closeMongoDb();
     httpServer.close(() => {
       console.log('✅ Server closed');
       process.exit(0);
