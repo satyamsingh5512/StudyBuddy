@@ -28,7 +28,7 @@ import { keepAliveService } from './utils/keepAlive';
 import { initializeDatabase } from './utils/initDatabase';
 import { initMongoDB, scheduleBackups, closeMongoDB } from './utils/databaseSync';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
-import { rateLimiter } from './lib/rateLimiter';
+import { globalRateLimiter } from './middleware/rateLimiting';
 
 dotenv.config();
 
@@ -57,7 +57,11 @@ async function startServer() {
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
-    process.env.CLIENT_URL || 'https://studybuddyone.vercel.app',
+    'https://sbd.satym.site',
+    'https://studybuddyone.vercel.app',
+    process.env.CLIENT_URL,
+    // Support comma-separated additional origins from env
+    ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
   ].filter(Boolean);
 
   const io = new Server(httpServer, {
@@ -96,14 +100,26 @@ async function startServer() {
   app.use(securityHeaders);
   app.use(bodySizeGuard(2 * 1024 * 1024)); // 2MB limit before parsing
 
-  // Rate limiting for API routes
-  app.use('/api/', rateLimiter({ 
-    maxRequests: 100, 
-    windowMs: 60000,
-    message: 'Too many requests, please try again later'
-  }));
-
   app.use(express.json({ limit: '1mb' }));
+  
+  // Public health check endpoints (before rate limiting and auth)
+  app.get('/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Global rate limiting (after health checks)
+  app.use(globalRateLimiter);
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -125,14 +141,6 @@ async function startServer() {
 
   app.use(passport.initialize());
   app.use(passport.session());
-
-  // Health check endpoint (minimal info for public)
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-    });
-  });
 
   // Detailed health check (authenticated only)
   app.get('/api/health/detailed', (req, res) => {
@@ -172,6 +180,24 @@ async function startServer() {
   app.use('/api/username', usernameRoutes);
   app.use('/api/backup', backupRoutes);
   app.use('/api/news', newsRoutes);
+
+  // Global error handler (must be after all routes)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('Global error handler:', err);
+    
+    // Ensure CORS headers are set even on error
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    
+    // Send error response
+    res.status(err.status || 500).json({
+      error: err.message || 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    });
+  });
 
   // Socket.io setup
   setupSocketHandlers(io);
