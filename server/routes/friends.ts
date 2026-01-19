@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
+import { friendRequestRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+router.use(isAuthenticated);
 
 // Search users by username
 router.get('/search', isAuthenticated, async (req, res) => {
@@ -84,7 +87,7 @@ router.get('/search', isAuthenticated, async (req, res) => {
 });
 
 // Send friend request
-router.post('/request', isAuthenticated, async (req, res) => {
+router.post('/request', friendRequestRateLimiter, async (req, res) => {
   try {
     const senderId = req.user!.id;
     const { receiverId } = req.body;
