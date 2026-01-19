@@ -2,10 +2,14 @@ import { Router } from 'express';
 import { uploadProfile, uploadImage, uploadFormFile, deleteImage } from '../config/cloudinary';
 import { isAuthenticated } from '../middleware/auth';
 import { PrismaClient } from '@prisma/client';
+import { uploadRateLimiter } from '../middleware/rateLimiting';
 
 const prisma = new PrismaClient();
 
 const router = Router();
+
+// Apply upload rate limiter to all upload routes
+router.use(uploadRateLimiter);
 
 // Upload profile picture
 router.post('/profile', isAuthenticated, uploadProfile.single('image'), async (req: any, res: any) => {
