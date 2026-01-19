@@ -1,11 +1,11 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import session from 'express-session';
 import passport from 'passport';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
 import { PrismaSessionStore } from '@quixo3/prisma-session-store';
 import './config/passport';
 import authRoutes from './routes/auth';
@@ -29,10 +29,9 @@ import { initializeDatabase } from './utils/initDatabase';
 import { initMongoDB, scheduleBackups, closeMongoDB } from './utils/databaseSync';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
+import { prisma } from './lib/prisma';
 
 dotenv.config();
-
-const prisma = new PrismaClient();
 
 // Initialize database before starting server
 async function startServer() {
@@ -99,6 +98,17 @@ async function startServer() {
   // Security middleware
   app.use(securityHeaders);
   app.use(bodySizeGuard(2 * 1024 * 1024)); // 2MB limit before parsing
+
+  // OPTIMIZATION: Compression middleware (40% smaller responses)
+  app.use(compression({
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+    level: 6, // Balance between speed and compression
+  }));
 
   app.use(express.json({ limit: '1mb' }));
   
