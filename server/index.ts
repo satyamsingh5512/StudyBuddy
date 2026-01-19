@@ -22,6 +22,7 @@ import friendsRoutes from './routes/friends';
 import messagesRoutes from './routes/messages';
 import usernameRoutes from './routes/username';
 import backupRoutes from './routes/backup';
+import newsRoutes from './routes/news';
 import { setupSocketHandlers } from './socket/handlers';
 import { keepAliveService } from './utils/keepAlive';
 import { initializeDatabase } from './utils/initDatabase';
@@ -170,6 +171,7 @@ async function startServer() {
   app.use('/api/messages', messagesRoutes);
   app.use('/api/username', usernameRoutes);
   app.use('/api/backup', backupRoutes);
+  app.use('/api/news', newsRoutes);
 
   // Socket.io setup
   setupSocketHandlers(io);
