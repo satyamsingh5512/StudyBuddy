@@ -470,3 +470,25 @@ model TimerSession {
   @@index([userId, completedAt])
   @@index([completedAt])
 }
+
+// ============================================
+// OUTBOX PATTERN FOR MONGODB SYNC
+// ============================================
+
+model Outbox {
+  id             String    @id @default(cuid())
+  eventType      String    @map("event_type")
+  aggregateType  String    @map("aggregate_type")  // "user", "todo", "message", etc.
+  aggregateId    String    @map("aggregate_id")    // ID of the entity
+  payload        Json                               // Full entity data
+  processed      Boolean   @default(false)
+  processedAt    DateTime? @map("processed_at")
+  retryCount     Int       @default(0) @map("retry_count")
+  error          String?                            // Last error message
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([processed, createdAt])
+  @@index([aggregateType, aggregateId])
+  @@index([eventType])
+  @@map("Outbox")
+}
