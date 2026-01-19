@@ -19,6 +19,23 @@ import {
 } from 'lucide-react';
 import { API_URL } from '@/config/api';
 
+// OPTIMIZATION: Debounce hook to reduce API calls
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 interface User {
   id: string;
   username: string;
@@ -54,11 +71,23 @@ export default function Friends() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // OPTIMIZATION: Debounce search query (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   useEffect(() => {
     if (activeTab === 'friends') fetchFriends();
     if (activeTab === 'requests') fetchRequests();
     if (activeTab === 'blocked') fetchBlocked();
   }, [activeTab]);
+
+  // OPTIMIZATION: Auto-search when debounced query changes
+  useEffect(() => {
+    if (activeTab === 'search' && debouncedSearchQuery) {
+      handleSearch(debouncedSearchQuery);
+    } else if (!debouncedSearchQuery) {
+      setSearchResults([]);
+    }
+  }, [debouncedSearchQuery, activeTab]);
 
   const fetchFriends = async () => {
     try {
@@ -119,36 +148,15 @@ export default function Friends() {
 
     try {
       setLoading(true);
-      // Use fast search endpoint
+      // OPTIMIZATION: Use optimized search endpoint
       const response = await fetch(
-        `${API_URL}/username/search/fast?q=${encodeURIComponent(query)}`,
+        `${API_URL}/friends/search?query=${encodeURIComponent(query)}`,
         { credentials: 'include' }
       );
+      
       if (response.ok) {
         const data = await response.json();
-        
-        // Check friendship status for each user
-        const usersWithStatus = await Promise.all(
-          data.map(async (user: User) => {
-            const friendshipResponse = await fetch(
-              `${API_URL}/friends/list`,
-              { credentials: 'include' }
-            );
-            
-            if (friendshipResponse.ok) {
-              const friends = await friendshipResponse.json();
-              const isFriend = friends.some((f: any) => f.id === user.id);
-              
-              if (isFriend) {
-                return { ...user, friendshipStatus: 'ACCEPTED' };
-              }
-            }
-            
-            return user;
-          })
-        );
-        
-        setSearchResults(usersWithStatus);
+        setSearchResults(data);
       }
     } catch (error) {
       console.error('Error searching users:', error);
@@ -166,7 +174,10 @@ export default function Friends() {
         body: JSON.stringify({ receiverId: userId }),
       });
       if (response.ok) {
-        handleSearch(searchQuery); // Refresh search results
+        // Refresh search results
+        if (debouncedSearchQuery) {
+          handleSearch(debouncedSearchQuery);
+        }
       }
     } catch (error) {
       console.error('Error sending friend request:', error);
@@ -327,15 +338,11 @@ export default function Friends() {
             <CardTitle className="text-lg">Search Users</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
               <Input
                 placeholder="Search by username or name..."
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  handleSearch(e.target.value);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               {loading && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
             </div>
