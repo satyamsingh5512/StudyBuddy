@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
+import { messageRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -8,7 +9,7 @@ const prisma = new PrismaClient();
 // Get conversations list
 router.get('/conversations', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     // Get all users the current user has messaged with
     const sentMessages = await prisma.directMessage.findMany({
@@ -23,12 +24,10 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
       distinct: ['senderId'],
     });
 
-    const userIds = [
-      ...new Set([
-        ...sentMessages.map((m) => m.receiverId),
-        ...receivedMessages.map((m) => m.senderId),
-      ]),
-    ];
+    const userIds = Array.from(new Set([
+      ...sentMessages.map((m) => m.receiverId),
+      ...receivedMessages.map((m) => m.senderId),
+    ]));
 
     // Get user details and last message for each conversation
     const conversations = await Promise.all(
@@ -88,7 +87,7 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
 // Get messages with a specific user
 router.get('/:userId', isAuthenticated, async (req, res) => {
   try {
-    const currentUserId = req.user!.id;
+    const currentUserId = (req.user as any).id;
     const { userId } = req.params;
 
     // Check if users are friends
@@ -148,9 +147,9 @@ router.get('/:userId', isAuthenticated, async (req, res) => {
 });
 
 // Send a message
-router.post('/', isAuthenticated, async (req, res) => {
+router.post('/', messageRateLimiter, async (req, res) => {
   try {
-    const senderId = req.user!.id;
+    const senderId = (req.user as any).id;
     const { receiverId, message } = req.body;
 
     if (!receiverId || !message) {
@@ -203,7 +202,7 @@ router.post('/', isAuthenticated, async (req, res) => {
 // Mark messages as read
 router.put('/read/:userId', isAuthenticated, async (req, res) => {
   try {
-    const receiverId = req.user!.id;
+    const receiverId = (req.user as any).id;
     const { userId: senderId } = req.params;
 
     await prisma.directMessage.updateMany({
@@ -225,7 +224,7 @@ router.put('/read/:userId', isAuthenticated, async (req, res) => {
 // Delete a message
 router.delete('/:messageId', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { messageId } = req.params;
 
     const message = await prisma.directMessage.findUnique({
