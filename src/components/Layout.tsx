@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  Newspaper,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -36,6 +37,7 @@ const navItems = [
   { path: '/schedule', icon: Calendar, label: 'Schedule' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+  { path: '/news', icon: Newspaper, label: 'News' },
   { path: '/notices', icon: Bell, label: 'Notices' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/friends', icon: User, label: 'Friends' },
