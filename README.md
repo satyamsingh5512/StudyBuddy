@@ -34,6 +34,16 @@ AI-powered study companion for competitive exam preparation with intelligent tas
 - School/College/Coaching community chats
 - Leaderboard and points system
 
+### Security & Performance
+- Comprehensive rate limiting on all endpoints
+- Auth rate limiting (5 per 15 min) to prevent brute force
+- AI rate limiting (10 per min) to prevent abuse
+- Upload rate limiting (10 per hour)
+- Message rate limiting (30 per min) to prevent spam
+- Global rate limiting (200 per min) as catch-all
+- Secure session management
+- Input sanitization and validation
+
 ## 🛠️ Setup
 
 ### Prerequisites
@@ -127,6 +137,13 @@ npm run cap:init
 npm run cap:add:android
 npm run android:dev
 ```
+
+## 📚 Documentation
+
+- [Rate Limiting](./RATE_LIMITING.md) - Comprehensive rate limiting guide
+- [CORS Setup](./CORS_SETUP.md) - CORS configuration and troubleshooting
+- [Environment Setup](./.env.example) - Environment variables template
+- [Changelog](./CHANGELOG.md) - Version history and changes
 
 ## 🧪 Scripts
 
