@@ -26,6 +26,7 @@ const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
+const News = lazy(() => import('./pages/News'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -121,6 +122,7 @@ function App() {
               <Route path="friends" element={<Friends />} />
               <Route path="messages" element={<Messages />} />
               <Route path="messages/:userId" element={<Messages />} />
+              <Route path="news" element={<News />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           ) : (
