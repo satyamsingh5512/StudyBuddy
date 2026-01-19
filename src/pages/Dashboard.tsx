@@ -233,8 +233,8 @@ export default function Dashboard() {
                 placeholder="Add task... (Press Enter to save)"
                 value={newTodo}
                 onChange={(e) => setNewTodo(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
                     addTodo();
                   }
