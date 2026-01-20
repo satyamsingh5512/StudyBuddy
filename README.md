@@ -7,11 +7,10 @@ AI-powered study companion for competitive exam preparation.
 ## ✨ Features
 
 ### 🤖 AI-Powered
-- **Buddy Chat** - Conversational AI assistant for study planning
-- **Smart Task Generation** - Create tasks using natural language
-- **Study Plans** - Personalized daily recommendations
+- **Buddy Chat** - Conversational AI assistant
+- **Smart Task Generation** - Natural language task creation
+- **Study Plans** - Personalized recommendations
 - **Exam News** - Latest updates for JEE, NEET, GATE, UPSC, CAT, NDA, CLAT
-- **Context-Aware** - Learns from your study history
 
 ### 📚 Study Tools
 - **Smart Tasks** - Organize by subject, difficulty, questions
@@ -26,17 +25,9 @@ AI-powered study companion for competitive exam preparation.
 - **Communities** - School/College/Coaching groups
 - **Leaderboard** - Points and streaks
 
-### 🔐 Secure
-- Rate limiting on all endpoints
-- Google OAuth authentication
-- Input sanitization
-- Session management
-
 ### ⚡ Performance
-- 50-80% faster API responses
-- Smart caching (90% cache hit rate)
-- 40% smaller payloads (compression)
-- 70% fewer API calls (React Query)
+- 70-90% faster API responses
+- Smart caching
 - Optimized database queries
 
 ## 🛠️ Tech
@@ -45,18 +36,9 @@ AI-powered study companion for competitive exam preparation.
 
 **Backend:** Express • Socket.io • Prisma
 
-**Database:** PostgreSQL / CockroachDB
+**Database:** CockroachDB • MongoDB
 
 **AI:** Groq (Llama 3.3) • Gemini
-
-## 📚 Docs
-
-- [Performance Optimization](./PERFORMANCE_OPTIMIZATION.md)
-- [Buddy Chat](./BUDDY_CHAT.md)
-- [Rate Limiting](./RATE_LIMITING.md)
-- [CORS Setup](./CORS_SETUP.md)
-- [Deployment](./DEPLOYMENT_CHECKLIST.md)
-- [Changelog](./CHANGELOG.md)
 
 ## 📄 License
 
