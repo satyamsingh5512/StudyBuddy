@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Send, Plus, Loader2, Minimize2 } from 'lucide-react';
+import { X, Send, Plus, Loader2, Minimize2, MessageSquare, Sparkles } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { apiFetch } from '@/config/api';
@@ -130,14 +130,10 @@ export default function BuddyChat() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-gradient-to-br from-primary to-accent shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center group border-2 border-background"
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center group border border-border"
         aria-label="Open Buddy Chat"
       >
-        <img 
-          src="/buddy-ai-logo.png" 
-          alt="Buddy AI" 
-          className="h-8 w-auto object-contain"
-        />
+        <MessageSquare className="h-6 w-6" />
         <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 animate-pulse border-2 border-background"></span>
         <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md border border-border">
           Chat with Buddy
@@ -157,15 +153,14 @@ export default function BuddyChat() {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-4 flex items-center justify-between border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="relative px-3 py-1.5 bg-background/20 rounded-lg backdrop-blur-sm">
-            <img 
-              src="/buddy-ai-logo.png" 
-              alt="Buddy AI" 
-              className="h-6 w-auto object-contain"
-            />
-            <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-primary"></span>
+          <div className="relative">
+            <div className="h-10 w-10 rounded-full bg-background/20 flex items-center justify-center backdrop-blur-sm">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-primary"></span>
           </div>
           <div>
+            <h3 className="font-semibold">Buddy</h3>
             <p className="text-xs opacity-80">AI Study Assistant</p>
           </div>
         </div>
