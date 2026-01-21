@@ -3,10 +3,24 @@ type SoundCategory = 'ui' | 'notifications' | 'timer' | 'auth';
 
 class SoundManager {
   private audioContext: AudioContext | null = null;
+  private initialized = false;
+
+  // Pre-initialize audio context to avoid first-click delay
+  initialize() {
+    if (this.initialized) return;
+    try {
+      this.getContext();
+      this.initialized = true;
+    } catch (error) {
+      console.debug('Audio initialization failed');
+    }
+  }
 
   private getContext(): AudioContext {
     if (!this.audioContext) {
-      const AudioContextConstructor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioContextConstructor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioContext = new AudioContextConstructor();
     }
     return this.audioContext;
