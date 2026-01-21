@@ -38,9 +38,23 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, onClick, disableSound = false, disabled, type, children }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      onClick,
+      disableSound = false,
+      disabled,
+      type,
+      children,
+    },
+    ref
+  ) => {
     const Comp = asChild ? Slot : 'button';
-    
+    const [isPressed, setIsPressed] = React.useState(false);
+
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       // Play click sound unless disabled or button is disabled
       if (!disableSound && !disabled) {
@@ -49,12 +63,32 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       // Call original onClick handler if provided
       onClick?.(e);
     };
-    
+
+    const handleMouseDown = () => {
+      if (!disabled) {
+        setIsPressed(true);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsPressed(false);
+    };
+
+    const handleMouseLeave = () => {
+      setIsPressed(false);
+    };
+
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          isPressed && !disabled && 'scale-95 transition-transform'
+        )}
         ref={ref}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         disabled={disabled}
         type={type}
       >
