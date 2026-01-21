@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -50,26 +50,11 @@ export default function Messages() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchConversations();
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      fetchMessages(userId);
-      fetchUserDetails(userId);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/messages/conversations`, {
         credentials: 'include',
@@ -81,9 +66,9 @@ export default function Messages() {
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
-  };
+  }, []);
 
-  const fetchUserDetails = async (id: string) => {
+  const fetchUserDetails = useCallback(async (id: string) => {
     try {
       const response = await fetch(`${API_URL}/friends/list`, {
         credentials: 'include',
@@ -96,9 +81,9 @@ export default function Messages() {
     } catch (error) {
       console.error('Error fetching user details:', error);
     }
-  };
+  }, []);
 
-  const fetchMessages = async (id: string) => {
+  const fetchMessages = useCallback(async (id: string) => {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/messages/${id}`, {
@@ -113,9 +98,24 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const sendMessage = async () => {
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchMessages(userId);
+      fetchUserDetails(userId);
+    }
+  }, [userId, fetchMessages, fetchUserDetails]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const sendMessage = useCallback(async () => {
     if (!newMessage.trim() || !userId) return;
 
     try {
@@ -131,14 +131,14 @@ export default function Messages() {
 
       if (response.ok) {
         const message = await response.json();
-        setMessages([...messages, message]);
+        setMessages((prev) => [...prev, message]);
         setNewMessage('');
         fetchConversations();
       }
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
+  }, [newMessage, userId, fetchConversations]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -288,9 +288,7 @@ export default function Messages() {
                     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div
                         className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                          isOwn
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-foreground'
+                          isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
                         }`}
                       >
                         <p className="text-sm break-words">{message.message}</p>
