@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { usernameTrie } from '../utils/trie';
 
 const router = Router();
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 // Initialize trie on server start
 let trieInitialized = false;
