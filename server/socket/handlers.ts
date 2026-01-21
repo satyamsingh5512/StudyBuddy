@@ -1,7 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const userLastMessage = new Map<string, number>();
 const onlineUsers = new Set<string>();
 const RATE_LIMIT_MS = 30000; // 30 seconds
@@ -13,28 +11,29 @@ export const setupSocketHandlers = (io: Server) => {
     socket.on('join-chat', async (userId: string) => {
       socket.data.userId = userId;
       socket.join('global-chat');
-      
+
       // Add user to online list
       onlineUsers.add(userId);
-      
+
       // Broadcast online users
       io.to('global-chat').emit('online-users', Array.from(onlineUsers));
       io.to('global-chat').emit('user-online', userId);
 
-      // Send recent messages
+      // Send recent messages - optimized query
       const messages = await prisma.chatMessage.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
-        include: {
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
           user: {
-            select: { 
-              id: true, 
-              name: true, 
+            select: {
+              id: true,
+              name: true,
               username: true,
               avatar: true,
               showProfile: true,
-              examGoal: true,
-              streak: true,
             },
           },
         },
@@ -66,9 +65,9 @@ export const setupSocketHandlers = (io: Server) => {
         },
         include: {
           user: {
-            select: { 
-              id: true, 
-              name: true, 
+            select: {
+              id: true,
+              name: true,
               username: true,
               avatar: true,
               showProfile: true,
@@ -115,7 +114,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
-      
+
       // Remove user from online list
       const userId = socket.data.userId;
       if (userId) {
