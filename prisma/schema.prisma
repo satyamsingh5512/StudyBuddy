@@ -264,7 +264,7 @@ model DirectMessage {
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([senderId, receiverId, createdAt])
-  @@index([receiverId, read])
+  @@index([receiverId, read, createdAt]) // Optimized for unread queries with sorting
 }
 
 model Block {
