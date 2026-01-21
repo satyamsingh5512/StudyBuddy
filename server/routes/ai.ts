@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PrismaClient } from '@prisma/client';
 import { isAuthenticated } from '../middleware/auth';
 import { generateTasksWithGroq, generateStudyPlan } from '../lib/groqClient';
 import { aiRateLimiter } from '../middleware/rateLimiting';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
-const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 router.use(isAuthenticated);
@@ -45,7 +44,7 @@ router.post('/study-plan', async (req, res) => {
       recentReports.reduce((sum, r) => sum + r.completionPct, 0) / (recentReports.length || 1);
 
     // Get recent topics from todos
-    const recentTopics = Array.from(new Set(todos.slice(0, 5).map(t => t.subject)));
+    const recentTopics = Array.from(new Set(todos.slice(0, 5).map((t) => t.subject)));
 
     let plan: string;
 
@@ -112,7 +111,7 @@ router.post('/generate-tasks', async (req: any, res: any) => {
         ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : undefined;
 
-      const recentTopics = Array.from(new Set(recentTodos.map(t => t.subject)));
+      const recentTopics = Array.from(new Set(recentTodos.map((t) => t.subject)));
 
       tasks = await generateTasksWithGroq(prompt, examGoal || user?.examGoal || 'exam', {
         recentTopics,
@@ -142,7 +141,7 @@ Return ONLY a valid JSON array, no other text. Example:
       const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       const text = response.text();
-      
+
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.error('AI response:', text);
@@ -170,9 +169,9 @@ Return ONLY a valid JSON array, no other text. Example:
     res.json({ success: true, tasks: createdTodos, provider: useGroq ? 'groq' : 'gemini' });
   } catch (error: any) {
     console.error('AI task generation error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate tasks',
-      details: error.message || 'Unknown error'
+      details: error.message || 'Unknown error',
     });
   }
 });
@@ -240,7 +239,7 @@ router.post('/buddy-chat', async (req: any, res: any) => {
       take: 5,
     });
 
-    const recentTopics = Array.from(new Set(recentTodos.map(t => t.subject)));
+    const recentTopics = Array.from(new Set(recentTodos.map((t) => t.subject)));
     const daysUntilExam = user?.examDate
       ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : undefined;
@@ -250,10 +249,10 @@ router.post('/buddy-chat', async (req: any, res: any) => {
 
     if (useGroq) {
       const { groq } = await import('../lib/groqClient');
-      
+
       // Determine if user is asking for task creation
       const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
-      
+
       if (isTaskRequest) {
         // Generate tasks
         const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
@@ -283,7 +282,7 @@ Each task should have: title, subject, difficulty (easy/medium/hard), questionsT
         });
 
         const fullResponse = completion.choices[0]?.message?.content || '';
-        
+
         // Extract tasks if present
         const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
         if (tasksMatch) {
@@ -313,7 +312,9 @@ Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
           max_tokens: 512,
         });
 
-        response = completion.choices[0]?.message?.content || 'I can help you create study tasks! Just ask me.';
+        response =
+          completion.choices[0]?.message?.content ||
+          'I can help you create study tasks! Just ask me.';
       }
     } else {
       // Fallback to Gemini
@@ -322,7 +323,7 @@ Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
       }
 
       const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
-      
+
       const prompt = isTaskRequest
         ? `You are Buddy, a study assistant. User asked: "${message}"
         
@@ -341,7 +342,7 @@ Respond in 2-3 friendly sentences.`;
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const result = await model.generateContent(prompt);
       const fullResponse = await result.response.text();
-      
+
       const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
       if (tasksMatch) {
         try {
@@ -355,16 +356,16 @@ Respond in 2-3 friendly sentences.`;
       }
     }
 
-    res.json({ 
+    res.json({
       response,
       tasks: tasks.length > 0 ? tasks : undefined,
       provider: useGroq ? 'groq' : 'gemini',
     });
   } catch (error: any) {
     console.error('Buddy chat error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get response from Buddy',
-      details: error.message || 'Unknown error'
+      details: error.message || 'Unknown error',
     });
   }
 });
