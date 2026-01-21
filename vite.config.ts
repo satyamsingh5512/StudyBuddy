@@ -19,7 +19,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split vendor chunks for better caching
+          // Split vendor chunks for better caching and performance
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': [
             '@radix-ui/react-checkbox',
@@ -30,9 +30,21 @@ export default defineConfig({
             '@radix-ui/react-toast',
             '@radix-ui/react-label',
             '@radix-ui/react-slot',
+            '@radix-ui/react-avatar',
+            '@radix-ui/react-popover',
           ],
-          'utils-vendor': ['jotai', 'clsx', 'class-variance-authority', 'date-fns'],
+          'utils-vendor': [
+            'jotai',
+            'clsx',
+            'class-variance-authority',
+            'date-fns',
+            'tailwind-merge',
+          ],
           'icons-vendor': ['lucide-react'],
+          'framer-vendor': ['framer-motion'],
+          'query-vendor': ['@tanstack/react-query'],
+          'state-vendor': ['@dnd-kit/core', '@dnd-kit/sortable'],
+          'ai-vendor': ['@google/generative-ai', 'groq-sdk'],
         },
       },
     },
@@ -46,6 +58,10 @@ export default defineConfig({
       'lucide-react',
       'clsx',
       'date-fns',
+      'framer-motion',
+      '@tanstack/react-query',
+      '@dnd-kit/core',
+      '@dnd-kit/sortable',
     ],
   },
   server: {
