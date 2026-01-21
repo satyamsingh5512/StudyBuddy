@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { uploadProfile, uploadImage, uploadFormFile, deleteImage } from '../config/cloudinary';
 import { isAuthenticated } from '../middleware/auth';
-import { PrismaClient } from '@prisma/client';
+
 import { uploadRateLimiter } from '../middleware/rateLimiting';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
