@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { isAuthenticated } from '../middleware/auth';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 const router = Router();
 
 // Save study session
