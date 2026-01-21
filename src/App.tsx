@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { userAtom } from './store/atoms';
 import LoadingScreen from './components/LoadingScreen';
 import ServerWakeup from './components/ServerWakeup';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from './components/ui/toaster';
 import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
@@ -37,15 +38,18 @@ function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Initialize network status monitoring
   useNetworkStatus();
   const [showWakeup, setShowWakeup] = useState(true);
 
   useEffect(() => {
     let soundPlayed = false;
-    
+
     const initializeApp = async () => {
+      // Pre-initialize audio to prevent first-click delay
+      soundManager.initialize();
+
       // First, wake up the server if needed
       await wakeupServer();
       setShowWakeup(false);
@@ -93,13 +97,18 @@ function App() {
   const needsOnboarding = user && !('onboardingDone' in user && user.onboardingDone);
 
   const getDefaultRoute = () => {
-    if (!user) return <Suspense fallback={<LoadingScreen message="Loading..." />}><Landing /></Suspense>;
+    if (!user)
+      return (
+        <Suspense fallback={<LoadingScreen message="Loading..." />}>
+          <Landing />
+        </Suspense>
+      );
     if (needsOnboarding) return <Navigate to="/onboarding" replace />;
     return <Navigate to="/dashboard" replace />;
   };
 
   return (
-    <>
+    <ErrorBoundary>
       <Suspense fallback={<LoadingScreen message="Loading..." />}>
         <Routes>
           {/* Public routes - accessible to everyone */}
@@ -126,15 +135,21 @@ function App() {
               <Route path="settings" element={<Settings />} />
             </Route>
           ) : (
-            <Route path="*" element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />} />
+            <Route
+              path="*"
+              element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />}
+            />
           )}
 
-          <Route path="*" element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />} />
+          <Route
+            path="*"
+            element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />}
+          />
         </Routes>
       </Suspense>
       <Toaster />
       <Analytics />
-    </>
+    </ErrorBoundary>
   );
 }
 
