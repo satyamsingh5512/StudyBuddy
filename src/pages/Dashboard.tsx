@@ -25,43 +25,41 @@ interface Todo {
 }
 
 // Memoized TodoItem component to prevent unnecessary re-renders
-const TodoItem = memo(({ 
-  todo, 
-  onToggle, 
-  onDelete 
-}: { 
-  todo: Todo; 
-  onToggle: (id: string, completed: boolean) => void;
-  onDelete: (id: string) => void;
-}) => (
-  <div
-    className="flex items-start gap-3 p-3 rounded-md border group"
-  >
-    <Checkbox
-      checked={todo.completed}
-      onCheckedChange={() => onToggle(todo.id, todo.completed)}
-      className="mt-0.5"
-    />
-    <div className="flex-1 min-w-0">
-      <p
-        className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
+const TodoItem = memo(
+  ({
+    todo,
+    onToggle,
+    onDelete,
+  }: {
+    todo: Todo;
+    onToggle: (id: string, completed: boolean) => void;
+    onDelete: (id: string) => void;
+  }) => (
+    <div className="flex items-start gap-3 p-3 rounded-md border group">
+      <Checkbox
+        checked={todo.completed}
+        onCheckedChange={() => onToggle(todo.id, todo.completed)}
+        className="mt-0.5"
+      />
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+          {todo.title}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {todo.subject} · {todo.difficulty}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onDelete(todo.id)}
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+        title="Delete task"
       >
-        {todo.title}
-      </p>
-      <p className="text-xs text-muted-foreground mt-1">
-        {todo.subject} · {todo.difficulty}
-      </p>
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </button>
     </div>
-    <button
-      type="button"
-      onClick={() => onDelete(todo.id)}
-      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
-      title="Delete task"
-    >
-      <Trash2 className="h-4 w-4 text-destructive" />
-    </button>
-  </div>
-));
+  )
+);
 TodoItem.displayName = 'TodoItem';
 
 export default function Dashboard() {
@@ -70,7 +68,7 @@ export default function Dashboard() {
   const [newTodo, setNewTodo] = useState('');
   const [loading, setLoading] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const { toast} = useToast();
+  const { toast } = useToast();
 
   const fetchTodos = useCallback(async () => {
     setLoading(true);
@@ -88,14 +86,29 @@ export default function Dashboard() {
 
   const addTodo = useCallback(async () => {
     if (!newTodo.trim()) {
-      toast({ 
-        title: 'Empty task', 
+      toast({
+        title: 'Empty task',
         description: 'Please enter a task description',
-        variant: 'destructive' 
+        variant: 'destructive',
       });
       return;
     }
-    
+
+    const optimisticTodo = {
+      id: `temp-${Date.now()}`,
+      title: newTodo.trim(),
+      subject: 'General',
+      difficulty: 'medium',
+      questionsTarget: 10,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Optimistic update - add immediately
+    setTodos((prev) => [...prev, optimisticTodo]);
+    setNewTodo('');
+    soundManager.playAdd();
+
     try {
       const res = await apiFetch('/api/todos', {
         method: 'POST',
@@ -109,53 +122,62 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        setNewTodo('');
-        fetchTodos();
-        soundManager.playAdd();
-        toast({ 
-          title: 'Task added!', 
-          description: 'Press Enter to add more tasks quickly' 
+        const realTodo = await res.json();
+        // Replace temp todo with real one
+        setTodos((prev) => prev.map((todo) => (todo.id === optimisticTodo.id ? realTodo : todo)));
+        toast({
+          title: 'Task added!',
+          description: 'Press Enter to add more tasks quickly',
         });
       } else {
         throw new Error('Failed to add task');
       }
     } catch (error) {
       console.error('Error adding todo:', error);
-      toast({ 
-        title: 'Failed to add task', 
+      // Revert optimistic update on error
+      setTodos((prev) => prev.filter((todo) => todo.id !== optimisticTodo.id));
+      setNewTodo(newTodo.trim());
+      toast({
+        title: 'Failed to add task',
         description: 'Please try again',
-        variant: 'destructive' 
+        variant: 'destructive',
       });
     }
-  }, [newTodo, fetchTodos, toast]);
+  }, [newTodo, toast]);
 
-  const toggleTodo = useCallback(async (id: string, completed: boolean) => {
-    const res = await apiFetch(`/api/todos/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed: !completed }),
-    });
+  const toggleTodo = useCallback(
+    async (id: string, completed: boolean) => {
+      const res = await apiFetch(`/api/todos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !completed }),
+      });
 
-    if (res.ok) {
-      fetchTodos();
-      if (!completed) {
-        soundManager.playSuccess();
-        toast({ title: 'Great job! +1 point', description: 'Task completed' });
+      if (res.ok) {
+        fetchTodos();
+        if (!completed) {
+          soundManager.playSuccess();
+          toast({ title: 'Great job! +1 point', description: 'Task completed' });
+        }
       }
-    }
-  }, [fetchTodos, toast]);
+    },
+    [fetchTodos, toast]
+  );
 
-  const deleteTodo = useCallback(async (id: string) => {
-    const res = await apiFetch(`/api/todos/${id}`, {
-      method: 'DELETE',
-    });
+  const deleteTodo = useCallback(
+    async (id: string) => {
+      const res = await apiFetch(`/api/todos/${id}`, {
+        method: 'DELETE',
+      });
 
-    if (res.ok) {
-      soundManager.playDelete();
-      fetchTodos();
-      toast({ title: 'Task deleted' });
-    }
-  }, [fetchTodos, toast]);
+      if (res.ok) {
+        soundManager.playDelete();
+        fetchTodos();
+        toast({ title: 'Task deleted' });
+      }
+    },
+    [fetchTodos, toast]
+  );
 
   const completedCount = useMemo(() => todos.filter((t) => t.completed).length, [todos]);
 
