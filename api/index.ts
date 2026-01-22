@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { prisma } from './_lib/prisma';
-import { requireAuth, getCurrentUser, setCorsHeaders, createToken, setAuthCookie, clearAuthCookie, AuthUser } from './_lib/auth';
-import cache from './_lib/cache';
+import { prisma } from './lib/prisma';
+import { requireAuth, getCurrentUser, setCorsHeaders, createToken, setAuthCookie, clearAuthCookie, AuthUser } from './lib/auth';
+import cache from './lib/cache';
 
 // Google OAuth types
 interface GoogleTokenResponse {
