@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAtom } from 'jotai';
-import { Analytics } from '@vercel/analytics/react';
 import { userAtom } from './store/atoms';
 import LoadingScreen from './components/LoadingScreen';
 import ServerWakeup from './components/ServerWakeup';
@@ -11,6 +10,11 @@ import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
 import { wakeupServer } from './lib/serverWakeup';
 import { useNetworkStatus } from './lib/networkStatus';
+
+// OPTIMIZATION: Lazy load Analytics (non-critical, loads after hydration)
+const Analytics = lazy(() =>
+  import('@vercel/analytics/react').then((m) => ({ default: m.Analytics }))
+);
 
 // Lazy load components for better performance
 const Layout = lazy(() => import('./components/Layout'));
@@ -148,7 +152,9 @@ function App() {
         </Routes>
       </Suspense>
       <Toaster />
-      <Analytics />
+      <Suspense fallback={null}>
+        <Analytics />
+      </Suspense>
     </ErrorBoundary>
   );
 }
