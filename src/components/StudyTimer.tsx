@@ -29,9 +29,11 @@ interface Lap {
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
+  // OPTIMIZATION: Lazy state initialization - only reads localStorage once
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
+    if (typeof window === 'undefined') return 50;
     const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved) : 50;
+    return saved ? parseInt(saved, 10) : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
