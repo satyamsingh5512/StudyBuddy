@@ -199,6 +199,8 @@ export default function Dashboard() {
         <div className="flex gap-2">
           <Button
             onClick={() => setShowAnalytics(!showAnalytics)}
+            onMouseEnter={() => void import('@/components/AnalyticsDashboard')}
+            onFocus={() => void import('@/components/AnalyticsDashboard')}
             variant="outline"
             size="sm"
             className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
