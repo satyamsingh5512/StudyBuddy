@@ -37,6 +37,13 @@ logs/
 *.swo
 *~
 
+# Agent/AI tool configs
+.agent/
+.agents/
+.gemini/
+.github/skills/
+.kiro/
+
 # OS
 .DS_Store
 Thumbs.db
