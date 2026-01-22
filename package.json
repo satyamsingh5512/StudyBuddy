@@ -34,7 +34,7 @@
     "android:dev": "npm run build && npx cap sync android && npx cap run android"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",
