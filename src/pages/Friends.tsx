@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import {
   Shield,
   Loader2
 } from 'lucide-react';
-import { API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 
 // OPTIMIZATION: Debounce hook to reduce API calls
 function useDebounce<T>(value: T, delay: number): T {
@@ -69,6 +69,8 @@ export default function Friends() {
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [blocked, setBlocked] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(false);
+  // OPTIMIZATION: useTransition for non-urgent search updates
+  const [isPending, startTransition] = useTransition();
   const navigate = useNavigate();
 
   // OPTIMIZATION: Debounce search query (300ms delay)
@@ -92,9 +94,7 @@ export default function Friends() {
   const fetchFriends = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/friends/list`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/api/friends/list');
       if (response.ok) {
         const data = await response.json();
         setFriends(data);
@@ -109,9 +109,7 @@ export default function Friends() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/friends/requests`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/api/friends/requests');
       if (response.ok) {
         const data = await response.json();
         setRequests(data);
@@ -126,9 +124,7 @@ export default function Friends() {
   const fetchBlocked = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/friends/blocked`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/api/friends/blocked');
       if (response.ok) {
         const data = await response.json();
         setBlocked(data);
@@ -149,9 +145,8 @@ export default function Friends() {
     try {
       setLoading(true);
       // OPTIMIZATION: Use optimized search endpoint
-      const response = await fetch(
-        `${API_URL}/friends/search?query=${encodeURIComponent(query)}`,
-        { credentials: 'include' }
+      const response = await apiFetch(
+        `/api/friends/search?query=${encodeURIComponent(query)}`
       );
       
       if (response.ok) {
@@ -167,10 +162,9 @@ export default function Friends() {
 
   const sendFriendRequest = async (userId: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/request`, {
+      const response = await apiFetch('/api/friends/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ receiverId: userId }),
       });
       if (response.ok) {
@@ -186,9 +180,8 @@ export default function Friends() {
 
   const acceptRequest = async (requestId: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/request/${requestId}/accept`, {
+      const response = await apiFetch(`/api/friends/request/${requestId}/accept`, {
         method: 'PUT',
-        credentials: 'include',
       });
       if (response.ok) {
         fetchRequests();
@@ -201,9 +194,8 @@ export default function Friends() {
 
   const rejectRequest = async (requestId: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/request/${requestId}/reject`, {
+      const response = await apiFetch(`/api/friends/request/${requestId}/reject`, {
         method: 'PUT',
-        credentials: 'include',
       });
       if (response.ok) {
         fetchRequests();
@@ -217,9 +209,8 @@ export default function Friends() {
     if (!confirm('Are you sure you want to unfriend this user?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/friends/${friendshipId}`, {
+      const response = await apiFetch(`/api/friends/${friendshipId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (response.ok) {
         fetchFriends();
@@ -233,10 +224,9 @@ export default function Friends() {
     if (!confirm('Are you sure you want to block this user?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/friends/block`, {
+      const response = await apiFetch('/api/friends/block', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ userId }),
       });
       if (response.ok) {
@@ -250,9 +240,8 @@ export default function Friends() {
 
   const unblockUser = async (userId: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/block/${userId}`, {
+      const response = await apiFetch(`/api/friends/block/${userId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (response.ok) {
         fetchBlocked();
@@ -342,9 +331,20 @@ export default function Friends() {
               <Input
                 placeholder="Search by username or name..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchQuery(value);
+                  // OPTIMIZATION: Use transition for search results update
+                  startTransition(() => {
+                    if (value.length >= 2) {
+                      handleSearch(value);
+                    } else {
+                      setSearchResults([]);
+                    }
+                  });
+                }}
               />
-              {loading && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
+              {(loading || isPending) && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
             </div>
 
             {searchResults.length > 0 && (
