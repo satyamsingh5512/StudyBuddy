@@ -164,3 +164,20 @@
     align-items: center;
   }
 }
+
+
+/* OPTIMIZATION: content-visibility for long lists (Vercel Best Practices 6.1) */
+.list-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 60px;
+}
+
+.message-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}
+
+.friend-item-optimized {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 72px;
+}
