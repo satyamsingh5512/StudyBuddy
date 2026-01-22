@@ -3,14 +3,14 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 10
+    "api/index.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/).*)",
