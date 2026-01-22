@@ -34,7 +34,7 @@
     "android:dev": "npm run build && npx cap sync android && npx cap run android"
   },
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",
@@ -137,3 +137,7 @@
   },
   "homepage": "https://github.com/satyamsingh5512/StudyBuddy#readme"
 }
+
+
+
+
