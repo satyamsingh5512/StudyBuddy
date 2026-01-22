@@ -1,3 +1,7 @@
+/**
+ * StudyBuddy API - Vercel Serverless Function
+ * All API routes consolidated into a single function
+ */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { prisma } from './lib/prisma';
 import { requireAuth, getCurrentUser, setCorsHeaders, createToken, setAuthCookie, clearAuthCookie, AuthUser } from './lib/auth';
