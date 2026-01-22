@@ -8,7 +8,7 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:worker": "tsx watch server/workers/syncWorker.ts",
     "dev:full": "concurrently \"npm run dev:client\" \"npm run dev:server\" \"npm run dev:worker\"",
-    "build": "tsc && vite build",
+    "build": "npx tsc && npx vite build",
     "build:server": "echo 'Server build skipped - using tsx'",
     "start:server": "tsx server/index.ts",
     "start:worker": "tsx server/workers/syncWorker.ts",

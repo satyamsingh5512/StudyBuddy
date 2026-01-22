@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install && npx prisma generate",
+  "installCommand": "npm install --include=dev && npx prisma generate",
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
