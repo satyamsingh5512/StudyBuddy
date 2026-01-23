@@ -12,7 +12,9 @@ model User {
   email             String        @unique
   name              String
   username          String?       @unique
-  googleId          String        @unique
+  password          String?       // For email/password auth
+  googleId          String?       @unique // Made optional
+  emailVerified     Boolean       @default(false)
   avatar            String?
   avatarType        String        @default("photo")
   onboardingDone    Boolean       @default(false)
@@ -56,6 +58,34 @@ model User {
   @@index([collegeId])
   @@index([coachingId])
   @@index([username])
+  @@index([email])
+}
+
+// Email verification OTP
+model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, otp])
+  @@index([expiresAt])
+}
+
+// Password reset tokens
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model School {
