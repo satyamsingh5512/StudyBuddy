@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { API_URL } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
 const SLIDING_TAGLINES = [
@@ -15,6 +15,7 @@ const SLIDING_TAGLINES = [
 ];
 
 export default function Landing() {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
 
@@ -32,7 +33,7 @@ export default function Landing() {
     setIsLoading(true);
     soundManager.playClick();
     
-    window.location.href = `${API_URL}/api/auth/google`;
+    navigate('/auth');
   };
 
   const handleExploreDashboard = () => {
@@ -41,7 +42,7 @@ export default function Landing() {
     setIsLoading(true);
     soundManager.playClick();
     
-    window.location.href = `${API_URL}/api/auth/google`;
+    navigate('/auth');
   };
 
   return (

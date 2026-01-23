@@ -19,6 +19,7 @@ const Analytics = lazy(() =>
 // Lazy load components for better performance
 const Layout = lazy(() => import('./components/Layout'));
 const Landing = lazy(() => import('./pages/Landing'));
+const Auth = lazy(() => import('./pages/Auth'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Schedule = lazy(() => import('./pages/Schedule'));
@@ -118,6 +119,7 @@ function App() {
         <Routes>
           {/* Public routes - accessible to everyone */}
           <Route path="/" element={getDefaultRoute()} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/reset-password" element={<ResetPassword />} />
