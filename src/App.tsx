@@ -32,6 +32,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const News = lazy(() => import('./pages/News'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -119,6 +120,7 @@ function App() {
           <Route path="/" element={getDefaultRoute()} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Onboarding route */}
           {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
