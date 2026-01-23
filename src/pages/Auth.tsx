@@ -13,7 +13,7 @@ type AuthMode = 'login' | 'signup' | 'verify-otp' | 'forgot-password' | 'reset-p
 export default function Auth() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [isLoading, setIsLoading] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const { toast } = useToast();
 
   // Form states
