@@ -6,6 +6,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { prisma } from './lib/prisma';
 import { requireAuth, getCurrentUser, setCorsHeaders, createToken, setAuthCookie, clearAuthCookie, AuthUser } from './lib/auth';
 import cache from './lib/cache';
+import { sendOTPEmail, sendPasswordResetEmail, sendWelcomeEmail } from './lib/email';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 // Google OAuth types
 interface GoogleTokenResponse {
@@ -19,6 +22,11 @@ interface GoogleUserInfo {
   email: string;
   name: string;
   picture: string;
+}
+
+// Helper to generate 6-digit OTP
+function generateOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -50,6 +58,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
+    // Email/Password Auth
+    if (path === '/auth/signup' && method === 'POST') {
+      return handleSignup(req, res);
+    }
+
+    if (path === '/auth/verify-otp' && method === 'POST') {
+      return handleVerifyOTP(req, res);
+    }
+
+    if (path === '/auth/resend-otp' && method === 'POST') {
+      return handleResendOTP(req, res);
+    }
+
+    if (path === '/auth/login' && method === 'POST') {
+      return handleLogin(req, res);
+    }
+
+    if (path === '/auth/forgot-password' && method === 'POST') {
+      return handleForgotPassword(req, res);
+    }
+
+    if (path === '/auth/reset-password' && method === 'POST') {
+      return handleResetPassword(req, res);
+    }
+
+    // Google OAuth
     if (path === '/auth/google' && method === 'GET') {
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/auth/google/callback`;
@@ -183,6 +217,328 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 // ============ Handler Functions ============
 
+// Email/Password Authentication
+async function handleSignup(req: VercelRequest, res: VercelResponse) {
+  const { email, password, name } = req.body;
+
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'Email, password, and name are required' });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  // Validate password strength
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Generate OTP
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store OTP and send email in parallel
+    const [, emailSent] = await Promise.all([
+      prisma.emailVerification.create({
+        data: { email, otp, expiresAt },
+      }),
+      sendOTPEmail(email, otp, name).catch((err) => {
+        console.error('Email send error:', err);
+        return null;
+      }),
+    ]);
+
+    if (!emailSent) {
+      return res.status(500).json({ error: 'Failed to send verification email. Please try again.' });
+    }
+
+    // Store user data temporarily (will be created after OTP verification)
+    cache.set(`signup:${email}`, { email, password: hashedPassword, name }, 600); // 10 min cache
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'OTP sent to your email',
+      email 
+    });
+  } catch (error) {
+    console.error('Signup error:', error);
+    return res.status(500).json({ error: 'Signup failed' });
+  }
+}
+
+async function handleVerifyOTP(req: VercelRequest, res: VercelResponse) {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'Email and OTP are required' });
+  }
+
+  try {
+    // Find valid OTP
+    const verification = await prisma.emailVerification.findFirst({
+      where: {
+        email,
+        otp,
+        verified: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!verification) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // Get cached signup data
+    const signupData = cache.get(`signup:${email}`) as { email: string; password: string; name: string } | undefined;
+    
+    if (!signupData) {
+      return res.status(400).json({ error: 'Signup session expired. Please sign up again.' });
+    }
+
+    // Create user and mark OTP as verified in parallel
+    const [user] = await Promise.all([
+      prisma.user.create({
+        data: {
+          email: signupData.email,
+          password: signupData.password,
+          name: signupData.name,
+          emailVerified: true,
+          examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 6 months default
+        },
+      }),
+      prisma.emailVerification.update({
+        where: { id: verification.id },
+        data: { verified: true },
+      }),
+    ]);
+
+    // Clear cache
+    cache.del(`signup:${email}`);
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.name).catch(console.error);
+
+    // Create token and set cookie
+    const token = await createToken(user.id);
+    setAuthCookie(res, token);
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerified: user.emailVerified,
+        onboardingDone: user.onboardingDone,
+      },
+    });
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    return res.status(500).json({ error: 'Verification failed' });
+  }
+}
+
+async function handleResendOTP(req: VercelRequest, res: VercelResponse) {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    // Check if signup data exists
+    const signupData = cache.get(`signup:${email}`) as { name: string } | undefined;
+    
+    if (!signupData) {
+      return res.status(400).json({ error: 'No pending signup found. Please sign up again.' });
+    }
+
+    // Generate new OTP
+    const otp = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Delete old OTPs and create new one
+    await prisma.emailVerification.deleteMany({ where: { email, verified: false } });
+    
+    const [, emailSent] = await Promise.all([
+      prisma.emailVerification.create({
+        data: { email, otp, expiresAt },
+      }),
+      sendOTPEmail(email, otp, signupData.name).catch((err) => {
+        console.error('Email send error:', err);
+        return null;
+      }),
+    ]);
+
+    if (!emailSent) {
+      return res.status(500).json({ error: 'Failed to send OTP. Please try again.' });
+    }
+
+    return res.status(200).json({ success: true, message: 'New OTP sent to your email' });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    return res.status(500).json({ error: 'Failed to resend OTP' });
+  }
+}
+
+async function handleLogin(req: VercelRequest, res: VercelResponse) {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    // Find user
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || !user.password) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return res.status(403).json({ 
+        error: 'Email not verified', 
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email 
+      });
+    }
+
+    // Create token and set cookie
+    const token = await createToken(user.id);
+    setAuthCookie(res, token);
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        avatar: user.avatar,
+        avatarType: user.avatarType,
+        emailVerified: user.emailVerified,
+        onboardingDone: user.onboardingDone,
+        examGoal: user.examGoal,
+        examDate: user.examDate,
+        totalPoints: user.totalPoints,
+        streak: user.streak,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ error: 'Login failed' });
+  }
+}
+
+async function handleForgotPassword(req: VercelRequest, res: VercelResponse) {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Always return success to prevent email enumeration
+    if (!user || !user.password) {
+      return res.status(200).json({ 
+        success: true, 
+        message: 'If an account exists, a password reset link has been sent' 
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store token and send email in parallel
+    await Promise.all([
+      prisma.passwordReset.create({
+        data: { userId: user.id, token: resetToken, expiresAt },
+      }),
+      sendPasswordResetEmail(user.email, resetToken, user.name).catch(console.error),
+    ]);
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'If an account exists, a password reset link has been sent' 
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ error: 'Failed to process request' });
+  }
+}
+
+async function handleResetPassword(req: VercelRequest, res: VercelResponse) {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token and password are required' });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    // Find valid reset token
+    const resetRecord = await prisma.passwordReset.findFirst({
+      where: {
+        token,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!resetRecord) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update password and mark token as used
+    await Promise.all([
+      prisma.user.update({
+        where: { id: resetRecord.userId },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordReset.update({
+        where: { id: resetRecord.id },
+        data: { used: true },
+      }),
+    ]);
+
+    return res.status(200).json({ success: true, message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Failed to reset password' });
+  }
+}
+
 async function handleGoogleCallback(req: VercelRequest, res: VercelResponse) {
   const { code, error } = req.query;
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -213,10 +569,37 @@ async function handleGoogleCallback(req: VercelRequest, res: VercelResponse) {
     const googleUser = await userInfoResponse.json() as GoogleUserInfo;
 
     let user = await prisma.user.findUnique({ where: { googleId: googleUser.id } });
+    
     if (!user) {
-      user = await prisma.user.create({
-        data: { googleId: googleUser.id, email: googleUser.email, name: googleUser.name, avatar: googleUser.picture, examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) },
-      });
+      // Check if email already exists (from email/password signup)
+      user = await prisma.user.findUnique({ where: { email: googleUser.email } });
+      
+      if (user) {
+        // Link Google account to existing user
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { 
+            googleId: googleUser.id,
+            emailVerified: true, // Google emails are verified
+            avatar: user.avatar || googleUser.picture,
+          },
+        });
+      } else {
+        // Create new user
+        user = await prisma.user.create({
+          data: { 
+            googleId: googleUser.id, 
+            email: googleUser.email, 
+            name: googleUser.name, 
+            avatar: googleUser.picture,
+            emailVerified: true,
+            examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+          },
+        });
+        
+        // Send welcome email (non-blocking)
+        sendWelcomeEmail(user.email, user.name).catch(console.error);
+      }
     }
 
     const token = await createToken(user.id);
