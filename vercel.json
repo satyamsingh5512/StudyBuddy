@@ -1,4 +1,7 @@
 {
+  "git": {
+    "ignoreCommand": "echo 'Build skipped by manual override'; exit 0"
+  },
   "buildCommand": "npx prisma generate && npx tsc && npx vite build",
   "outputDirectory": "dist",
   "framework": "vite",
