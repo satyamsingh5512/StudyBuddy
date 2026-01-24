@@ -41,6 +41,7 @@ export default function Auth() {
       const res = await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies for session
         body: JSON.stringify({ email, password, name }),
       });
 
@@ -50,10 +51,19 @@ export default function Auth() {
         throw new Error(data.error || 'Signup failed');
       }
 
-      toast({
-        title: 'OTP Sent!',
-        description: 'Check your email for the verification code',
-      });
+      // In development, show OTP if email service is not configured
+      if (data.otp) {
+        toast({
+          title: 'OTP Code (Dev Mode)',
+          description: `Your OTP is: ${data.otp}`,
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: 'OTP Sent!',
+          description: 'Check your email for the verification code',
+        });
+      }
 
       startTransition(() => setMode('verify-otp'));
     } catch (error: any) {
