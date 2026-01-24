@@ -1,54 +1,39 @@
-# Vercel Deployment Checklist & Error Prevention
+# Deployment Checklist - Single Unified Application
 
-## ✅ Analysis Complete - No Critical Issues Found
+## ✅ Updated: January 24, 2026
 
-I've analyzed the entire project and here's what I found:
+**Deployment Model**: Single unified Node.js application (Frontend + Backend)
 
-### ✅ **PASSED - No Blocking Issues**
+### ✅ **Current Status**
 
 1. **TypeScript Compilation**: ✅ Clean (no errors)
 2. **Path Aliases**: ✅ Properly configured (`@/*` → `./src/*`)
-3. **Build Configuration**: ✅ Correct (Vite + Prisma)
+3. **Build Configuration**: ✅ Correct (Vite build)
 4. **API Routes**: ✅ Properly structured
 5. **Dependencies**: ✅ All installed
-6. **Environment Variables**: ✅ Documented
+6. **Database**: ✅ MongoDB Atlas (Primary)
+7. **Render-Specific Code**: ✅ Removed
 
 ---
 
 ## 🔧 Required Actions Before Deployment
 
-### 1. **Clear Vercel Build Cache** (CRITICAL)
-Your previous deployments are using cached builds with old code.
+### 1. **Environment Variables**
 
-**Steps:**
-1. Go to https://vercel.com/dashboard
-2. Select StudyBuddy project
-3. **Settings** → **General** → **Clear Build Cache**
-4. **Deployments** → Latest → **Redeploy** (UNCHECK "Use existing Build Cache")
-
-### 2. **Set Environment Variables in Vercel**
-
-Go to **Settings** → **Environment Variables** and add:
+Set these environment variables in your hosting platform:
 
 #### Required for All Features:
 ```bash
-DATABASE_URL="your-cockroachdb-connection-string"
-JWT_SECRET="your-32-char-secret"  # Generate: openssl rand -base64 32
-CLIENT_URL="https://sbd.satym.site"
-```
-
-#### Required for Google OAuth:
-```bash
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-GOOGLE_CALLBACK_URL="https://sbd.satym.site/api/auth/google/callback"
+MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority"
+SESSION_SECRET="your-32-char-secret"  # Generate: openssl rand -base64 32
+CLIENT_URL="https://your-domain.com"
+NODE_ENV="production"
 ```
 
 #### Required for Email Auth (OTP & Password Reset):
 ```bash
 SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
-SMTP_SECURE="false"
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-gmail-app-password"
 ```
@@ -67,112 +52,124 @@ CLOUDINARY_API_KEY="your-cloudinary-key"
 CLOUDINARY_API_SECRET="your-cloudinary-secret"
 ```
 
-### 3. **Update Google OAuth Settings**
+### 2. **Build and Start Commands**
+
+For most hosting platforms (Vercel, Railway, Render, etc.):
+
+**Build Command:**
+```bash
+npm run build
+```
+
+**Start Command:**
+```bash
+npm run start:server
+```
+
+**Port**: The server will use `process.env.PORT` or default to `3001`
+
+### 3. **Update Google OAuth Settings** (If Using Google Auth)
 
 In Google Cloud Console:
 1. Go to **APIs & Services** → **Credentials**
 2. Select your OAuth 2.0 Client ID
-3. Under **Authorized redirect URIs**, ensure you have:
-   - `https://sbd.satym.site/api/auth/google/callback`
+3. Under **Authorized redirect URIs**, add:
+   - `https://your-domain.com/api/auth/google/callback`
 4. Save changes
 
-### 4. **Run Database Migration**
+---
 
-After deployment, run once:
-```bash
-npx prisma db push
-```
+## 🏗️ Architecture Overview
 
-Or let Vercel run it automatically (it's in the build command).
+### Single Unified Application
+- **Frontend**: Vite + React (builds to `dist/`)
+- **Backend**: Express.js (serves API + static files)
+- **Database**: MongoDB Atlas (single primary database)
+- **Session Store**: MongoDB (connect-mongo)
+- **No Separate Deployments**: One app, one deployment
+
+### How It Works
+1. Vite builds frontend to `dist/` folder
+2. Express serves static files from `dist/`
+3. Express handles API routes on `/api/*`
+4. Single Node.js process runs everything
+
+---
+
+## ⚠️ Removed Components
+
+### ✅ Render-Specific Code (Removed)
+- `server/utils/keepAlive.ts` - No longer used
+- `render.yaml` - Deleted
+- Keep-alive service calls in `server/index.ts` - Removed
+
+### ⚠️ Prisma (Still Present - Needs Migration)
+Many routes still use Prisma instead of MongoDB:
+- `server/routes/todos.ts`
+- `server/routes/users.ts`
+- `server/routes/friends.ts`
+- `server/routes/messages.ts`
+- `server/routes/reports.ts`
+- `server/routes/timer.ts`
+- `server/routes/schedule.ts`
+- `server/routes/notices.ts`
+- `server/routes/faqs.ts`
+- `server/routes/news.ts`
+- `server/routes/ai.ts`
+- `server/routes/upload.ts`
+- `server/routes/health.ts`
+
+**Note**: Auth routes already migrated to MongoDB (see `server/routes/auth.ts`)
 
 ---
 
 ## ⚠️ Potential Issues & Solutions
 
-### Issue 1: TypeScript Build Errors
-**Symptom**: `error TS6133: 'variable' is declared but its value is never read`
-
-**Status**: ✅ FIXED
-- Fixed unused `isPending` variable in `src/pages/Auth.tsx`
-
-**Prevention**: 
-- Run `npx tsc --noEmit` locally before pushing
-- Enable TypeScript strict mode (already enabled)
-
-### Issue 2: Build Cache Issues
-**Symptom**: Deployment succeeds but uses old code
-
-**Status**: ⚠️ NEEDS ACTION
-- Vercel is caching old builds with the `_lib` folder reference
+### Issue 1: MongoDB Connection Errors
+**Symptom**: `MongoServerSelectionError` or TLS errors
 
 **Solution**:
-1. Clear build cache (see step 1 above)
-2. Force fresh deployment
+- Verify `MONGODB_URI` format is correct
+- Ensure IP whitelist includes `0.0.0.0/0` (or your hosting provider's IPs)
+- Check username/password are URL-encoded
+- Verify database name exists
 
-### Issue 3: Email Service Failures
+### Issue 2: Email Service Failures
 **Symptom**: OTP emails not sending, password reset fails
 
-**Status**: ⚠️ NEEDS CONFIGURATION
-- SMTP environment variables not set
+**Solution**:
+- Verify SMTP credentials are correct
+- Use Gmail app password (not regular password)
+- Check `SMTP_HOST=smtp.gmail.com` and `SMTP_PORT=587`
+- Test with `node test-email.mjs` locally
+
+### Issue 3: Session Issues
+**Symptom**: Users logged out frequently, session not persisting
 
 **Solution**:
-- Add SMTP variables (see step 2 above)
-- Test with Gmail app password
-- Check Vercel function logs for email errors
+- Verify `SESSION_SECRET` is set
+- Check `MONGODB_URI` is accessible for session store
+- Ensure cookies are configured correctly for your domain
 
-### Issue 4: Database Connection
-**Symptom**: `PrismaClientInitializationError`
-
-**Status**: ✅ SHOULD WORK
-- Using CockroachDB (PostgreSQL-compatible)
-- Connection pooling configured
-
-**Prevention**:
-- Ensure `DATABASE_URL` is set correctly
-- Use connection string with `?sslmode=require`
-- Check CockroachDB allows connections from Vercel IPs
-
-### Issue 5: API Route 404s
-**Symptom**: `/api/*` routes return 404
-
-**Status**: ✅ CONFIGURED
-- `vercel.json` has correct rewrites
-- All routes consolidated in `api/index.ts`
-
-**Verification**:
-- Test `/api/health` endpoint after deployment
-- Should return `{"status":"ok","timestamp":"..."}`
-
-### Issue 6: CORS Errors
+### Issue 4: CORS Errors
 **Symptom**: Browser blocks API requests
 
-**Status**: ✅ CONFIGURED
-- CORS headers set in `vercel.json`
-- Credentials allowed
-- Same-origin requests (no CORS needed)
+**Solution**:
+- Update `CLIENT_URL` environment variable
+- Add your domain to `allowedOrigins` in `server/index.ts`
+- Or set `ALLOWED_ORIGINS` env var (comma-separated)
 
-### Issue 7: Function Timeout
-**Symptom**: `FUNCTION_INVOCATION_TIMEOUT`
+### Issue 5: Port Conflicts (Local Development)
+**Symptom**: `EADDRINUSE` error
 
-**Status**: ✅ CONFIGURED
-- Max duration set to 30 seconds
-- Sufficient for most operations
+**Solution**:
+```bash
+# Kill process on port 3001
+lsof -ti:3001 | xargs kill -9
 
-**If it happens**:
-- Check for slow database queries
-- Optimize email sending (already non-blocking)
-- Consider upgrading Vercel plan
-
-### Issue 8: Cold Start Delays
-**Symptom**: First request takes 5-10 seconds
-
-**Status**: ✅ EXPECTED BEHAVIOR
-- Serverless functions have cold starts
-- Subsequent requests are fast
-
-**Mitigation**:
-- Already implemented: Server wakeup component
-- Consider: Vercel Pro plan (faster cold starts)
+# Or use the cleanup script
+npm run clean
+```
 
 ---
 
@@ -182,158 +179,147 @@ Or let Vercel run it automatically (it's in the build command).
 ```bash
 # Run locally to verify
 npm run build
-npx tsc --noEmit
-npx prisma generate
+npm run start:server
+
+# Test the build
+curl http://localhost:3001/api/health
 ```
 
-### Step 2: Push to GitHub
-```bash
-git add -A
-git commit -m "Ready for deployment"
-git push
-```
+### Step 2: Choose Hosting Platform
 
-### Step 3: Configure Vercel
-1. Clear build cache
-2. Set all environment variables
-3. Verify Google OAuth redirect URIs
+**Recommended Platforms:**
+- **Vercel**: Easiest for Node.js apps
+- **Railway**: Simple, good free tier
+- **Render**: Good for full-stack apps
+- **Fly.io**: Global edge deployment
+- **DigitalOcean App Platform**: Traditional hosting
 
-### Step 4: Deploy
-- Vercel auto-deploys on push
-- Or manually trigger from dashboard
+### Step 3: Configure Platform
 
-### Step 5: Post-Deployment Verification
+**For Vercel:**
+1. Connect GitHub repository
+2. Set build command: `npm run build`
+3. Set start command: `npm run start:server`
+4. Add environment variables
+5. Deploy
+
+**For Railway:**
+1. Connect GitHub repository
+2. Add environment variables
+3. Railway auto-detects build/start commands
+4. Deploy
+
+**For Render:**
+1. Create new Web Service
+2. Connect GitHub repository
+3. Set build command: `npm install && npm run build`
+4. Set start command: `npm run start:server`
+5. Add environment variables
+6. Deploy
+
+### Step 4: Post-Deployment Verification
 
 **Test these endpoints:**
 ```bash
 # Health check
-curl https://sbd.satym.site/api/health
+curl https://your-domain.com/api/health
 
 # Auth check (should return 401)
-curl https://sbd.satym.site/api/auth/me
-
-# Google OAuth (should redirect)
-curl -I https://sbd.satym.site/api/auth/google
+curl https://your-domain.com/api/auth/me
 ```
 
 **Test in browser:**
-1. Visit `https://sbd.satym.site`
+1. Visit `https://your-domain.com`
 2. Click "Get Started" → Should show Auth page
 3. Try email signup → Should receive OTP
-4. Try Google OAuth → Should redirect to Google
-5. After login → Should redirect to dashboard
+4. Verify OTP → Should log in
+5. Check dashboard → Should load
 
 ---
 
-## 📊 Build Configuration Analysis
+## 📊 Build Configuration
 
-### ✅ Correct Configuration
+### Current Setup
 
-**vercel.json:**
-- ✅ Build command includes Prisma generation
-- ✅ Output directory set to `dist`
-- ✅ API rewrites configured
-- ✅ CORS headers set
-- ✅ Function timeout set (30s)
-
-**package.json:**
-- ✅ Node version: `>=18` (compatible with Vercel)
-- ✅ Build script: `tsc && vite build`
-- ✅ All dependencies installed
-
-**tsconfig.json:**
-- ✅ Path aliases configured
-- ✅ Strict mode enabled
-- ✅ ES2020 target
+**package.json scripts:**
+```json
+{
+  "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+  "build": "npx tsc && npx vite build",
+  "start:server": "tsx server/index.ts"
+}
+```
 
 **vite.config.ts:**
 - ✅ Path alias resolver
 - ✅ Manual chunk splitting (optimized)
 - ✅ Build optimizations
+- ✅ Proxy for local development
 
 ---
 
-## 🔍 Code Quality Analysis
+## 🔍 Code Quality
 
 ### ✅ Best Practices Followed
 
-1. **React Best Practices** (Vercel Framework):
-   - ✅ Lazy loading with `React.lazy()`
-   - ✅ `useTransition` for non-blocking updates
-   - ✅ `Promise.all()` for parallel operations
-   - ✅ Functional setState
-   - ✅ Memoized components
-   - ✅ Manual chunk splitting
-
-2. **Security**:
-   - ✅ Bcrypt password hashing (12 rounds)
-   - ✅ JWT tokens with expiration
+1. **Security**:
+   - ✅ Bcrypt password hashing (10 rounds)
    - ✅ HttpOnly cookies
+   - ✅ Session management with MongoDB
    - ✅ Input validation
-   - ✅ Email enumeration prevention
    - ✅ CORS protection
+   - ✅ Rate limiting middleware
 
-3. **Performance**:
+2. **Performance**:
    - ✅ Code splitting
    - ✅ Lazy loading
-   - ✅ Database query optimization
-   - ✅ Caching (in-memory)
+   - ✅ Compression middleware
    - ✅ Non-blocking email sending
 
-4. **Error Handling**:
+3. **Error Handling**:
    - ✅ Try-catch blocks
-   - ✅ Error logging (console.error)
+   - ✅ Error logging
    - ✅ User-friendly error messages
    - ✅ Graceful degradation
 
-### ⚠️ Minor Improvements (Optional)
-
-1. **Rate Limiting**: Not implemented
-   - Consider: Upstash Redis + Vercel Edge Middleware
-   - Or: Vercel's built-in rate limiting
-
-2. **Monitoring**: Basic logging only
-   - Consider: Sentry for error tracking
-   - Or: Vercel Analytics Pro
-
-3. **Testing**: No tests
-   - Consider: Vitest for unit tests
-   - Consider: Playwright for E2E tests
-
 ---
 
-## 📝 Environment Variables Checklist
-
-Copy this to Vercel dashboard:
+## 📝 Environment Variables Reference
 
 ### Production Environment
 ```bash
-# Database
-DATABASE_URL=
+# Database (Required)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority
 
-# Auth
-JWT_SECRET=
-CLIENT_URL=https://sbd.satym.site
+# Session (Required)
+SESSION_SECRET=your-32-char-random-secret
 
-# Google OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=https://sbd.satym.site/api/auth/google/callback
+# App Config (Required)
+CLIENT_URL=https://your-domain.com
+NODE_ENV=production
+PORT=3001  # Optional, most platforms set this automatically
 
-# Email (SMTP)
+# Email (Required for OTP/Password Reset)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=
-SMTP_PASS=
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-gmail-app-password
 
-# Optional: AI
-GROQ_API_KEY=
+# Google OAuth (Optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=https://your-domain.com/api/auth/google/callback
 
-# Optional: Image Upload
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+# AI Features (Optional)
+GROQ_API_KEY=your-groq-api-key
+
+# Image Upload (Optional)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
+# CORS (Optional - for multiple domains)
+ALLOWED_ORIGINS=https://domain1.com,https://domain2.com
 ```
 
 ---
@@ -347,12 +333,10 @@ After deployment, verify:
 - [ ] Email signup sends OTP
 - [ ] OTP verification works
 - [ ] Email login works
-- [ ] Google OAuth works
-- [ ] Password reset sends email
 - [ ] Dashboard loads after login
-- [ ] API endpoints respond
+- [ ] API endpoints respond (`/api/health`)
 - [ ] No console errors in browser
-- [ ] No 500 errors in Vercel logs
+- [ ] Sessions persist across page reloads
 
 ---
 
@@ -360,33 +344,32 @@ After deployment, verify:
 
 ### If deployment fails:
 
-1. **Check Vercel Logs**:
-   - Go to Deployments → Latest → View Function Logs
+1. **Check Platform Logs**:
    - Look for specific error messages
+   - Check build logs and runtime logs separately
 
 2. **Common Fixes**:
-   - Clear build cache
-   - Verify all env vars are set
-   - Check DATABASE_URL format
+   - Verify all required env vars are set
+   - Check `MONGODB_URI` format and credentials
    - Ensure SMTP credentials are correct
-   - Verify Google OAuth redirect URIs
+   - Test locally with production build
 
 3. **Test Locally**:
    ```bash
    npm run build
-   npm run preview
+   npm run start:server
+   # Visit http://localhost:3001
    ```
 
 4. **Database Issues**:
-   ```bash
-   npx prisma db push
-   npx prisma studio  # Verify data
-   ```
+   - Test connection with `node test-mongodb-connection.mjs`
+   - Verify IP whitelist in MongoDB Atlas
+   - Check database name matches URI
 
 5. **Email Issues**:
-   - Test SMTP credentials separately
+   - Test with `node test-email.mjs`
    - Check spam folder
-   - Verify Gmail app password
+   - Verify Gmail app password (not regular password)
 
 ---
 
@@ -394,25 +377,38 @@ After deployment, verify:
 
 Before marking deployment as complete:
 
-- [ ] Build cache cleared
 - [ ] All environment variables set
-- [ ] Google OAuth configured
-- [ ] Database migration run
+- [ ] MongoDB connection working
+- [ ] Email service configured
 - [ ] `/api/health` returns 200
 - [ ] Landing page loads
 - [ ] Auth page works
 - [ ] Email signup tested
-- [ ] Google OAuth tested
 - [ ] Dashboard accessible
 - [ ] No errors in logs
+- [ ] Sessions working correctly
+
+---
+
+## 📚 Additional Resources
+
+- **MongoDB Setup**: See `MONGODB_SETUP.md`
+- **Email OTP Setup**: See `EMAIL_OTP_SETUP_GUIDE.md`
+- **Render Cleanup**: See `RENDER_CLEANUP_SUMMARY.md`
+- **Project Overview**: See `PROJECT_OVERVIEW_RESUME.md`
 
 ---
 
 **Status**: Ready for deployment ✅
 
-**Last Updated**: January 2025
+**Architecture**: Single unified Node.js application
+
+**Database**: MongoDB Atlas (primary)
+
+**Last Updated**: January 24, 2026
 
 **Next Steps**: 
-1. Clear Vercel build cache
+1. Choose hosting platform
 2. Set environment variables
 3. Deploy and test
+4. (Optional) Complete Prisma to MongoDB migration for remaining routes
