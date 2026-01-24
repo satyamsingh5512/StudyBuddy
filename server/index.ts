@@ -6,7 +6,7 @@ import passport from 'passport';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
-import { PrismaSessionStore } from '@quixo3/prisma-session-store';
+import MongoStore from 'connect-mongo';
 import './config/passport';
 import authRoutes from './routes/auth';
 import todoRoutes from './routes/todos';
@@ -25,34 +25,33 @@ import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
 import healthRoutes from './routes/health';
 import { setupSocketHandlers } from './socket/handlers';
-import { keepAliveService } from './utils/keepAlive';
-import { initializeDatabase } from './utils/initDatabase';
 import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
-import { prisma } from './lib/prisma';
 
 dotenv.config();
 
 // Initialize database before starting server
 async function startServer() {
-  // Initialize database schema if needed
-  await initializeDatabase();
-
-  // Initialize MongoDB connection (non-blocking)
-  getMongoDb().then(db => {
-    if (db) {
-      console.log('✅ MongoDB ready for async sync');
-    } else {
-      console.log('⚠️  MongoDB not configured - sync worker will not run');
-    }
-  }).catch(error => {
-    console.error('❌ MongoDB initialization error:', error);
-  });
+  // Initialize MongoDB connection
+  const db = await getMongoDb();
+  if (!db) {
+    console.error('\n❌ MongoDB connection failed!');
+    console.error('Please check your MONGODB_URI in .env file');
+    console.error('Common issues:');
+    console.error('  1. Invalid credentials (username/password)');
+    console.error('  2. IP address not whitelisted in MongoDB Atlas');
+    console.error('  3. Database name incorrect');
+    console.error('  4. Network connectivity issues\n');
+    console.error('Current MONGODB_URI:', process.env.MONGODB_URI?.replace(/:[^:@]+@/, ':****@'));
+    console.error('\nServer will continue but authentication will NOT work!\n');
+  } else {
+    console.log('✅ MongoDB ready as primary database');
+  }
 
   const app = express();
 
-  // Trust proxy - required for secure cookies behind Render's proxy
+  // Trust proxy for production deployments
   app.set('trust proxy', 1);
 
   const httpServer = createServer(app);
@@ -140,14 +139,14 @@ async function startServer() {
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
       resave: false,
       saveUninitialized: false,
-      store: new PrismaSessionStore(prisma, {
-        checkPeriod: 2 * 60 * 1000, // Clean expired sessions every 2 minutes
-        dbRecordIdIsSessionId: true,
-        dbRecordIdFunction: undefined,
+      store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        ttl: 30 * 24 * 60 * 60, // 30 days
+        touchAfter: 24 * 3600, // Lazy session update
       }),
       cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login like Facebook/Instagram
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login
         httpOnly: true,
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       },
@@ -238,22 +237,18 @@ async function startServer() {
   httpServer.listen(PORT, () => {
     console.log(`\n✅ Server running on http://localhost:${PORT}`);
     console.log(`📱 Client URL: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
-    console.log(`🗄️  Database: ${process.env.DATABASE_URL ? 'Connected' : '⚠️  Not configured'}`);
+    console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'MongoDB Connected' : '⚠️  Not configured'}`);
     console.log(
       `🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' ? 'Configured' : '⚠️  Not configured'}`
     );
     console.log(
       `☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name' ? 'Configured' : '⚠️  Not configured'}\n`
     );
-
-    // Start keep-alive service to prevent Render from spinning down
-    keepAliveService.start();
   });
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
     console.log('\n🛑 SIGTERM received, shutting down gracefully...');
-    keepAliveService.stop();
     closeMongoDb();
     httpServer.close(() => {
       console.log('✅ Server closed');
@@ -263,7 +258,6 @@ async function startServer() {
 
   process.on('SIGINT', () => {
     console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
-    keepAliveService.stop();
     closeMongoDb();
     httpServer.close(() => {
       console.log('✅ Server closed');
