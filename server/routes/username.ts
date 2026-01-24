@@ -1,9 +1,8 @@
 import { Router } from 'express';
-
 import { usernameTrie } from '../utils/trie';
+import { getMongoDb } from '../lib/mongodb';
 
 const router = Router();
-import { prisma } from '../lib/prisma';
 
 // Initialize trie on server start
 let trieInitialized = false;
@@ -14,30 +13,39 @@ async function initializeTrie() {
   try {
     console.log('🔄 Initializing username trie...');
     
-    // Check if the table exists first
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        avatar: true,
-        avatarType: true,
-        examGoal: true,
-        totalPoints: true,
-      },
-    }).catch((error) => {
-      // If table doesn't exist yet, return empty array
-      if (error.code === 'P2021' || error.message.includes('does not exist')) {
-        console.log('⚠️  User table not found, skipping trie initialization');
-        return [];
+    const db = await getMongoDb();
+    if (!db) {
+      console.log('⚠️  MongoDB not connected, skipping trie initialization');
+      return;
+    }
+
+    const users = await db.collection('users').find(
+      { username: { $exists: true, $ne: null } },
+      {
+        projection: {
+          _id: 1,
+          username: 1,
+          name: 1,
+          avatar: 1,
+          avatarType: 1,
+          examGoal: 1,
+          totalPoints: 1,
+        }
       }
-      throw error;
-    });
+    ).toArray();
 
     usernameTrie.clear();
     users.forEach((user) => {
       if (user.username) {
-        usernameTrie.insert(user.username, user.id, user);
+        usernameTrie.insert(user.username, user._id.toString(), {
+          id: user._id.toString(),
+          username: user.username,
+          name: user.name,
+          avatar: user.avatar,
+          avatarType: user.avatarType,
+          examGoal: user.examGoal,
+          totalPoints: user.totalPoints,
+        });
       }
     });
 
