@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "cockroachdb"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
 }
 
@@ -15,6 +15,10 @@ model User {
   password          String?       // For email/password auth
   googleId          String?       @unique // Made optional
   emailVerified     Boolean       @default(false)
+  verificationOtp   String?       // OTP for email verification
+  otpExpiry         DateTime?     // OTP expiration time
+  resetToken        String?       // Password reset token
+  resetTokenExpiry  DateTime?     // Reset token expiration
   avatar            String?
   avatarType        String        @default("photo")
   onboardingDone    Boolean       @default(false)
@@ -59,6 +63,7 @@ model User {
   @@index([coachingId])
   @@index([username])
   @@index([email])
+  @@index([resetToken])
 }
 
 // Email verification OTP
