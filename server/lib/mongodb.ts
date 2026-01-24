@@ -1,12 +1,10 @@
 /**
- * MongoDB Connection Singleton
+ * MongoDB Connection Singleton - PRIMARY DATABASE
  * 
  * OPTIMIZATION: Single connection pool reused across all requests
- * BEFORE: New connection on every sync = slow + memory leak
- * AFTER: Singleton pattern = fast + efficient
  */
 
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, Db, ObjectId } from 'mongodb';
 
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
@@ -29,10 +27,10 @@ export async function getMongoDb(): Promise<Db | null> {
     return getMongoDb();
   }
 
-  const MONGODB_URL = process.env.MONGODB_BACKUP_URL;
+  const MONGODB_URL = process.env.MONGODB_URI;
 
   if (!MONGODB_URL) {
-    console.log('⚠️  MongoDB not configured (MONGODB_BACKUP_URL not set)');
+    console.log('⚠️  MongoDB not configured (MONGODB_URI not set)');
     return null;
   }
 
@@ -40,11 +38,16 @@ export async function getMongoDb(): Promise<Db | null> {
     isConnecting = true;
     console.log('🔄 Connecting to MongoDB...');
     
+    // Workaround for Node.js TLS issues with MongoDB Atlas
     mongoClient = new MongoClient(MONGODB_URL, {
       maxPoolSize: 10,
       minPoolSize: 2,
       maxIdleTimeMS: 60000,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
+      // TLS configuration for compatibility
+      tls: true,
+      tlsAllowInvalidCertificates: true, // Temporary workaround
+      tlsAllowInvalidHostnames: true,
     });
 
     await mongoClient.connect();
@@ -56,8 +59,17 @@ export async function getMongoDb(): Promise<Db | null> {
     await createMongoIndexes(mongoDb);
     
     return mongoDb;
-  } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
+  } catch (error: any) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    if (error.message.includes('authentication failed')) {
+      console.error('   → Check your MongoDB username and password');
+      console.error('   → Verify credentials in MongoDB Atlas');
+    } else if (error.message.includes('ENOTFOUND')) {
+      console.error('   → Check your MongoDB cluster URL');
+      console.error('   → Verify network connectivity');
+    } else if (error.message.includes('IP')) {
+      console.error('   → Add your IP address to MongoDB Atlas whitelist');
+    }
     return null;
   } finally {
     isConnecting = false;
@@ -84,37 +96,40 @@ export async function closeMongoDb() {
 async function createMongoIndexes(db: Db) {
   try {
     // Users collection
-    await db.collection('users').createIndex({ _originalId: 1 }, { unique: true });
-    await db.collection('users').createIndex({ username: 1 });
+    await db.collection('users').createIndex({ email: 1 }, { unique: true });
+    await db.collection('users').createIndex({ username: 1 }, { unique: true, sparse: true });
+    await db.collection('users').createIndex({ googleId: 1 }, { unique: true, sparse: true });
     await db.collection('users').createIndex({ totalPoints: -1 });
-    await db.collection('users').createIndex({ _syncedAt: -1 });
+    await db.collection('users').createIndex({ resetToken: 1 }, { sparse: true });
 
     // Todos collection
-    await db.collection('todos').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('todos').createIndex({ userId: 1, createdAt: -1 });
     await db.collection('todos').createIndex({ userId: 1, completed: 1 });
 
     // Messages collections
-    await db.collection('directMessages').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('directMessages').createIndex({ senderId: 1, receiverId: 1, createdAt: -1 });
     await db.collection('directMessages').createIndex({ receiverId: 1, read: 1 });
 
     // Reports collection
-    await db.collection('dailyReports').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('dailyReports').createIndex({ userId: 1, date: -1 });
 
     // Timer sessions
-    await db.collection('timerSessions').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('timerSessions').createIndex({ userId: 1, completedAt: -1 });
 
     // Forms
-    await db.collection('forms').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('forms').createIndex({ ownerId: 1 });
-    await db.collection('forms').createIndex({ customSlug: 1 });
+    await db.collection('forms').createIndex({ customSlug: 1 }, { unique: true, sparse: true });
 
     // Form responses
-    await db.collection('formResponses').createIndex({ _originalId: 1 }, { unique: true });
     await db.collection('formResponses').createIndex({ formId: 1, submittedAt: -1 });
+
+    // Friendships
+    await db.collection('friendships').createIndex({ senderId: 1, receiverId: 1 }, { unique: true });
+    await db.collection('friendships').createIndex({ receiverId: 1, status: 1 });
+
+    // Sessions
+    await db.collection('sessions').createIndex({ sid: 1 }, { unique: true });
+    await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
     console.log('✅ MongoDB indexes created');
   } catch (error) {
@@ -124,106 +139,17 @@ async function createMongoIndexes(db: Db) {
 }
 
 /**
- * Upsert document to MongoDB
- * Idempotent operation - safe to retry
- * 
- * @param collection - Collection name
- * @param originalId - CockroachDB ID
- * @param data - Document data
+ * Generate a new ObjectId as string
  */
-export async function upsertToMongo(
-  collection: string,
-  originalId: string,
-  data: any
-) {
-  const db = await getMongoDb();
-  if (!db) return false;
-
-  try {
-    const { id, ...rest } = data;
-    
-    await db.collection(collection).updateOne(
-      { _originalId: originalId },
-      {
-        $set: {
-          ...rest,
-          _originalId: originalId,
-          _syncedAt: new Date(),
-          _source: 'cockroachdb',
-        },
-      },
-      { upsert: true }
-    );
-
-    return true;
-  } catch (error) {
-    console.error(`Failed to upsert to MongoDB ${collection}:`, error);
-    return false;
-  }
+export function generateId(): string {
+  return new ObjectId().toString();
 }
 
 /**
- * Delete document from MongoDB
- * Idempotent operation - safe to retry
+ * Convert string ID to ObjectId
  */
-export async function deleteFromMongo(
-  collection: string,
-  originalId: string
-) {
-  const db = await getMongoDb();
-  if (!db) return false;
-
-  try {
-    await db.collection(collection).deleteOne({ _originalId: originalId });
-    return true;
-  } catch (error) {
-    console.error(`Failed to delete from MongoDB ${collection}:`, error);
-    return false;
-  }
-}
-
-/**
- * Query MongoDB for analytics
- * Fast read-only queries
- */
-export async function queryMongo<T = any>(
-  collection: string,
-  filter: any = {},
-  options: any = {}
-): Promise<T[]> {
-  const db = await getMongoDb();
-  if (!db) return [];
-
-  try {
-    return await db
-      .collection(collection)
-      .find(filter, options)
-      .toArray() as T[];
-  } catch (error) {
-    console.error(`Failed to query MongoDB ${collection}:`, error);
-    return [];
-  }
-}
-
-/**
- * Aggregate query for analytics
- */
-export async function aggregateMongo<T = any>(
-  collection: string,
-  pipeline: any[]
-): Promise<T[]> {
-  const db = await getMongoDb();
-  if (!db) return [];
-
-  try {
-    return await db
-      .collection(collection)
-      .aggregate(pipeline)
-      .toArray() as T[];
-  } catch (error) {
-    console.error(`Failed to aggregate MongoDB ${collection}:`, error);
-    return [];
-  }
+export function toObjectId(id: string): ObjectId {
+  return new ObjectId(id);
 }
 
 /**
@@ -240,3 +166,6 @@ export async function checkMongoHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// Export ObjectId for use in other files
+export { ObjectId };
