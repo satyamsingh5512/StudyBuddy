@@ -1,8 +1,9 @@
 import { apiCache } from '@/lib/performance';
 
-// API configuration for Vercel deployment
-// Both frontend and backend are on the same domain
-export const API_URL = '';  // Empty string = same origin (Vercel serverless)
+// API configuration
+// For local development, use proxy (configured in vite.config.ts)
+// For production (Vercel), both frontend and backend are on the same domain
+export const API_URL = '/api';  // Uses Vite proxy in dev, same origin in production
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
