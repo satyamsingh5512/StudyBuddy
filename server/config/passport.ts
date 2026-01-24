@@ -1,8 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { db } from '../lib/db';
 
 // Check if Google OAuth credentials are configured
 const isGoogleAuthConfigured =
@@ -21,17 +19,18 @@ if (isGoogleAuthConfigured) {
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          let user = await prisma.user.findUnique({
-            where: { googleId: profile.id },
+          let user = await db.user.findUnique({
+            googleId: profile.id,
           });
 
           if (!user) {
-            user = await prisma.user.create({
+            user = await db.user.create({
               data: {
                 googleId: profile.id,
                 email: profile.emails?.[0]?.value || '',
                 name: profile.displayName,
                 avatar: profile.photos?.[0]?.value,
+                emailVerified: true, // Google accounts are pre-verified
                 examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 180 days from now
               },
             });
@@ -51,7 +50,7 @@ if (isGoogleAuthConfigured) {
 
   passport.deserializeUser(async (id: string, done) => {
     try {
-      const user = await prisma.user.findUnique({ where: { id } });
+      const user = await db.user.findUnique({ id });
       done(null, user);
     } catch (error) {
       done(error);
@@ -61,7 +60,7 @@ if (isGoogleAuthConfigured) {
   console.warn(
     '\n⚠️  WARNING: Google OAuth is not configured!\n' +
       '   Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file.\n' +
-      '   See SETUP.md for instructions.\n' +
+      '   See AUTH_SETUP.md for instructions.\n' +
       '   The server will start but authentication will not work.\n'
   );
 }
