@@ -123,6 +123,11 @@ export function setupEnhancedChatHandlers(io: Server) {
   io.on('connection', (socket: Socket) => {
     console.log('🔌 User connected:', socket.id);
     
+    // Error handler for socket
+    socket.on('error', (error) => {
+      console.error('❌ Socket error:', socket.id, error);
+    });
+    
     /**
      * Join chat room
      */

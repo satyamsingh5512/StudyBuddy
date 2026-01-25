@@ -303,22 +303,47 @@ async function startServer() {
   });
 
   // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('\n🛑 SIGTERM received, shutting down gracefully...');
-    closeMongoDb();
-    httpServer.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-  });
+  const shutdown = async (signal: string) => {
+    console.log(`\n🛑 ${signal} received, shutting down gracefully...`);
+    
+    try {
+      // Close Socket.IO connections first
+      io.close(() => {
+        console.log('✅ Socket.IO closed');
+      });
+      
+      // Close MongoDB connection
+      await closeMongoDb();
+      
+      // Close HTTP server
+      httpServer.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+      
+      // Force exit after 10 seconds if graceful shutdown fails
+      setTimeout(() => {
+        console.error('⚠️  Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    } catch (error) {
+      console.error('❌ Error during shutdown:', error);
+      process.exit(1);
+    }
+  };
 
-  process.on('SIGINT', () => {
-    console.log('\n\n🛑 SIGINT received, shutting down gracefully...');
-    closeMongoDb();
-    httpServer.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    shutdown('UNCAUGHT_EXCEPTION');
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    shutdown('UNHANDLED_REJECTION');
   });
 }
 
