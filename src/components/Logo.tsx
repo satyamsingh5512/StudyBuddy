@@ -1,16 +1,18 @@
+import { Link } from 'react-router-dom';
+
 interface LogoProps {
     className?: string;
     animated?: boolean;
     highlighted?: boolean;
 }
 
-export default function Logo({ className = '', animated = false, highlighted = false }: LogoProps) {
-    return (
+export default function Logo({ className = '', animated = false, highlighted = false, noLink = false }: LogoProps & { noLink?: boolean }) {
+    const Content = (
         <svg
             viewBox="0 0 40 40"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className={className}
+            className={noLink ? className : "w-full h-full"}
         >
             {/* Book pages */}
             <path
@@ -36,5 +38,13 @@ export default function Logo({ className = '', animated = false, highlighted = f
                 style={{ animationDelay: '300ms' }}
             />
         </svg>
+    );
+
+    if (noLink) return Content;
+
+    return (
+        <Link to="/" className={`block ${className}`} title="Go to Homepage">
+            {Content}
+        </Link>
     );
 }

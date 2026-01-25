@@ -31,6 +31,8 @@ const Friends = lazy(() => import('./pages/Friends'));
 const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
 const Terms = lazy(() => import('./pages/Terms'));
 const News = lazy(() => import('./pages/News'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -117,18 +119,22 @@ function App() {
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen message="Loading..." />}>
         <Routes>
-          {/* Public routes - accessible to everyone */}
-          <Route path="/" element={getDefaultRoute()} />
+          {/* Public routes - always accessible */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Onboarding route */}
+          {/* Root route */}
+          <Route path="/" element={getDefaultRoute()} />
+
+          {/* Onboarding route - only for authenticated users who need onboarding */}
           {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
 
-          {/* Protected routes - require authentication and onboarding */}
-          {user && !needsOnboarding ? (
+          {/* Protected routes - require authentication and completed onboarding */}
+          {user && !needsOnboarding && (
             <Route path="/" element={<Layout />}>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="schedule" element={<Schedule />} />
@@ -142,13 +148,9 @@ function App() {
               <Route path="news" element={<News />} />
               <Route path="settings" element={<Settings />} />
             </Route>
-          ) : (
-            <Route
-              path="*"
-              element={<Navigate to={needsOnboarding ? '/onboarding' : '/'} replace />}
-            />
           )}
 
+          {/* Catch-all redirect */}
           <Route
             path="*"
             element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />}

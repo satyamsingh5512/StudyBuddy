@@ -1,8 +1,11 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { useState } from 'react';
 import { userAtom, studyingAtom } from '@/store/atoms';
 import { useNetworkStatus } from '@/lib/networkStatus';
+import { getAvatarUrl } from '@/lib/avatar';
+import PageTransition from '@/components/PageTransition';
 import {
   LayoutDashboard,
   Calendar,
@@ -131,7 +134,7 @@ export default function Layout() {
             <div className="flex items-center gap-3">
               <div className="relative">
                 <img
-                  src={user?.avatar || 'https://via.placeholder.com/40'}
+                  src={getAvatarUrl(user)}
                   alt={(user as any)?.username || user?.name}
                   className="h-10 w-10 rounded-full ring-2 ring-border"
                 />
@@ -219,7 +222,7 @@ export default function Layout() {
                     </div>
                     <div className="relative">
                       <img
-                        src={user?.avatar || 'https://via.placeholder.com/32'}
+                        src={getAvatarUrl(user)}
                         alt={(user as any)?.username || user?.name}
                         className="h-8 w-8 rounded-full ring-2 ring-transparent group-hover:ring-primary/20 transition-all duration-200"
                       />
@@ -256,8 +259,10 @@ export default function Layout() {
           </header>
 
           <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
-            <div className="max-w-6xl mx-auto page-transition">
-              <Outlet />
+            <div className="max-w-6xl mx-auto h-full">
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
             </div>
           </main>
         </div>
