@@ -59,7 +59,7 @@ export default function BuddyChat() {
     setIsLoading(true);
 
     try {
-      const response = await apiFetch('/api/ai/buddy-chat', {
+      const response = await apiFetch('/ai/buddy-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -96,7 +96,7 @@ export default function BuddyChat() {
 
   const handleAddTask = async (task: any) => {
     try {
-      const response = await apiFetch('/api/todos', {
+      const response = await apiFetch('/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(task),

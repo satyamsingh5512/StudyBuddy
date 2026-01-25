@@ -37,7 +37,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch(`/api/timer/analytics?days=${timeRange}`);
+      const res = await apiFetch(`/timer/analytics?days=${timeRange}`);
       if (res.ok) {
         const data = await res.json();
         setAnalytics(data);

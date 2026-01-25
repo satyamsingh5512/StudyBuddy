@@ -72,7 +72,7 @@ export default function Dashboard() {
 
   const fetchTodos = useCallback(async () => {
     setLoading(true);
-    const res = await apiFetch('/api/todos');
+    const res = await apiFetch('/todos');
     if (res.ok) {
       const data = await res.json();
       setTodos(data);
@@ -110,7 +110,7 @@ export default function Dashboard() {
     soundManager.playAdd();
 
     try {
-      const res = await apiFetch('/api/todos', {
+      const res = await apiFetch('/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ export default function Dashboard() {
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
-      const res = await apiFetch(`/api/todos/${id}`, {
+      const res = await apiFetch(`/todos/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !completed }),
@@ -166,7 +166,7 @@ export default function Dashboard() {
 
   const deleteTodo = useCallback(
     async (id: string) => {
-      const res = await apiFetch(`/api/todos/${id}`, {
+      const res = await apiFetch(`/todos/${id}`, {
         method: 'DELETE',
       });
 

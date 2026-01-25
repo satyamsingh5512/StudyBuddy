@@ -46,7 +46,7 @@ const TaskItem = memo(function TaskItem({ taskId }: TaskItemProps) {
     }
 
     try {
-      const res = await apiFetch(`/api/todos/${taskId}`, {
+      const res = await apiFetch(`/todos/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !wasCompleted }),
@@ -79,7 +79,7 @@ const TaskItem = memo(function TaskItem({ taskId }: TaskItemProps) {
     soundManager.playDelete();
 
     try {
-      const res = await apiFetch(`/api/todos/${taskId}`, {
+      const res = await apiFetch(`/todos/${taskId}`, {
         method: 'DELETE',
       });
 

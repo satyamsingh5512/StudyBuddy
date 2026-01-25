@@ -66,7 +66,7 @@ function App() {
         setIsLoading(false);
       }, 10000); // 10 second timeout (increased for cold starts)
 
-      apiFetch('/api/auth/me')
+      apiFetch('/auth/me')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           clearTimeout(timeoutId);

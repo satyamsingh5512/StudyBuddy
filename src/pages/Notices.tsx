@@ -27,7 +27,7 @@ export default function Notices() {
   }, []);
 
   const fetchNotices = async () => {
-    const res = await apiFetch('/api/notices');
+    const res = await apiFetch('/notices');
     if (res.ok) {
       const data = await res.json();
       setNotices(data);

@@ -23,8 +23,10 @@ router.get('/google/callback', (req, res, next) => {
   if (!isGoogleAuthConfigured) {
     return res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
   }
-  passport.authenticate('google', { failureRedirect: '/' })(req, res, () => {
-    res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
+  passport.authenticate('google', { failureRedirect: '/auth' })(req, res, () => {
+    // Redirect to dashboard after successful Google login
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    res.redirect(`${clientUrl}/dashboard`);
   });
 });
 

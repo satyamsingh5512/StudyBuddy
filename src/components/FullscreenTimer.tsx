@@ -44,7 +44,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
     if (minutes < 1) return;
 
     try {
-      const res = await apiFetch('/api/timer/session', {
+      const res = await apiFetch('/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ minutes, sessionType: 'fullscreen' }),

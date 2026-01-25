@@ -68,7 +68,7 @@ export default function Onboarding() {
     if (!examGoal) return;
 
     try {
-      const res = await apiFetch('/api/ai/exam-info', {
+      const res = await apiFetch('/ai/exam-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ examType: examGoal }),
@@ -87,7 +87,7 @@ export default function Onboarding() {
     if (!examGoal) return;
 
     try {
-      const res = await apiFetch(`/api/faqs/${examGoal}`);
+      const res = await apiFetch(`/faqs/${examGoal}`);
       if (res.ok) {
         const data = await res.json();
         setFaqs(data);
@@ -116,7 +116,7 @@ export default function Onboarding() {
           ? `https://api.dicebear.com/7.x/${selectedStyle}/svg?seed=${username}`
           : uploadedAvatar || user?.avatar;
 
-      const res = await apiFetch('/api/users/onboarding', {
+      const res = await apiFetch('/users/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

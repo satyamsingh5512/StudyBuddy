@@ -8,7 +8,7 @@
  * Usage:
  *   const { mutate, isLoading } = useOptimisticMutation({
  *     atom: todosAtom,
- *     mutationFn: (todo) => apiFetch('/api/todos', { method: 'POST', body: todo }),
+ *     mutationFn: (todo) => apiFetch('/todos', { method: 'POST', body: todo }),
  *     optimisticUpdate: (todos, newTodo) => [...todos, { ...newTodo, id: 'temp-' + Date.now() }],
  *     onSuccess: (data, todos) => todos.map(t => t.id.startsWith('temp-') ? data : t),
  *   });

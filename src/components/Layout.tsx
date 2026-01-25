@@ -56,7 +56,7 @@ export default function Layout() {
 
   const handleLogout = async () => {
     soundManager.playClick();
-    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch('/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };
 

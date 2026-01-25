@@ -22,7 +22,7 @@ export default function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     setLoading(true);
-    const res = await apiFetch('/api/users/leaderboard');
+    const res = await apiFetch('/users/leaderboard');
     if (res.ok) {
       const data = await res.json();
       setUsers(data);

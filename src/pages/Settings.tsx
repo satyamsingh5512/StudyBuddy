@@ -45,7 +45,7 @@ export default function Settings() {
   }, [authSounds]);
 
   const saveSettings = async () => {
-    const res = await apiFetch('/api/users/profile', {
+    const res = await apiFetch('/users/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

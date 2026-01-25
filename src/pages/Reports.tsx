@@ -29,7 +29,7 @@ export default function Reports() {
   }, []);
 
   const fetchReports = async () => {
-    const res = await apiFetch('/api/reports');
+    const res = await apiFetch('/reports');
     if (res.ok) {
       const data = await res.json();
       setReports(data);
@@ -54,7 +54,7 @@ export default function Reports() {
       completionPct: (tasksCompleted / tasksPlanned) * 100,
     };
 
-    const res = await apiFetch('/api/reports', {
+    const res = await apiFetch('/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

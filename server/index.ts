@@ -1,3 +1,7 @@
+// Load environment variables FIRST - must be at the very top
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
@@ -5,8 +9,8 @@ import session from 'express-session';
 import passport from 'passport';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv';
 import MongoStore from 'connect-mongo';
+
 import './config/passport';
 import authRoutes from './routes/auth';
 import todoRoutes from './routes/todos';
@@ -28,8 +32,6 @@ import { setupSocketHandlers } from './socket/handlers';
 import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
-
-dotenv.config();
 
 // Initialize database before starting server
 async function startServer() {

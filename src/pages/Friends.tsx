@@ -94,7 +94,7 @@ export default function Friends() {
   const fetchFriends = async () => {
     try {
       setLoading(true);
-      const response = await apiFetch('/api/friends/list');
+      const response = await apiFetch('/friends/list');
       if (response.ok) {
         const data = await response.json();
         setFriends(data);
@@ -109,7 +109,7 @@ export default function Friends() {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await apiFetch('/api/friends/requests');
+      const response = await apiFetch('/friends/requests');
       if (response.ok) {
         const data = await response.json();
         setRequests(data);
@@ -124,7 +124,7 @@ export default function Friends() {
   const fetchBlocked = async () => {
     try {
       setLoading(true);
-      const response = await apiFetch('/api/friends/blocked');
+      const response = await apiFetch('/friends/blocked');
       if (response.ok) {
         const data = await response.json();
         setBlocked(data);
@@ -162,7 +162,7 @@ export default function Friends() {
 
   const sendFriendRequest = async (userId: string) => {
     try {
-      const response = await apiFetch('/api/friends/request', {
+      const response = await apiFetch('/friends/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ receiverId: userId }),
@@ -180,7 +180,7 @@ export default function Friends() {
 
   const acceptRequest = async (requestId: string) => {
     try {
-      const response = await apiFetch(`/api/friends/request/${requestId}/accept`, {
+      const response = await apiFetch(`/friends/request/${requestId}/accept`, {
         method: 'PUT',
       });
       if (response.ok) {
@@ -194,7 +194,7 @@ export default function Friends() {
 
   const rejectRequest = async (requestId: string) => {
     try {
-      const response = await apiFetch(`/api/friends/request/${requestId}/reject`, {
+      const response = await apiFetch(`/friends/request/${requestId}/reject`, {
         method: 'PUT',
       });
       if (response.ok) {
@@ -209,7 +209,7 @@ export default function Friends() {
     if (!confirm('Are you sure you want to unfriend this user?')) return;
 
     try {
-      const response = await apiFetch(`/api/friends/${friendshipId}`, {
+      const response = await apiFetch(`/friends/${friendshipId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -224,7 +224,7 @@ export default function Friends() {
     if (!confirm('Are you sure you want to block this user?')) return;
 
     try {
-      const response = await apiFetch('/api/friends/block', {
+      const response = await apiFetch('/friends/block', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -240,7 +240,7 @@ export default function Friends() {
 
   const unblockUser = async (userId: string) => {
     try {
-      const response = await apiFetch(`/api/friends/block/${userId}`, {
+      const response = await apiFetch(`/friends/block/${userId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
