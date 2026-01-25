@@ -12,6 +12,16 @@ export function formatTime(seconds: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function getDaysUntil(date: string): number {
-  return Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+export function getDaysUntil(date: string | Date | null | undefined): number {
+  if (!date) return 0;
+  
+  try {
+    const examDate = new Date(date);
+    if (isNaN(examDate.getTime())) return 0;
+    
+    const days = Math.ceil((examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  } catch {
+    return 0;
+  }
 }
