@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
