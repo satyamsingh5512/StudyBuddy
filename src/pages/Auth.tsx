@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Lock, Eye, EyeOff, Mail } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { soundManager } from '../lib/sounds';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/components/Logo';
