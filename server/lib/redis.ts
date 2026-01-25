@@ -174,6 +174,107 @@ class RedisClient {
   }
 
   /**
+   * Remove a message from cache
+   */
+  async removeMessage(roomId: string, messageId: string): Promise<void> {
+    if (this.useRedis && this.redisClient) {
+      try {
+        const key = `chat:messages:${roomId}`;
+        const messages = await this.redisClient.lrange(key, 0, -1);
+        
+        // Filter out the message to delete
+        const filtered = messages.filter((msg: string) => {
+          const parsed = JSON.parse(msg);
+          return parsed.id !== messageId;
+        });
+        
+        // Clear and repopulate the list
+        await this.redisClient.del(key);
+        if (filtered.length > 0) {
+          await this.redisClient.rpush(key, ...filtered);
+          await this.redisClient.expire(key, 3600);
+        }
+      } catch (error) {
+        console.error('Redis remove message error:', error);
+        this.removeMessageInMemory(roomId, messageId);
+      }
+    } else {
+      this.removeMessageInMemory(roomId, messageId);
+    }
+    
+    // Also remove from message queue if it's there
+    this.messageQueue = this.messageQueue.filter(m => m.id !== messageId);
+  }
+
+  /**
+   * Remove message from memory (fallback)
+   */
+  private removeMessageInMemory(roomId: string, messageId: string): void {
+    const messages = this.messageCache.get(roomId);
+    if (messages) {
+      const filtered = messages.filter(m => m.id !== messageId);
+      this.messageCache.set(roomId, filtered);
+    }
+  }
+
+  /**
+   * Update a message in cache
+   */
+  async updateMessage(roomId: string, messageId: string, newMessage: string): Promise<void> {
+    if (this.useRedis && this.redisClient) {
+      try {
+        const key = `chat:messages:${roomId}`;
+        const messages = await this.redisClient.lrange(key, 0, -1);
+        
+        // Update the message
+        const updated = messages.map((msg: string) => {
+          const parsed = JSON.parse(msg);
+          if (parsed.id === messageId) {
+            parsed.message = newMessage;
+          }
+          return JSON.stringify(parsed);
+        });
+        
+        // Clear and repopulate the list
+        await this.redisClient.del(key);
+        if (updated.length > 0) {
+          await this.redisClient.rpush(key, ...updated);
+          await this.redisClient.expire(key, 3600);
+        }
+      } catch (error) {
+        console.error('Redis update message error:', error);
+        this.updateMessageInMemory(roomId, messageId, newMessage);
+      }
+    } else {
+      this.updateMessageInMemory(roomId, messageId, newMessage);
+    }
+    
+    // Also update in message queue if it's there
+    this.messageQueue = this.messageQueue.map(m => {
+      if (m.id === messageId) {
+        return { ...m, message: newMessage };
+      }
+      return m;
+    });
+  }
+
+  /**
+   * Update message in memory (fallback)
+   */
+  private updateMessageInMemory(roomId: string, messageId: string, newMessage: string): void {
+    const messages = this.messageCache.get(roomId);
+    if (messages) {
+      const updated = messages.map(m => {
+        if (m.id === messageId) {
+          return { ...m, message: newMessage };
+        }
+        return m;
+      });
+      this.messageCache.set(roomId, updated);
+    }
+  }
+
+  /**
    * Add user to online list
    */
   async addOnlineUser(userId: string, socketId: string): Promise<void> {
