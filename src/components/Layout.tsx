@@ -163,15 +163,15 @@ export default function Layout() {
                   <Link key={item.path} to={item.path} onClick={handleNavClick}>
                     <div
                       className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-md text-sm 
-                      transition-all duration-200 ease-in-out
+                      flex items-center gap-3 px-4 py-3 rounded-r-xl text-base border-l-4
+                      transition-all duration-300 ease-out group relative overflow-hidden
                       ${isActive
-                          ? 'bg-primary/10 text-primary shadow-sm scale-[1.02] font-semibold'
-                          : 'text-muted-foreground hover:bg-white/10 hover:text-foreground hover:scale-[1.01] active:scale-[0.98]'
+                          ? 'bg-gradient-to-r from-primary/20 via-primary/10 to-transparent border-primary text-primary font-semibold shadow-[4px_0_24px_-2px_rgba(var(--primary),0.1)]'
+                          : 'border-transparent text-muted-foreground hover:bg-gradient-to-r hover:from-primary/10 hover:via-primary/5 hover:to-transparent hover:border-primary/50 hover:text-primary hover:translate-x-1'
                         }
                     `}
                     >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <Icon className="h-5 w-5 flex-shrink-0" />
                       {item.label}
                     </div>
                   </Link>
