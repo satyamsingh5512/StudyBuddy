@@ -116,8 +116,8 @@ export default function Onboarding() {
       let finalAvatarUrl = null;
 
       if (avatarType === 'animated') {
-        finalAvatarType = `animated-${selectedStyle}`;
-        finalAvatarUrl = null; // Dynamic generation, don't save URL
+        finalAvatarType = 'animated' as const;
+        finalAvatarUrl = selectedStyle; // Store the style in avatar field
       } else {
         finalAvatarUrl = uploadedAvatar || user?.avatar;
       }
