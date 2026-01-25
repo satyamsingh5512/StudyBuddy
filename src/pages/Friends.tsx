@@ -147,7 +147,7 @@ export default function Friends() {
       setLoading(true);
       // OPTIMIZATION: Use optimized search endpoint
       const response = await apiFetch(
-        `/api/friends/search?query=${encodeURIComponent(query)}`
+        `/friends/search?query=${encodeURIComponent(query)}`
       );
 
       if (response.ok) {
