@@ -46,9 +46,9 @@ export default function Landing() {
                         >
                             Home
                         </button>
-                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <Link to="/support" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                             Support
-                        </button>
+                        </Link>
                         <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                             About Us
                         </Link>
@@ -130,10 +130,10 @@ export default function Landing() {
 
                         {/* Left Card - Analytics Dashboard */}
                         <motion.div
-                            initial={{ opacity: 0, x: -50, rotate: -8 }}
-                            animate={{ opacity: 1, x: 0, rotate: -8 }}
+                            initial={{ opacity: 0, x: -50, rotate: -6 }}
+                            animate={{ opacity: 1, x: 0, rotate: -6 }}
                             transition={{ duration: 0.6, delay: 0.4 }}
-                            className="relative md:absolute md:left-[2%] md:top-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-64 z-10 order-4 md:order-none"
+                            className="relative md:absolute md:left-[5%] md:top-[40%] md:-translate-y-1/2 w-full max-w-[280px] md:w-64 z-10 order-4 md:order-none"
                         >
                             <div className="bg-card border border-border rounded-2xl p-5 shadow-xl backdrop-blur-sm">
                                 <div className="flex items-start justify-between mb-4">
@@ -200,10 +200,10 @@ export default function Landing() {
 
                         {/* Second Card - Smart Schedule */}
                         <motion.div
-                            initial={{ opacity: 0, y: 40, rotate: -4 }}
-                            animate={{ opacity: 1, y: 0, rotate: -4 }}
+                            initial={{ opacity: 0, y: 40, rotate: -3 }}
+                            animate={{ opacity: 1, y: 0, rotate: -3 }}
                             transition={{ duration: 0.6, delay: 0.45 }}
-                            className="relative md:absolute md:left-[26%] md:top-[65%] md:-translate-y-1/2 w-full max-w-[240px] md:w-56 z-20 order-3 md:order-none"
+                            className="relative md:absolute md:left-[28%] md:top-[75%] md:-translate-y-1/2 w-full max-w-[240px] md:w-56 z-20 order-3 md:order-none"
                         >
                             <div className="bg-card border border-border rounded-2xl p-4 shadow-xl backdrop-blur-sm">
                                 <div className="flex items-center justify-between mb-3">
@@ -245,7 +245,7 @@ export default function Landing() {
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.5 }}
-                            className="relative md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-72 z-30 order-1 md:order-none mb-6 md:mb-0"
+                            className="relative md:absolute md:left-[50%] md:top-[50%] md:-translate-x-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-72 z-30 order-1 md:order-none mb-6 md:mb-0"
                         >
                             <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-2xl p-5 shadow-2xl backdrop-blur-sm">
                                 <div className="flex items-center justify-between mb-4">
@@ -315,10 +315,10 @@ export default function Landing() {
 
                         {/* Right Card - Collaboration Hub */}
                         <motion.div
-                            initial={{ opacity: 0, x: 50, rotate: 8 }}
-                            animate={{ opacity: 1, x: 0, rotate: 8 }}
+                            initial={{ opacity: 0, x: 50, rotate: 6 }}
+                            animate={{ opacity: 1, x: 0, rotate: 6 }}
                             transition={{ duration: 0.6, delay: 0.6 }}
-                            className="relative md:absolute md:right-[2%] md:top-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-64 order-2 md:order-none"
+                            className="relative md:absolute md:right-[5%] md:top-[45%] md:-translate-y-1/2 w-full max-w-[280px] md:w-64 order-2 md:order-none"
                         >
                             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
                                 {/* Header with gradient */}
