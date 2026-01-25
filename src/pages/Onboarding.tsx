@@ -23,7 +23,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
+import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 
 const AVATAR_STYLES = [
   { id: 'adventurer', name: 'Adventurer' },
@@ -146,260 +149,259 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Welcome to StudyBuddy!</CardTitle>
-          <CardDescription>Let's set up your profile</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Step 1: Username */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="username">Choose a username</Label>
-                <UsernameInput
-                  value={username}
-                  onChange={setUsername}
-                  onValidationChange={setUsernameValid}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  This will be your unique identifier on StudyBuddy
-                </p>
+    <UnifiedPageWrapper>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl bg-card/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle>Welcome to StudyBuddy!</CardTitle>
+            <CardDescription>Let's set up your profile</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Step 1: Username */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="username">Choose a username</Label>
+                  <UsernameInput
+                    value={username}
+                    onChange={setUsername}
+                    onValidationChange={setUsernameValid}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This will be your unique identifier on StudyBuddy
+                  </p>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <Button onClick={() => setStep(2)} disabled={!usernameValid} className="flex-1">
+                    Next
+                  </Button>
+                </div>
               </div>
+            )}
 
-              <div className="flex gap-4 pt-4">
-                <Button onClick={() => setStep(2)} disabled={!usernameValid} className="flex-1">
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+            {/* Step 2: Exam Details */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Which exam are you preparing for?</Label>
+                  <Select value={examGoal} onValueChange={setExamGoal}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select exam" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXAMS.map((exam) => (
+                        <SelectItem key={exam.id} value={exam.id}>
+                          {exam.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Step 2: Exam Details */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <Label>Which exam are you preparing for?</Label>
-                <Select value={examGoal} onValueChange={setExamGoal}>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Select exam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EXAMS.map((exam) => (
-                      <SelectItem key={exam.id} value={exam.id}>
-                        {exam.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {examGoal && (
-                <>
-                  <div>
-                    <Label>Current Class/Status</Label>
-                    <Select value={studentClass} onValueChange={setStudentClass}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLASSES.map((cls) => (
-                          <SelectItem key={cls} value={cls}>
-                            {cls}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Academic Batch</Label>
-                    <Select value={batch} onValueChange={setBatch}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select batch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2024-25">2024-25</SelectItem>
-                        <SelectItem value="2025-26">2025-26</SelectItem>
-                        <SelectItem value="2026-27">2026-27</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedExam?.hasAttempts && (
+                {examGoal && (
+                  <>
                     <div>
-                      <Label>Exam Attempt</Label>
-                      <Select
-                        value={examAttempt.toString()}
-                        onValueChange={(v) => setExamAttempt(Number(v))}
-                      >
+                      <Label>Current Class/Status</Label>
+                      <Select value={studentClass} onValueChange={setStudentClass}>
                         <SelectTrigger className="mt-2">
-                          <SelectValue />
+                          <SelectValue placeholder="Select class" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from({ length: maxAttempts }, (_, i) => i + 1).map((num) => (
-                            <SelectItem key={num} value={num.toString()}>
-                              Attempt {num}
+                          {CLASSES.map((cls) => (
+                            <SelectItem key={cls} value={cls}>
+                              {cls}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Maximum {maxAttempts} attempts allowed
-                      </p>
                     </div>
-                  )}
 
-                  {faqs.length > 0 && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full gap-2">
-                          <HelpCircle className="h-4 w-4" />
-                          View FAQs about {examGoal}
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>{examGoal} - Frequently Asked Questions</DialogTitle>
-                          <DialogDescription>
-                            Important information about the exam
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          {faqs.map((faq) => (
-                            <div key={faq.id} className="space-y-2">
-                              <h4 className="font-medium">{faq.question}</h4>
-                              <p className="text-sm text-muted-foreground">{faq.answer}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                </>
-              )}
+                    <div>
+                      <Label>Academic Batch</Label>
+                      <Select value={batch} onValueChange={setBatch}>
+                        <SelectTrigger className="mt-2">
+                          <SelectValue placeholder="Select batch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2024-25">2024-25</SelectItem>
+                          <SelectItem value="2025-26">2025-26</SelectItem>
+                          <SelectItem value="2026-27">2026-27</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              <div className="flex gap-4 pt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
-                  Back
-                </Button>
-                <Button
-                  onClick={() => {
-                    fetchExamData();
-                    fetchFAQs();
-                    setStep(3);
-                  }}
-                  disabled={!examGoal || !studentClass || !batch}
-                  className="flex-1"
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+                    {selectedExam?.hasAttempts && (
+                      <div>
+                        <Label>Exam Attempt</Label>
+                        <Select
+                          value={examAttempt.toString()}
+                          onValueChange={(v) => setExamAttempt(Number(v))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: maxAttempts }, (_, i) => i + 1).map((num) => (
+                              <SelectItem key={num} value={num.toString()}>
+                                Attempt {num}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Maximum {maxAttempts} attempts allowed
+                        </p>
+                      </div>
+                    )}
 
-          {/* Step 3: Avatar */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <Label>Choose your avatar style</Label>
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <button
-                    onClick={() => setAvatarType('photo')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      avatarType === 'photo'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    {faqs.length > 0 && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="w-full gap-2">
+                            <HelpCircle className="h-4 w-4" />
+                            View FAQs about {examGoal}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>{examGoal} - Frequently Asked Questions</DialogTitle>
+                            <DialogDescription>
+                              Important information about the exam
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            {faqs.map((faq) => (
+                              <div key={faq.id} className="space-y-2">
+                                <h4 className="font-medium">{faq.question}</h4>
+                                <p className="text-sm text-muted-foreground">{faq.answer}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </>
+                )}
+
+                <div className="flex gap-4 pt-4">
+                  <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      fetchExamData();
+                      fetchFAQs();
+                      setStep(3);
+                    }}
+                    disabled={!examGoal || !studentClass || !batch}
+                    className="flex-1"
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                        <User className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <div className="text-center">
-                        <p className="font-medium">Upload Photo</p>
-                        <p className="text-xs text-muted-foreground">Upload your own picture</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setAvatarType('animated')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      avatarType === 'animated'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                        <Sparkles className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <div className="text-center">
-                        <p className="font-medium">Animated Avatar</p>
-                        <p className="text-xs text-muted-foreground">Choose a fun style</p>
-                      </div>
-                    </div>
-                  </button>
+                    Next
+                  </Button>
                 </div>
               </div>
+            )}
 
-              {avatarType === 'photo' && (
-                <div className="flex justify-center">
-                  <ImageUpload
-                    type="profile"
-                    currentImage={uploadedAvatar || user?.avatar}
-                    onUploadComplete={(url) => setUploadedAvatar(url)}
-                  />
-                </div>
-              )}
-
-              {avatarType === 'animated' && (
+            {/* Step 3: Avatar */}
+            {step === 3 && (
+              <div className="space-y-4">
                 <div>
-                  <Label>Select avatar style</Label>
-                  <div className="grid grid-cols-3 gap-3 mt-4">
-                    {AVATAR_STYLES.map((style) => (
-                      <button
-                        key={style.id}
-                        onClick={() => setSelectedStyle(style.id)}
-                        className={`p-3 rounded-lg border-2 transition-all ${
-                          selectedStyle === style.id
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
+                  <Label>Choose your avatar style</Label>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <button
+                      onClick={() => setAvatarType('photo')}
+                      className={`p-4 rounded-lg border-2 transition-all ${avatarType === 'photo'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
                         }`}
-                      >
-                        <img
-                          src={`https://api.dicebear.com/7.x/${style.id}/svg?seed=${username || 'preview'}`}
-                          alt={style.name}
-                          className="w-full aspect-square rounded-lg mb-2"
-                        />
-                        <p className="text-xs font-medium text-center">{style.name}</p>
-                      </button>
-                    ))}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <User className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">Upload Photo</p>
+                          <p className="text-xs text-muted-foreground">Upload your own picture</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setAvatarType('animated')}
+                      className={`p-4 rounded-lg border-2 transition-all ${avatarType === 'animated'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                        }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                          <Sparkles className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">Animated Avatar</p>
+                          <p className="text-xs text-muted-foreground">Choose a fun style</p>
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 </div>
-              )}
 
-              <div className="flex gap-4 pt-4">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                  Back
-                </Button>
-                <Button onClick={handleSubmit} disabled={loading} className="flex-1">
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Setting up...
-                    </>
-                  ) : (
-                    'Complete Setup'
-                  )}
-                </Button>
+                {avatarType === 'photo' && (
+                  <div className="flex justify-center">
+                    <ImageUpload
+                      type="profile"
+                      currentImage={uploadedAvatar || user?.avatar}
+                      onUploadComplete={(url) => setUploadedAvatar(url)}
+                    />
+                  </div>
+                )}
+
+                {avatarType === 'animated' && (
+                  <div>
+                    <Label>Select avatar style</Label>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {AVATAR_STYLES.map((style) => (
+                        <button
+                          key={style.id}
+                          onClick={() => setSelectedStyle(style.id)}
+                          className={`p-3 rounded-lg border-2 transition-all ${selectedStyle === style.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                            }`}
+                        >
+                          <img
+                            src={`https://api.dicebear.com/7.x/${style.id}/svg?seed=${username || 'preview'}`}
+                            alt={style.name}
+                            className="w-full aspect-square rounded-lg mb-2"
+                          />
+                          <p className="text-xs font-medium text-center">{style.name}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-4 pt-4">
+                  <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+                    Back
+                  </Button>
+                  <Button onClick={handleSubmit} disabled={loading} className="flex-1">
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Setting up...
+                      </>
+                    ) : (
+                      'Complete Setup'
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </UnifiedPageWrapper>
   );
 }
