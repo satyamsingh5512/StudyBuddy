@@ -1,11 +1,9 @@
 import { Router } from 'express';
-
 import { isAuthenticated } from '../middleware/auth';
 import { groq } from '../lib/groqClient';
 import { newsRateLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
-import { prisma } from '../lib/prisma';
 
 router.use(isAuthenticated);
 

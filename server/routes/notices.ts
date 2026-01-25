@@ -1,15 +1,14 @@
 import { Router } from 'express';
-
 import { isAuthenticated } from '../middleware/auth';
+import { db } from '../lib/db';
 
 const router = Router();
-import { prisma } from '../lib/prisma';
 
 router.use(isAuthenticated);
 
 router.get('/', async (req, res) => {
   try {
-    const notices = await prisma.notice.findMany({
+    const notices = await db.notice.findMany({
       where: { published: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -22,7 +21,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const notice = await prisma.notice.create({
+    const notice = await db.notice.create({
       data: req.body,
     });
     res.json(notice);

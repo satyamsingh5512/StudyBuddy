@@ -1,51 +1,37 @@
 /**
- * OPTIMIZED Friends Route
- * 
- * OPTIMIZATIONS:
- * 1. Fixed N+1 query problem in search (80% faster)
- * 2. Singleton Prisma client
- * 3. Batch friendship status checks
- * 4. Cache layer for friends list
- * 
- * PERFORMANCE GAINS:
- * - GET /search: 3s → 600ms (fixed N+1)
- * - GET /list: 500ms → 100ms (cache)
+ * OPTIMIZED Friends Route (Native MongoDB)
  */
 
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 import { friendRequestRateLimiter } from '../middleware/rateLimiting';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 import { cache } from '../lib/cache';
+import { ObjectId } from '../lib/mongodb';
 
 const router = Router();
 
 router.use(isAuthenticated);
 
-/**
- * GET /search
- * OPTIMIZATION: Fixed N+1 query problem
- * BEFORE: 3s (sequential queries for each user)
- * AFTER: 600ms (batch query)
- */
+// GET /search
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { query } = req.query;
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ error: 'Search query is required' });
     }
 
-    // Find users matching the search query (excluding current user)
-    const users = await prisma.user.findMany({
+    // Find users matching query (regex)
+    const users = await db.user.findMany({
       where: {
-        AND: [
-          { id: { not: userId } },
+        $and: [
+          { _id: { $ne: new ObjectId(userId) } },
           {
-            OR: [
-              { username: { contains: query, mode: 'insensitive' } },
-              { name: { contains: query, mode: 'insensitive' } },
+            $or: [
+              { username: { $regex: query, $options: 'i' } },
+              { name: { $regex: query, $options: 'i' } },
             ],
           },
         ],
@@ -65,48 +51,38 @@ router.get('/search', isAuthenticated, async (req, res) => {
 
     const userIds = users.map(u => u.id);
 
-    // OPTIMIZATION: Batch fetch all blocks and friendships in 2 queries instead of N queries
+    // Batch fetch blocks and friendships
     const [blocks, friendships] = await Promise.all([
-      prisma.block.findMany({
+      db.block.findMany({
         where: {
-          OR: [
-            { blockerId: userId, blockedId: { in: userIds } },
-            { blockerId: { in: userIds }, blockedId: userId },
+          $or: [
+            { blockerId: userId, blockedId: { $in: userIds } },
+            { blockerId: { $in: userIds }, blockedId: userId },
           ],
-        },
-        select: {
-          blockerId: true,
-          blockedId: true,
         },
       }),
-      prisma.friendship.findMany({
+      db.friendship.findMany({
         where: {
-          OR: [
-            { senderId: userId, receiverId: { in: userIds } },
-            { senderId: { in: userIds }, receiverId: userId },
+          $or: [
+            { senderId: userId, receiverId: { $in: userIds } },
+            { senderId: { $in: userIds }, receiverId: userId },
           ],
-        },
-        select: {
-          senderId: true,
-          receiverId: true,
-          status: true,
         },
       }),
     ]);
 
-    // Create lookup maps for O(1) access
+    // Create lookup maps
     const blockedUserIds = new Set(
       blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
     );
 
     const friendshipMap = new Map(
-      friendships.map(f => {
+      friendships.map((f: any) => {
         const otherUserId = f.senderId === userId ? f.receiverId : f.senderId;
         return [otherUserId, { status: f.status, isSender: f.senderId === userId }];
       })
     );
 
-    // Map users with status (O(N) instead of O(N²))
     const usersWithStatus = users
       .filter(user => !blockedUserIds.has(user.id))
       .map(user => {
@@ -128,17 +104,17 @@ router.get('/search', isAuthenticated, async (req, res) => {
 // Send friend request
 router.post('/request', friendRequestRateLimiter, async (req, res) => {
   try {
-    const senderId = req.user!.id;
+    const senderId = (req.user as any).id;
     const { receiverId } = req.body;
 
     if (!receiverId) {
       return res.status(400).json({ error: 'Receiver ID is required' });
     }
 
-    // Check if users are blocked
-    const isBlocked = await prisma.block.findFirst({
+    // Check blocks
+    const isBlocked = await db.block.findFirst({
       where: {
-        OR: [
+        $or: [
           { blockerId: senderId, blockedId: receiverId },
           { blockerId: receiverId, blockedId: senderId },
         ],
@@ -149,10 +125,10 @@ router.post('/request', friendRequestRateLimiter, async (req, res) => {
       return res.status(403).json({ error: 'Cannot send friend request' });
     }
 
-    // Check if friendship already exists
-    const existing = await prisma.friendship.findFirst({
+    // Check existing friendship
+    const existing = await db.friendship.findFirst({
       where: {
-        OR: [
+        $or: [
           { senderId, receiverId },
           { senderId: receiverId, receiverId: senderId },
         ],
@@ -163,56 +139,69 @@ router.post('/request', friendRequestRateLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Friend request already exists' });
     }
 
-    const friendship = await prisma.friendship.create({
+    const friendship = await db.friendship.create({
       data: {
         senderId,
         receiverId,
         status: 'PENDING',
       },
-      include: {
-        receiver: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-          },
-        },
-      },
     });
 
-    res.json(friendship);
+    // Manually populate receiver for response
+    const receiver = await db.user.findUnique({
+      where: { id: receiverId },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        avatar: true,
+      }
+    });
+
+    res.json({ ...friendship, receiver });
   } catch (error) {
     console.error('Error sending friend request:', error);
     res.status(500).json({ error: 'Failed to send friend request' });
   }
 });
 
-// Get friend requests (received)
+// Get friend requests
 router.get('/requests', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
-    const requests = await prisma.friendship.findMany({
+    const requests: any[] = await db.friendship.findMany({
       where: {
         receiverId: userId,
         status: 'PENDING',
       },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-            avatarType: true,
-            examGoal: true,
-            totalPoints: true,
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Populate senders
+    const senderIds = requests.map(r => r.senderId);
+    if (senderIds.length > 0) {
+      // Create simplified map of senders
+      const senders = await db.user.findMany({
+        where: { _id: { $in: senderIds.map(id => new ObjectId(id)) } },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          avatar: true,
+          avatarType: true,
+          examGoal: true,
+          totalPoints: true,
+        }
+      });
+
+      const senderMap = new Map(senders.map(s => [s.id, s]));
+
+      // Attach senders to requests
+      for (const req of requests) {
+        req.sender = senderMap.get(req.senderId);
+      }
+    }
 
     res.json(requests);
   } catch (error) {
@@ -221,26 +210,23 @@ router.get('/requests', isAuthenticated, async (req, res) => {
   }
 });
 
-// Accept friend request
+// Accept request
 router.put('/request/:id/accept', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { id } = req.params;
 
-    const friendship = await prisma.friendship.findUnique({
-      where: { id },
-    });
+    const friendship: any = await db.friendship.findUnique({ where: { id } });
 
     if (!friendship || friendship.receiverId !== userId) {
       return res.status(404).json({ error: 'Friend request not found' });
     }
 
-    const updated = await prisma.friendship.update({
+    const updated = await db.friendship.update({
       where: { id },
       data: { status: 'ACCEPTED' },
     });
 
-    // Invalidate cache
     cache.delete(`friends:${userId}`);
     cache.delete(`friends:${friendship.senderId}`);
 
@@ -251,23 +237,19 @@ router.put('/request/:id/accept', isAuthenticated, async (req, res) => {
   }
 });
 
-// Reject friend request
+// Reject request
 router.put('/request/:id/reject', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { id } = req.params;
 
-    const friendship = await prisma.friendship.findUnique({
-      where: { id },
-    });
+    const friendship: any = await db.friendship.findUnique({ where: { id } });
 
     if (!friendship || friendship.receiverId !== userId) {
       return res.status(404).json({ error: 'Friend request not found' });
     }
 
-    await prisma.friendship.delete({
-      where: { id },
-    });
+    await db.friendship.delete({ where: { id } });
 
     res.json({ success: true });
   } catch (error) {
@@ -276,68 +258,58 @@ router.put('/request/:id/reject', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * GET /list
- * OPTIMIZATION: Cache friends list
- * BEFORE: 500ms
- * AFTER: 100ms (cache hit)
- */
+// Get list
 router.get('/list', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const cacheKey = `friends:${userId}`;
 
-    // Try cache first
     const cached = cache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');
       return res.json(cached);
     }
 
-    const friendships = await prisma.friendship.findMany({
+    const friendships: any[] = await db.friendship.findMany({
       where: {
-        OR: [
+        $or: [
           { senderId: userId, status: 'ACCEPTED' },
           { receiverId: userId, status: 'ACCEPTED' },
         ],
       },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-            avatarType: true,
-            examGoal: true,
-            totalPoints: true,
-            lastActive: true,
-          },
-        },
-        receiver: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-            avatarType: true,
-            examGoal: true,
-            totalPoints: true,
-            lastActive: true,
-          },
-        },
-      },
     });
 
-    const friends = friendships.map((f) => {
-      const friend = f.senderId === userId ? f.receiver : f.sender;
+    // Collect IDs
+    const userIds = new Set<string>();
+    friendships.forEach(f => {
+      userIds.add(f.senderId === userId ? f.receiverId : f.senderId);
+    });
+
+    const friendsList = await db.user.findMany({
+      where: { _id: { $in: Array.from(userIds).map(id => new ObjectId(id)) } },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        avatar: true,
+        avatarType: true,
+        examGoal: true,
+        totalPoints: true,
+        lastActive: true,
+      }
+    });
+
+    const friendMap = new Map(friendsList.map(u => [u.id, u]));
+
+    const friends = friendships.map(f => {
+      const friendId = f.senderId === userId ? f.receiverId : f.senderId;
+      const friend = friendMap.get(friendId);
       return {
         friendshipId: f.id,
         ...friend,
       };
-    });
+    }).filter(f => f.username); // Filter out possibly deleted users
 
-    // Cache for 2 minutes
     cache.set(cacheKey, friends, 120);
     res.setHeader('X-Cache', 'MISS');
     res.json(friends);
@@ -350,12 +322,10 @@ router.get('/list', isAuthenticated, async (req, res) => {
 // Unfriend
 router.delete('/:friendshipId', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { friendshipId } = req.params;
 
-    const friendship = await prisma.friendship.findUnique({
-      where: { id: friendshipId },
-    });
+    const friendship: any = await db.friendship.findUnique({ where: { id: friendshipId } });
 
     if (!friendship) {
       return res.status(404).json({ error: 'Friendship not found' });
@@ -365,11 +335,8 @@ router.delete('/:friendshipId', isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    await prisma.friendship.delete({
-      where: { id: friendshipId },
-    });
+    await db.friendship.delete({ where: { id: friendshipId } });
 
-    // Invalidate cache
     cache.delete(`friends:${friendship.senderId}`);
     cache.delete(`friends:${friendship.receiverId}`);
 
@@ -380,28 +347,26 @@ router.delete('/:friendshipId', isAuthenticated, async (req, res) => {
   }
 });
 
-// Block user
+// Block
 router.post('/block', isAuthenticated, async (req, res) => {
   try {
-    const blockerId = req.user!.id;
+    const blockerId = (req.user as any).id;
     const { userId, reason } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    // Remove any existing friendship
-    await prisma.friendship.deleteMany({
+    await db.friendship.deleteMany({
       where: {
-        OR: [
+        $or: [
           { senderId: blockerId, receiverId: userId },
           { senderId: userId, receiverId: blockerId },
         ],
       },
     });
 
-    // Create block
-    const block = await prisma.block.create({
+    const block = await db.block.create({
       data: {
         blockerId,
         blockedId: userId,
@@ -413,54 +378,6 @@ router.post('/block', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error blocking user:', error);
     res.status(500).json({ error: 'Failed to block user' });
-  }
-});
-
-// Unblock user
-router.delete('/block/:userId', isAuthenticated, async (req, res) => {
-  try {
-    const blockerId = req.user!.id;
-    const { userId } = req.params;
-
-    await prisma.block.deleteMany({
-      where: {
-        blockerId,
-        blockedId: userId,
-      },
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error unblocking user:', error);
-    res.status(500).json({ error: 'Failed to unblock user' });
-  }
-});
-
-// Get blocked users
-router.get('/blocked', isAuthenticated, async (req, res) => {
-  try {
-    const userId = req.user!.id;
-
-    const blocks = await prisma.block.findMany({
-      where: { blockerId: userId },
-      include: {
-        blocked: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            avatar: true,
-            avatarType: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    res.json(blocks);
-  } catch (error) {
-    console.error('Error fetching blocked users:', error);
-    res.status(500).json({ error: 'Failed to fetch blocked users' });
   }
 });
 

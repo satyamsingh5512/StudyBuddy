@@ -15,9 +15,8 @@
 
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
-import { prisma } from '../lib/prisma'; // Singleton instance
+import { db } from '../lib/db'; // MongoDB abstraction
 import { cache } from '../lib/cache'; // Cache layer
-import { createOutboxEvent } from '../lib/outbox'; // Outbox pattern
 
 const router = Router();
 
@@ -42,7 +41,7 @@ router.get('/', async (req, res) => {
     }
     
     // Cache miss - fetch from database
-    const todos = await prisma.todo.findMany({
+    const todos = await db.todo.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       // OPTIMIZATION: Only select needed fields (30% less data)
@@ -70,41 +69,25 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /todos
- * OPTIMIZATION: Outbox pattern - MongoDB sync is async
- * BEFORE: 200ms (CockroachDB + MongoDB sync)
- * AFTER: 50ms (CockroachDB + outbox only)
+ * Create a new todo
  */
 router.post('/', async (req, res) => {
   try {
     const userId = (req.user as any).id;
     
-    // CRITICAL: Write to CockroachDB + Outbox in ATOMIC transaction
-    const todo = await prisma.$transaction(async (tx) => {
-      // 1. Create todo in CockroachDB
-      const newTodo = await tx.todo.create({
-        data: {
-          ...req.body,
-          userId,
-        },
-      });
-
-      // 2. Create outbox event (same transaction = atomic)
-      await tx.outbox.create({
-        data: {
-          eventType: 'todo.created',
-          aggregateType: 'todo',
-          aggregateId: newTodo.id,
-          payload: newTodo as any,
-        },
-      });
-
-      return newTodo;
+    // Create todo in MongoDB
+    const todo = await db.todo.create({
+      data: {
+        ...req.body,
+        userId,
+        completed: false,
+        questionsCompleted: 0,
+      },
     });
 
     // Invalidate cache
     cache.delete(`todos:${userId}`);
 
-    // Return immediately (MongoDB sync happens in background)
     res.json(todo);
   } catch (error) {
     console.error('Todo creation error:', error);
@@ -114,64 +97,40 @@ router.post('/', async (req, res) => {
 
 /**
  * PATCH /todos/:id
- * OPTIMIZATION: Outbox pattern - MongoDB sync is async
- * BEFORE: 180ms (CockroachDB + MongoDB sync)
- * AFTER: 50ms (CockroachDB + outbox only)
+ * Update a todo
  */
 router.patch('/:id', async (req, res) => {
   try {
     const userId = (req.user as any).id;
     
-    // CRITICAL: Update + Outbox in ATOMIC transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Check if completing task
-      const existingTodo = await tx.todo.findUnique({
-        where: { id: req.params.id },
-        select: { completed: true },
-      });
-
-      // Update todo
-      const updatedTodo = await tx.todo.update({
-        where: { id: req.params.id },
-        data: req.body,
-      });
-
-      // Create outbox event
-      await tx.outbox.create({
-        data: {
-          eventType: 'todo.updated',
-          aggregateType: 'todo',
-          aggregateId: updatedTodo.id,
-          payload: updatedTodo as any,
-        },
-      });
-
-      // Award point if completing task
-      if (req.body.completed && existingTodo && !existingTodo.completed) {
-        const updatedUser = await tx.user.update({
-          where: { id: userId },
-          data: { totalPoints: { increment: 1 } },
-        });
-
-        // Create outbox event for user update
-        await tx.outbox.create({
-          data: {
-            eventType: 'user.updated',
-            aggregateType: 'user',
-            aggregateId: userId,
-            payload: updatedUser as any,
-          },
-        });
-      }
-
-      return updatedTodo;
+    // Check if completing task
+    const existingTodo = await db.todo.findUnique({
+      where: { id: req.params.id },
     });
+
+    if (!existingTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    // Update todo
+    const updatedTodo = await db.todo.update({
+      where: { id: req.params.id },
+      data: req.body,
+    });
+
+    // Award point if completing task
+    if (req.body.completed && !existingTodo.completed) {
+      await db.user.update({
+        where: { id: userId },
+        data: { totalPoints: existingTodo.totalPoints + 1 },
+      });
+      cache.invalidatePattern(`user:${userId}`);
+    }
 
     // Invalidate caches
     cache.delete(`todos:${userId}`);
-    cache.invalidatePattern(`user:${userId}`);
 
-    res.json(result);
+    res.json(updatedTodo);
   } catch (error) {
     console.error('Todo update error:', error);
     res.status(500).json({ error: 'Failed to update todo' });
@@ -180,30 +139,15 @@ router.patch('/:id', async (req, res) => {
 
 /**
  * DELETE /todos/:id
- * OPTIMIZATION: Outbox pattern - MongoDB sync is async
- * BEFORE: 150ms (CockroachDB + MongoDB sync)
- * AFTER: 50ms (CockroachDB + outbox only)
+ * Delete a todo
  */
 router.delete('/:id', async (req, res) => {
   try {
     const userId = (req.user as any).id;
     
-    // CRITICAL: Delete + Outbox in ATOMIC transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete todo
-      await tx.todo.delete({
-        where: { id: req.params.id },
-      });
-
-      // Create outbox event
-      await tx.outbox.create({
-        data: {
-          eventType: 'todo.deleted',
-          aggregateType: 'todo',
-          aggregateId: req.params.id,
-          payload: { id: req.params.id } as any,
-        },
-      });
+    // Delete todo
+    await db.todo.delete({
+      where: { id: req.params.id },
     });
 
     // Invalidate cache

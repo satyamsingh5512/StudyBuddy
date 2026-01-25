@@ -14,7 +14,7 @@
 
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
+import { db as prisma } from '../lib/db';
 import { cache } from '../lib/cache';
 
 const router = Router();
@@ -30,14 +30,14 @@ router.use(isAuthenticated);
 router.get('/leaderboard', async (req, res) => {
   try {
     const cacheKey = 'leaderboard:top10';
-    
+
     // Try cache (5 minute TTL - leaderboard doesn't change often)
     const cached = cache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');
       return res.json(cached);
     }
-    
+
     // OPTIMIZATION: Only select needed fields
     const users = await prisma.user.findMany({
       where: {
@@ -56,7 +56,7 @@ router.get('/leaderboard', async (req, res) => {
         streak: true,
       },
     });
-    
+
     // Cache for 5 minutes
     cache.set(cacheKey, users, 300);
     res.setHeader('X-Cache', 'MISS');
@@ -74,16 +74,16 @@ router.get('/leaderboard', async (req, res) => {
 router.patch('/profile', async (req, res) => {
   try {
     const userId = (req.user as any).id;
-    
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: req.body,
     });
-    
+
     // Invalidate caches
     cache.delete(`user:${userId}`);
     cache.delete('leaderboard:top10');
-    
+
     res.json(user);
   } catch (error) {
     console.error('Profile update error:', error);
@@ -99,7 +99,7 @@ router.patch('/profile', async (req, res) => {
  */
 router.post('/onboarding', async (req, res) => {
   try {
-    const { username, avatarType, avatar, examGoal, studentClass, batch, examAttempt } = req.body;
+    const { username, avatarType, avatar, examGoal, studentClass, batch, examAttempt, examDate } = req.body;
     const userId = (req.user as any).id;
 
     // Check username availability
@@ -114,7 +114,10 @@ router.post('/onboarding', async (req, res) => {
       }
     }
 
-    // OPTIMIZATION: Update user immediately without AI data
+    // Parse exam date if provided
+    const parsedExamDate = examDate ? new Date(examDate) : null;
+
+    // Update user with all onboarding data
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -125,41 +128,22 @@ router.post('/onboarding', async (req, res) => {
         studentClass,
         batch,
         examAttempt,
+        examDate: parsedExamDate,
         onboardingDone: true,
       },
     });
 
-    // Send response immediately
-    res.json(user);
-
-    // OPTIMIZATION: Fetch AI data in background (non-blocking)
-    setImmediate(async () => {
-      try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-        const prompt = `Provide ${examGoal} exam date for batch ${batch} in JSON: {"examDate": "YYYY-MM-DD"}`;
-
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        const text = response.text();
-
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const data = JSON.parse(jsonMatch[0]);
-          const examDate = data.examDate ? new Date(data.examDate) : null;
-
-          // Update with AI data
-          await prisma.user.update({
-            where: { id: userId },
-            data: { examDate },
-          });
-        }
-      } catch (aiError) {
-        console.error('Background AI fetch error:', aiError);
-      }
+    console.log(`✅ Onboarding completed for ${user.email}:`, {
+      examGoal,
+      examDate: parsedExamDate?.toISOString().split('T')[0],
+      batch,
     });
+
+    // Invalidate caches
+    cache.delete(`user:${userId}`);
+    cache.delete('leaderboard:top10');
+
+    res.json(user);
   } catch (error) {
     console.error('Onboarding error:', error);
     res.status(500).json({ error: 'Failed to complete onboarding' });

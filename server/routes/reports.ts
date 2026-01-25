@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 import { reportRateLimiter } from '../middleware/rateLimiting';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 
 const router = Router();
 
@@ -10,7 +10,7 @@ router.use(isAuthenticated);
 // Apply report rate limiter to report creation
 router.post('/', reportRateLimiter, async (req, res) => {
   try {
-    const report = await prisma.dailyReport.create({
+    const report = await db.dailyReport.create({
       data: {
         ...req.body,
         userId: (req.user as any).id,
@@ -24,7 +24,7 @@ router.post('/', reportRateLimiter, async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const reports = await prisma.dailyReport.findMany({
+    const reports = await db.dailyReport.findMany({
       where: { userId: (req.user as any).id },
       orderBy: { date: 'desc' },
       take: 30,
@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const report = await prisma.dailyReport.create({
+    const report = await db.dailyReport.create({
       data: {
         ...req.body,
         userId: (req.user as any).id,

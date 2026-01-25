@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isAuthenticated } from '../middleware/auth';
 import { generateTasksWithGroq, generateStudyPlan } from '../lib/groqClient';
 import { aiRateLimiter } from '../middleware/rateLimiting';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 
 const router = Router();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -16,7 +16,7 @@ router.use(aiRateLimiter);
 router.post('/study-plan', async (req, res) => {
   try {
     const userId = (req.user as any).id;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await db.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -25,13 +25,13 @@ router.post('/study-plan', async (req, res) => {
     // Use Groq if available, fallback to Gemini
     const useGroq = !!process.env.GROQ_API_KEY;
 
-    const recentReports = await prisma.dailyReport.findMany({
+    const recentReports = await db.dailyReport.findMany({
       where: { userId },
       orderBy: { date: 'desc' },
       take: 7,
     });
 
-    const todos = await prisma.todo.findMany({
+    const todos = await db.todo.findMany({
       where: { userId, completed: false },
     });
 
@@ -100,13 +100,13 @@ router.post('/generate-tasks', async (req: any, res: any) => {
 
     if (useGroq) {
       // Get user context for better task generation
-      const recentTodos = await prisma.todo.findMany({
+      const recentTodos = await db.todo.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 10,
       });
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+      const user = await db.user.findUnique({ where: { id: userId } });
       const daysUntilExam = user?.examDate
         ? Math.ceil((user.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : undefined;
@@ -154,13 +154,15 @@ Return ONLY a valid JSON array, no other text. Example:
     // Create todos in database
     const createdTodos = await Promise.all(
       tasks.map((task: any) =>
-        prisma.todo.create({
+        db.todo.create({
           data: {
             userId,
             title: task.title,
             subject: task.subject || 'General',
             difficulty: task.difficulty || 'medium',
             questionsTarget: task.questionsTarget || 10,
+            completed: false,
+            questionsCompleted: 0,
           },
         })
       )
@@ -172,6 +174,93 @@ Return ONLY a valid JSON array, no other text. Example:
     res.status(500).json({
       error: 'Failed to generate tasks',
       details: error.message || 'Unknown error',
+    });
+  }
+});
+
+// Get exam date from trusted sources
+router.post('/exam-date', async (req, res) => {
+  try {
+    const { examType, batch } = req.body;
+
+    if (!examType) {
+      return res.status(400).json({ error: 'Exam type is required' });
+    }
+
+    // Use Groq to fetch latest exam date information
+    const useGroq = !!process.env.GROQ_API_KEY;
+
+    if (useGroq) {
+      const { groq } = await import('../lib/groqClient');
+
+      const prompt = `You are an expert on Indian competitive exams. Provide the EXACT official exam date for ${examType} ${batch || '2025'}.
+
+IMPORTANT: Return ONLY a JSON object with the exam date. Use the most recent official announcement.
+
+Format:
+{
+  "examDate": "YYYY-MM-DD",
+  "source": "Official source name",
+  "session": "Session name (e.g., JEE Main January 2025)"
+}
+
+For ${examType}:
+- If multiple sessions exist, provide the NEXT upcoming session
+- Use ONLY official dates from NTA, CBSE, or respective exam authorities
+- If exact date not announced, provide expected date based on previous years
+- Current date for reference: ${new Date().toISOString().split('T')[0]}
+
+Example for NEET 2025: {"examDate": "2025-05-05", "source": "NTA", "session": "NEET UG 2025"}`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert on Indian competitive exam schedules. Provide accurate, up-to-date exam dates from official sources.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.3, // Low temperature for factual accuracy
+        max_tokens: 256,
+      });
+
+      const response = completion.choices[0]?.message?.content || '';
+      const jsonMatch = response.match(/\{[\s\S]*?\}/);
+
+      if (jsonMatch) {
+        const data = JSON.parse(jsonMatch[0]);
+        console.log(`📅 Exam date fetched for ${examType}:`, data.examDate);
+        return res.json(data);
+      }
+    }
+
+    // Fallback: Use default dates based on exam type and historical patterns
+    const fallbackDates: Record<string, string> = {
+      'NEET': '2025-05-05', // NEET is typically first Sunday of May
+      'JEE': '2025-04-08', // JEE Main Session 1 is typically in January/April
+      'GATE': '2025-02-01', // GATE is typically in February
+      'UPSC': '2025-06-15', // UPSC Prelims typically in June
+      'CAT': '2025-11-24', // CAT is typically last Sunday of November
+      'NDA': '2025-04-20', // NDA is typically in April
+      'CLAT': '2025-05-18', // CLAT is typically in May
+    };
+
+    const examDate = fallbackDates[examType] || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    res.json({
+      examDate,
+      source: 'Estimated based on previous years',
+      session: `${examType} ${batch || '2025'}`,
+    });
+  } catch (error: any) {
+    console.error('Exam date fetch error:', error);
+    // Return a safe default (6 months from now)
+    const defaultDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    res.json({
+      examDate: defaultDate,
+      source: 'Default estimate',
+      session: `${req.body.examType} ${req.body.batch || '2025'}`,
     });
   }
 });
@@ -232,8 +321,8 @@ router.post('/buddy-chat', async (req: any, res: any) => {
     const useGroq = !!process.env.GROQ_API_KEY;
 
     // Get user context
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    const recentTodos = await prisma.todo.findMany({
+    const user = await db.user.findUnique({ where: { id: userId } });
+    const recentTodos = await db.todo.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 5,

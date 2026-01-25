@@ -3,7 +3,8 @@ import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
+const prisma = db;
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -13,20 +14,22 @@ router.get('/health', (req, res) => {
 // Get schedules for a specific date range
 router.get('/', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { startDate, endDate } = req.query;
 
     console.log('Fetching schedules for user:', userId);
     console.log('Date range:', { startDate, endDate });
 
-    const schedules = await prisma.schedule.findMany({
-      where: {
-        userId,
-        date: {
-          gte: startDate ? new Date(startDate as string) : undefined,
-          lte: endDate ? new Date(endDate as string) : undefined,
-        },
-      },
+    const where: any = { userId };
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.$gte = new Date(startDate as string);
+      if (endDate) where.date.$lte = new Date(endDate as string);
+    }
+
+    const schedules = await db.schedule.findMany({
+      where,
       orderBy: [
         { date: 'desc' },
         { startTime: 'asc' },

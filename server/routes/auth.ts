@@ -40,7 +40,7 @@ router.post('/signup', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await db.user.findUnique({ email });
+    const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -52,28 +52,51 @@ router.post('/signup', async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Create user
-    await db.user.create({
+    // Create user with all required fields
+    const newUser = await db.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        username: null,
+        googleId: null,
         emailVerified: false,
         verificationOtp: otp,
         otpExpiry,
+        resetToken: null,
+        resetTokenExpiry: null,
+        avatar: null,
+        avatarType: 'initials',
+        onboardingDone: false,
+        examGoal: '',
+        examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 180 days from now
+        examAttempt: null,
+        studentClass: null,
+        batch: null,
+        syllabus: null,
+        schoolId: null,
+        collegeId: null,
+        coachingId: null,
+        totalPoints: 0,
+        totalStudyMinutes: 0,
+        streak: 0,
+        lastActive: new Date(),
+        showProfile: true,
       },
     });
+    
+    console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
 
     // Send verification email
     try {
       await sendOTPEmail(email, otp, name);
       console.log(`✅ OTP email sent to ${email}`);
     } catch (emailError) {
-      console.error('⚠️  Failed to send OTP email:', emailError.message);
+      console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
       console.log(`📧 OTP for ${email}: ${otp} (Email service error)`);
     }
 
-    res.json({ 
+    res.json({
       message: 'Signup successful. Please check your email for verification code.',
       // Always include OTP in development mode
       ...(process.env.NODE_ENV === 'development' && { otp })
@@ -93,7 +116,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
-    const user = await db.user.findUnique({ email });
+    const user = await db.user.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -128,9 +151,23 @@ router.post('/verify-otp', async (req, res) => {
     // Log the user in
     req.login(updatedUser, (err) => {
       if (err) {
+        console.error('❌ Login error after verification:', err);
         return res.status(500).json({ error: 'Failed to log in after verification' });
       }
-      res.json({ message: 'Email verified successfully', user: updatedUser });
+      
+      // Explicitly save session
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('❌ Session save error:', saveErr);
+          return res.status(500).json({ error: 'Failed to save session' });
+        }
+        
+        console.log('✅ User logged in after verification:', updatedUser.email);
+        console.log('📝 Session ID:', req.sessionID);
+        console.log('🍪 Session expires:', new Date(Date.now() + (req.session.cookie.maxAge || 0)));
+        
+        res.json({ message: 'Email verified successfully', user: updatedUser });
+      });
     });
   } catch (error) {
     console.error('OTP verification error:', error);
@@ -147,7 +184,7 @@ router.post('/resend-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ email });
+    const user = await db.user.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -174,11 +211,11 @@ router.post('/resend-otp', async (req, res) => {
       await sendOTPEmail(email, otp);
       console.log(`✅ OTP email sent to ${email}`);
     } catch (emailError) {
-      console.error('⚠️  Failed to send OTP email:', emailError.message);
+      console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
       console.log(`📧 OTP for ${email}: ${otp} (Email service error)`);
     }
 
-    res.json({ 
+    res.json({
       message: 'OTP sent successfully',
       // Always include OTP in development mode
       ...(process.env.NODE_ENV === 'development' && { otp })
@@ -198,7 +235,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await db.user.findUnique({ email });
+    const user = await db.user.findUnique({ where: { email } });
 
     if (!user || !user.password) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -211,7 +248,7 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user.emailVerified) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Email not verified. Please verify your email first.',
         code: 'EMAIL_NOT_VERIFIED'
       });
@@ -220,9 +257,24 @@ router.post('/login', async (req, res) => {
     // Log the user in
     req.login(user, (err) => {
       if (err) {
+        console.error('❌ Login error:', err);
         return res.status(500).json({ error: 'Failed to log in' });
       }
-      res.json({ message: 'Login successful', user });
+      
+      // Explicitly save session to ensure it persists
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('❌ Session save error:', saveErr);
+          return res.status(500).json({ error: 'Failed to save session' });
+        }
+        
+        console.log('✅ User logged in:', user.email);
+        console.log('📝 Session ID:', req.sessionID);
+        console.log('🍪 Session cookie maxAge:', req.session.cookie.maxAge, 'ms');
+        console.log('🍪 Session expires:', new Date(Date.now() + (req.session.cookie.maxAge || 0)));
+        
+        res.json({ message: 'Login successful', user });
+      });
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -239,35 +291,38 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ email });
+    const user = await db.user.findUnique({ where: { email } });
 
     // Don't reveal if user exists or not for security
     if (!user) {
-      return res.json({ message: 'If an account exists, a password reset link has been sent' });
+      return res.json({ message: 'If an account exists, a password reset code has been sent' });
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // Generate OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await db.user.update({
       where: { id: user.id! },
       data: {
-        resetToken,
+        resetToken: otp,
         resetTokenExpiry,
       },
     });
 
     // Send password reset email
     try {
-      await sendPasswordResetEmail(email, resetToken, user.name);
-      console.log(`✅ Password reset email sent to ${email}`);
+      await sendPasswordResetEmail(email, otp, user.name);
+      console.log(`✅ Password reset OTP sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send password reset email:', emailError);
-      console.log(`🔑 Reset token for ${email}: ${resetToken} (Email service not configured)`);
+      console.log(`🔑 Reset OTP for ${email}: ${otp} (Email service not configured)`);
     }
 
-    res.json({ message: 'If an account exists, a password reset link has been sent' });
+    res.json({
+      message: 'If an account exists, a password reset code has been sent',
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -277,19 +332,24 @@ router.post('/forgot-password', async (req, res) => {
 // Reset Password
 router.post('/reset-password', async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { email, otp, password } = req.body;
 
-    if (!token || !password) {
-      return res.status(400).json({ error: 'Token and password are required' });
+    if (!email || !otp || !password) {
+      return res.status(400).json({ error: 'Email, OTP, and password are required' });
     }
 
-    const user = await db.user.findFirst({
-      resetToken: token,
-      resetTokenExpiry: { $gt: new Date() },
-    });
+    const user = await db.user.findUnique({ where: { email } });
 
     if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.resetToken || user.resetToken !== otp) {
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+
+    if (!user.resetTokenExpiry || new Date() > user.resetTokenExpiry) {
+      return res.status(400).json({ error: 'OTP expired' });
     }
 
     // Hash new password
@@ -312,6 +372,10 @@ router.post('/reset-password', async (req, res) => {
 });
 
 router.get('/me', (req, res) => {
+  console.log('🔍 Checking auth - Session ID:', req.sessionID);
+  console.log('🔍 Is authenticated:', req.isAuthenticated());
+  console.log('🔍 User:', req.user ? (req.user as any).email : 'none');
+  
   if (req.isAuthenticated()) {
     res.json(req.user);
   } else {
@@ -320,8 +384,15 @@ router.get('/me', (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
+  const userEmail = req.user ? (req.user as any).email : 'unknown';
   req.logout(() => {
-    res.json({ success: true });
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('❌ Session destruction error:', err);
+      }
+      console.log('👋 User logged out:', userEmail);
+      res.json({ success: true });
+    });
   });
 });
 

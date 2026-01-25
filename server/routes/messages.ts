@@ -1,100 +1,128 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 import { messageRateLimiter } from '../middleware/rateLimiting';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
+import { getMongoDb } from '../lib/mongodb';
 
 const router = Router();
 
-// Get conversations list - Optimized with batch queries
+// Get conversations list
 router.get('/conversations', isAuthenticated, async (req, res) => {
   try {
     const userId = (req.user as any).id;
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-    // Get all unique user IDs in single query
-    const messageParticipants = await prisma.directMessage.findMany({
-      where: {
-        OR: [{ senderId: userId }, { receiverId: userId }],
+    // Get all unique user IDs involved in conversations
+    // Using aggregation to mimic distinct findMany with OR
+    const distinctUsers = await mongoDb.collection('direct_messages').aggregate([
+      {
+        $match: {
+          $or: [{ senderId: userId }, { receiverId: userId }]
+        }
       },
-      select: {
-        senderId: true,
-        receiverId: true,
+      {
+        $project: { senderId: 1, receiverId: 1 }
       },
-      distinct: ['senderId', 'receiverId'],
-    });
+      {
+        $group: {
+          _id: null,
+          senders: { $addToSet: '$senderId' },
+          receivers: { $addToSet: '$receiverId' }
+        }
+      }
+    ]).toArray();
 
-    const userIds = Array.from(
-      new Set(
-        [
-          ...messageParticipants.map((m) => m.senderId),
-          ...messageParticipants.map((m) => m.receiverId),
-        ].filter((id) => id !== userId)
-      )
-    );
+    let participantIds = new Set<string>();
+    if (distinctUsers.length > 0) {
+      distinctUsers[0].senders.forEach((id: string) => participantIds.add(id));
+      distinctUsers[0].receivers.forEach((id: string) => participantIds.add(id));
+    }
+
+    // Remove self
+    participantIds.delete(userId);
+    const userIds = Array.from(participantIds);
 
     if (userIds.length === 0) {
       return res.json([]);
     }
 
-    // Batch fetch all required data
-    const [users, lastMessages, unreadCounts] = await Promise.all([
-      // Fetch all users at once
-      prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: {
-          id: true,
-          username: true,
-          name: true,
-          avatar: true,
-          avatarType: true,
-          lastActive: true,
-        },
-      }),
+    // Batch fetch data
+    // 1. Fetch users
+    const users = await db.user.findMany({
+      where: { id: { $in: userIds } }, // Generic findMany supports mongo syntax if passed directly to find
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        avatar: true,
+        avatarType: true,
+        lastActive: true,
+      },
+    });
 
-      // Fetch last messages for all conversations
-      prisma.directMessage.findMany({
-        where: {
-          OR: userIds
-            .map((otherUserId) => [
-              { senderId: userId, receiverId: otherUserId },
-              { senderId: otherUserId, receiverId: userId },
-            ])
-            .flat(),
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
+    // 2. Fetch last messages
+    // We want the last message for each conversation
+    // Aggregation is best for "last per group"
+    const lastMessages = await mongoDb.collection('direct_messages').aggregate([
+      {
+        $match: {
+          $or: [
+            { senderId: userId, receiverId: { $in: userIds } },
+            { senderId: { $in: userIds }, receiverId: userId }
+          ]
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ['$senderId', userId] },
+              '$receiverId',
+              '$senderId'
+            ]
+          },
+          lastMessage: { $first: '$$ROOT' }
+        }
+      }
+    ]).toArray();
 
-      // Fetch unread counts
-      prisma.directMessage.groupBy({
-        by: ['senderId'],
-        where: {
+    // 3. Fetch unread counts
+    const unreadCounts = await mongoDb.collection('direct_messages').aggregate([
+      {
+        $match: {
           receiverId: userId,
           read: false,
-          senderId: { in: userIds },
-        },
-        _count: { id: true },
-      }),
-    ]);
+          senderId: { $in: userIds }
+        }
+      },
+      {
+        $group: {
+          _id: '$senderId',
+          count: { $sum: 1 }
+        }
+      }
+    ]).toArray();
 
-    // Process results in memory (much faster than database queries)
-    const conversations = userIds
-      .map((otherUserId) => {
-        const user = users.find((u) => u.id === otherUserId);
-        const lastMessage = lastMessages
-          .filter(
-            (m) =>
-              (m.senderId === userId && m.receiverId === otherUserId) ||
-              (m.senderId === otherUserId && m.receiverId === userId)
-          )
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-        const unreadCount = unreadCounts.find((uc) => uc.senderId === otherUserId)?._count.id || 0;
+    // Map to memory maps
+    const lastMessageMap = new Map(lastMessages.map(item => [item._id, item.lastMessage]));
+    const unreadCountMap = new Map(unreadCounts.map(item => [item._id, item.count]));
 
-        return {
-          user,
-          lastMessage,
-          unreadCount,
-        };
-      })
-      .filter((conv) => conv.user); // Remove conversations with deleted users
+    const conversations = users.map(user => {
+      const lastMessage = lastMessageMap.get(user.id);
+      const unreadCount = unreadCountMap.get(user.id) || 0;
+
+      return {
+        user,
+        lastMessage,
+        unreadCount
+      };
+    }).sort((a, b) => { // Sort by last message time
+      const dateA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const dateB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
     res.json(conversations);
   } catch (error) {
@@ -109,15 +137,15 @@ router.get('/:userId', isAuthenticated, async (req, res) => {
     const currentUserId = (req.user as any).id;
     const { userId } = req.params;
 
-    const messages = await prisma.directMessage.findMany({
+    const messages = await db.directMessage.findMany({
       where: {
-        OR: [
+        $or: [
           { senderId: currentUserId, receiverId: userId },
           { senderId: userId, receiverId: currentUserId },
         ],
       },
       orderBy: { createdAt: 'asc' },
-      take: 50, // Limit to last 50 messages for performance
+      take: 50,
     });
 
     res.json(messages);
@@ -138,16 +166,20 @@ router.post('/:userId', messageRateLimiter, isAuthenticated, async (req, res) =>
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
-    const newMessage = await prisma.directMessage.create({
+    const newMessage = await db.directMessage.create({
       data: {
         senderId,
         receiverId: userId,
         message: message.trim(),
+        read: false,
       },
     });
 
-    // Emit real-time message
-    req.app.get('io').to(`user-${userId}`).emit('new-message', newMessage);
+    // Emit real-time message if io is available
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user-${userId}`).emit('new-message', newMessage);
+    }
 
     res.json(newMessage);
   } catch (error) {
@@ -162,7 +194,7 @@ router.patch('/:userId/read', isAuthenticated, async (req, res) => {
     const currentUserId = (req.user as any).id;
     const { userId } = req.params;
 
-    await prisma.directMessage.updateMany({
+    await db.directMessage.updateMany({
       where: {
         senderId: userId,
         receiverId: currentUserId,

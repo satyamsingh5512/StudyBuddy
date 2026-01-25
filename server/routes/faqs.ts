@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
-import { prisma } from '../lib/prisma';
+import { db as prisma } from '../lib/db';
 
 router.use(isAuthenticated);
 

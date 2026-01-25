@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import { uploadProfile, uploadImage, uploadFormFile, deleteImage } from '../config/cloudinary';
 import { isAuthenticated } from '../middleware/auth';
-
 import { uploadRateLimiter } from '../middleware/rateLimiting';
-
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 
 const router = Router();
 
@@ -22,7 +20,7 @@ router.post('/profile', isAuthenticated, uploadProfile.single('image'), async (r
     const publicId = req.file.filename;
 
     // Update user's avatar in database
-    const user = await prisma.user.update({
+    const user = await db.user.update({
       where: { id: req.user.id },
       data: { avatar: imageUrl },
     });
