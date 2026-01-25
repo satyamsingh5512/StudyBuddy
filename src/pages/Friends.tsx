@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Search, 
-  UserPlus, 
-  UserCheck, 
-  UserX, 
-  MessageCircle, 
+import {
+  Search,
+  UserPlus,
+  UserCheck,
+  UserX,
+  MessageCircle,
   Users,
   Clock,
   Check,
@@ -18,6 +18,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { apiFetch } from '@/config/api';
+import { getAvatarUrl } from '@/lib/avatar';
 
 // OPTIMIZATION: Debounce hook to reduce API calls
 function useDebounce<T>(value: T, delay: number): T {
@@ -148,7 +149,7 @@ export default function Friends() {
       const response = await apiFetch(
         `/api/friends/search?query=${encodeURIComponent(query)}`
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data);
@@ -261,7 +262,7 @@ export default function Friends() {
       className="flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 hover:border-primary/50 hover:shadow-sm"
     >
       <img
-        src={user.avatar || 'https://via.placeholder.com/40'}
+        src={getAvatarUrl(user)}
         alt={user.username}
         className="h-10 w-10 rounded-full ring-2 ring-border"
       />

@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonList } from '@/components/Skeleton';
 import { apiFetch } from '@/config/api';
+import { getAvatarUrl } from '@/lib/avatar';
 
 interface LeaderboardUser {
   id: string;
   name: string;
+  username?: string;
   avatar?: string;
+  avatarType?: string;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
@@ -48,7 +51,7 @@ export default function Leaderboard() {
                     {index + 1}
                   </div>
                   <img
-                    src={user.avatar || 'https://via.placeholder.com/32'}
+                    src={getAvatarUrl(user)}
                     alt={user.name}
                     className="h-8 w-8 rounded-full"
                   />
