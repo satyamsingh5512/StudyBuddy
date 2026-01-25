@@ -112,22 +112,45 @@ export default function Onboarding() {
     setLoading(true);
 
     try {
-      const avatarUrl =
-        avatarType === 'animated'
-          ? `https://api.dicebear.com/7.x/${selectedStyle}/svg?seed=${username}`
-          : uploadedAvatar || user?.avatar;
+      let finalAvatarType = avatarType;
+      let finalAvatarUrl = null;
+
+      if (avatarType === 'animated') {
+        finalAvatarType = `animated-${selectedStyle}`;
+        finalAvatarUrl = null; // Dynamic generation, don't save URL
+      } else {
+        finalAvatarUrl = uploadedAvatar || user?.avatar;
+      }
+
+      // Fetch exam date from AI
+      let examDate = null;
+      try {
+        const examInfoRes = await apiFetch('/ai/exam-date', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ examType: examGoal, batch }),
+        });
+
+        if (examInfoRes.ok) {
+          const examInfo = await examInfoRes.json();
+          examDate = examInfo.examDate;
+        }
+      } catch (error) {
+        console.error('Failed to fetch exam date:', error);
+      }
 
       const res = await apiFetch('/users/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username,
-          avatarType,
-          avatar: avatarUrl,
+          avatarType: finalAvatarType,
+          avatar: finalAvatarUrl,
           examGoal,
           studentClass,
           batch,
           examAttempt: selectedExam?.hasAttempts ? examAttempt : null,
+          examDate, // Include exam date
         }),
       });
 

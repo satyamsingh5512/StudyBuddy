@@ -43,7 +43,7 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
 
     setChecking(true);
     try {
-      const response = await fetch(`${API_URL}/api/username/check/${username}`);
+      const response = await fetch(`${API_URL}/username/check/${username}`);
       const data = await response.json();
 
       if (data.available) {
@@ -96,13 +96,12 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
           placeholder="Choose a username"
           value={value}
           onChange={(e) => onChange(e.target.value.toLowerCase())}
-          className={`pr-10 transition-all duration-200 ${
-            status === 'available'
+          className={`pr-10 transition-all duration-200 ${status === 'available'
               ? 'border-green-500 focus:ring-green-500'
               : status === 'taken' || status === 'invalid'
-              ? 'border-red-500 focus:ring-red-500'
-              : ''
-          }`}
+                ? 'border-red-500 focus:ring-red-500'
+                : ''
+            }`}
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           {checking && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
@@ -117,11 +116,10 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
 
       {message && (
         <p
-          className={`text-xs transition-all duration-200 ${
-            status === 'available'
+          className={`text-xs transition-all duration-200 ${status === 'available'
               ? 'text-green-600 dark:text-green-400'
               : 'text-red-600 dark:text-red-400'
-          }`}
+            }`}
         >
           {message}
         </p>
