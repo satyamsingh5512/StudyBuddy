@@ -6,7 +6,7 @@ import { userAtom } from '@/store/atoms';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 import { motion } from 'framer-motion';
-import { Play, Check, MoreVertical, Users, MessageSquare, Folder, TrendingUp, Calendar, Target, BarChart3, Clock, Award } from 'lucide-react';
+import { Play, Users, MessageSquare, Folder, TrendingUp, Calendar, Target, BarChart3, Clock, Award } from 'lucide-react';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 
 export default function Landing() {
