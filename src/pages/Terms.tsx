@@ -161,8 +161,7 @@ export default function Terms() {
             <section>
               <h2 className="text-xl font-semibold mb-3">Contact</h2>
               <p>
-                If you have questions about these Terms and Conditions, please contact us through the support
-                section in your dashboard.
+                If you have questions about these Terms and Conditions, please contact us at <a href="mailto:studybuddy5512@gmail.com" className="text-primary hover:underline">studybuddy5512@gmail.com</a>.
               </p>
             </section>
           </div>
