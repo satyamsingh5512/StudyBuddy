@@ -1,13 +1,11 @@
 /**
  * Health Check Endpoints
  * 
- * Monitor system health and sync status
+ * Monitor system health
  */
 
 import { Router } from 'express';
-import { getOutboxStats } from '../lib/outbox';
 import { checkMongoHealth } from '../lib/mongodb';
-import { prisma } from '../lib/prisma';
 
 const router = Router();
 
@@ -24,38 +22,27 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /health/sync
- * Detailed sync status
+ * GET /health/detailed
+ * Detailed health status
  */
-router.get('/sync', async (req, res) => {
+router.get('/detailed', async (req, res) => {
   try {
-    const [outboxStats, mongoHealthy, cockroachHealthy] = await Promise.all([
-      getOutboxStats(),
-      checkMongoHealth(),
-      checkCockroachHealth(),
-    ]);
-
-    const status = 
-      outboxStats.syncLagSeconds < 30 && mongoHealthy && cockroachHealthy
-        ? 'healthy'
-        : outboxStats.syncLagSeconds < 60
-        ? 'degraded'
-        : 'unhealthy';
+    const mongoHealthy = await checkMongoHealth();
+    const memoryUsage = process.memoryUsage();
 
     res.json({
-      status,
+      status: mongoHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      databases: {
-        cockroachdb: cockroachHealthy ? 'connected' : 'disconnected',
+      uptime: `${Math.floor(process.uptime() / 60)} minutes`,
+      database: {
         mongodb: mongoHealthy ? 'connected' : 'disconnected',
       },
-      sync: {
-        queueSize: outboxStats.unprocessed,
-        failedEvents: outboxStats.failed,
-        syncLagSeconds: outboxStats.syncLagSeconds,
-        syncLagMs: outboxStats.syncLagMs,
+      memory: {
+        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
       },
-      alerts: getAlerts(outboxStats),
+      environment: process.env.NODE_ENV || 'development',
     });
   } catch (error) {
     console.error('Health check error:', error);
@@ -67,66 +54,19 @@ router.get('/sync', async (req, res) => {
 });
 
 /**
- * GET /health/databases
+ * GET /health/database
  * Database connection status
  */
-router.get('/databases', async (req, res) => {
-  const [mongoHealthy, cockroachHealthy] = await Promise.all([
-    checkMongoHealth(),
-    checkCockroachHealth(),
-  ]);
+router.get('/database', async (req, res) => {
+  const mongoHealthy = await checkMongoHealth();
 
   res.json({
-    cockroachdb: {
-      status: cockroachHealthy ? 'connected' : 'disconnected',
-      type: 'primary',
-      role: 'source of truth',
-    },
     mongodb: {
       status: mongoHealthy ? 'connected' : 'disconnected',
-      type: 'secondary',
-      role: 'analytics & search',
+      type: 'primary',
+      role: 'main database',
     },
   });
 });
-
-/**
- * Check CockroachDB health
- */
-async function checkCockroachHealth(): Promise<boolean> {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
-/**
- * Generate alerts based on metrics
- */
-function getAlerts(stats: any): string[] {
-  const alerts: string[] = [];
-
-  if (stats.syncLagSeconds > 60) {
-    alerts.push('CRITICAL: Sync lag > 60 seconds');
-  } else if (stats.syncLagSeconds > 30) {
-    alerts.push('WARNING: Sync lag > 30 seconds');
-  }
-
-  if (stats.unprocessed > 10000) {
-    alerts.push('CRITICAL: Queue size > 10,000 events');
-  } else if (stats.unprocessed > 1000) {
-    alerts.push('WARNING: Queue size > 1,000 events');
-  }
-
-  if (stats.failed > 100) {
-    alerts.push('CRITICAL: > 100 failed events');
-  } else if (stats.failed > 10) {
-    alerts.push('WARNING: > 10 failed events');
-  }
-
-  return alerts;
-}
 
 export default router;

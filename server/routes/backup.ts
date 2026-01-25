@@ -1,94 +1,69 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 import { isAdmin } from '../middleware/admin';
-import { 
-  fullBackupToMongo, 
-  exportMongoToJSON,
-  restoreFromMongo 
-} from '../utils/databaseSync';
+import { getMongoDb } from '../lib/mongodb';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
-// Manual backup trigger (admin only)
-router.post('/backup/now', isAuthenticated, isAdmin, async (req: any, res: any) => {
+// Export MongoDB data to JSON (admin only)
+router.get('/export', isAuthenticated, isAdmin, async (req: any, res: any) => {
   try {
-    console.log(`📦 Manual backup triggered by admin ${req.user.id}`);
-    const success = await fullBackupToMongo();
-
-    if (success) {
-      res.json({ 
-        success: true, 
-        message: 'Backup completed successfully',
-        timestamp: new Date()
-      });
-    } else {
-      res.status(500).json({ 
-        success: false, 
-        error: 'Backup failed' 
-      });
+    console.log(`📦 MongoDB export triggered by admin ${req.user.id}`);
+    
+    const db = await getMongoDb();
+    if (!db) {
+      return res.status(500).json({ error: 'Database not connected' });
     }
-  } catch (error) {
-    console.error('Backup error:', error);
-    res.status(500).json({ error: 'Backup failed' });
-  }
-});
 
-// Export MongoDB backup to JSON
-router.get('/backup/export', isAuthenticated, isAdmin, async (req: any, res: any) => {
-  try {
-    const outputPath = './mongodb-backup.json';
-    const success = await exportMongoToJSON(outputPath);
+    // Get all collections
+    const collections = await db.listCollections().toArray();
+    const backup: any = {
+      timestamp: new Date().toISOString(),
+      database: db.databaseName,
+      collections: {}
+    };
 
-    if (success) {
-      res.download(outputPath, 'studybuddy-backup.json', (err: Error | null) => {
-        if (err) {
-          console.error('Download error:', err);
-        }
-        // Clean up file after download
-        const fs = require('fs');
+    // Export each collection
+    for (const collInfo of collections) {
+      const collName = collInfo.name;
+      const data = await db.collection(collName).find({}).toArray();
+      backup.collections[collName] = data;
+    }
+
+    // Write to temporary file
+    const outputPath = path.join(process.cwd(), 'mongodb-backup.json');
+    fs.writeFileSync(outputPath, JSON.stringify(backup, null, 2));
+
+    // Send file and clean up
+    res.download(outputPath, `studybuddy-backup-${Date.now()}.json`, (err: Error | null) => {
+      if (err) {
+        console.error('Download error:', err);
+      }
+      // Clean up file after download
+      try {
         fs.unlinkSync(outputPath);
-      });
-    } else {
-      res.status(500).json({ error: 'Export failed' });
-    }
+      } catch (e) {
+        console.error('Cleanup error:', e);
+      }
+    });
   } catch (error) {
     console.error('Export error:', error);
     res.status(500).json({ error: 'Export failed' });
   }
 });
 
-// Restore from MongoDB (use with caution!)
-router.post('/backup/restore', isAuthenticated, isAdmin, async (req: any, res: any) => {
-  try {
-    console.log(`⚠️  Restore triggered by admin ${req.user.id}`);
-    const success = await restoreFromMongo();
-
-    if (success) {
-      res.json({ 
-        success: true, 
-        message: 'Restore completed successfully' 
-      });
-    } else {
-      res.status(500).json({ 
-        success: false, 
-        error: 'Restore not implemented - use migration scripts' 
-      });
-    }
-  } catch (error) {
-    console.error('Restore error:', error);
-    res.status(500).json({ error: 'Restore failed' });
-  }
-});
-
 // Get backup status
-router.get('/backup/status', isAuthenticated, async (req: any, res: any) => {
+router.get('/status', isAuthenticated, async (req: any, res: any) => {
   try {
-    // TODO: Query MongoDB for last backup timestamp
+    const db = await getMongoDb();
+    const connected = db !== null;
+    
     res.json({
-      mongodbConnected: true, // Check actual connection
-      lastBackup: new Date(), // Get from MongoDB metadata
-      nextScheduledBackup: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      backupInterval: '24 hours'
+      mongodbConnected: connected,
+      database: db?.databaseName || 'Not connected',
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get backup status' });
