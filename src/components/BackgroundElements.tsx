@@ -27,6 +27,18 @@ export default function BackgroundElements({ isDark = true }: BackgroundElements
             size: Math.random() * 1.5 + 0.5,
         })), []);
 
+    // Realistic falling stars (Night mode exclusive) - Stable generation
+    const realisticFallingStars = useMemo(() =>
+        Array.from({ length: 12 }, (_, i) => ({
+            id: i,
+            width: Math.random() * 150 + 100, // Long elegant tail
+            left: Math.random() * 100,
+            top: Math.random() * 40,        // Start mostly from top area
+            duration: Math.random() * 5 + 5, // 5s to 10s duration (slow)
+            repeatDelay: Math.random() * 10,
+            delay: Math.random() * 20,       // Spread out over 20s
+        })), []);
+
     // Theme colors (derived from Auth.tsx logic but intended to be used with the global theme too)
     const theme = useMemo(() => ({
         duneColor1: isDark ? '#1a1a3a' : '#E6D5E6', // Much lighter pastel pink/purple
@@ -114,8 +126,40 @@ export default function BackgroundElements({ isDark = true }: BackgroundElements
                 </motion.div>
             </div>
 
+            {/* Realistic Falling Stars (Night Mode Only) */}
+            {isDark && (
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {realisticFallingStars.map((star) => (
+                        <motion.div
+                            key={`falling-star-real-${star.id}`}
+                            className="absolute h-[2px] rounded-full bg-gradient-to-r from-transparent via-blue-100 to-transparent blur-[0.5px] shadow-[0_0_15px_1px_rgba(255,255,255,0.4)]"
+                            style={{
+                                width: star.width,
+                                left: `${star.left}%`,
+                                top: `${star.top}%`,
+                                rotate: 135,
+                            }}
+                            initial={{ opacity: 0, x: 0, y: 0 }}
+                            animate={{
+                                opacity: [0, 0.8, 0],
+                                x: -300,
+                                y: 300,
+                            }}
+                            transition={{
+                                duration: star.duration,
+                                repeat: Infinity,
+                                repeatDelay: star.repeatDelay,
+                                delay: star.delay,
+                                ease: "linear",
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+
             {/* Desert Dunes */}
             <div className="absolute inset-0 overflow-hidden">
+                {/* Shooting Stars */}
                 <svg className="absolute bottom-0 left-0 w-full h-2/5" viewBox="0 0 1440 400" preserveAspectRatio="none">
                     <path
                         d="M0 400 L0 280 Q200 220 400 260 Q600 300 800 240 Q1000 180 1200 220 Q1400 260 1440 230 L1440 400 Z"
