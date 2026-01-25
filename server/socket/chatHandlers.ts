@@ -418,7 +418,37 @@ export function setupEnhancedChatHandlers(io: Server) {
         
         if (!userId) return;
         
-        // Verify ownership (or admin)
+        // Check if message exists in cache first (for recent messages)
+        const cachedMessages = await redisClient.getCachedMessages(roomId, 100);
+        const cachedMessage = cachedMessages.find(m => m.id === data.messageId);
+        
+        if (cachedMessage) {
+          // Verify ownership
+          if (cachedMessage.userId !== userId) {
+            socket.emit('error', { message: 'Cannot delete this message' });
+            return;
+          }
+          
+          // Remove from cache
+          await redisClient.removeMessage(roomId, data.messageId);
+          
+          // Try to delete from database (might not be persisted yet)
+          try {
+            await db.chatMessage.delete({
+              where: { id: data.messageId },
+            });
+          } catch (dbError) {
+            // Message not in DB yet (still in batch queue) - that's okay
+            console.log(`Message ${data.messageId} not in DB yet (will be removed from queue)`);
+          }
+          
+          // Broadcast deletion
+          io.to(roomId).emit('message-deleted', { messageId: data.messageId });
+          console.log(`🗑️  Message ${data.messageId} deleted by ${userId}`);
+          return;
+        }
+        
+        // If not in cache, check database
         const message: any = await db.chatMessage.findUnique({
           where: { id: data.messageId },
         });
@@ -440,6 +470,88 @@ export function setupEnhancedChatHandlers(io: Server) {
       } catch (error) {
         console.error('Delete message error:', error);
         socket.emit('error', { message: 'Failed to delete message' });
+      }
+    });
+    
+    /**
+     * Edit message
+     */
+    socket.on('edit-message', async (data: { messageId: string; message: string }) => {
+      try {
+        const userId = socket.data.userId;
+        const roomId = socket.data.roomId || 'global-chat';
+        
+        if (!userId) return;
+        
+        // Validate message
+        const validation = validateMessage(data.message);
+        if (!validation.valid) {
+          socket.emit('error', { message: validation.error });
+          return;
+        }
+        
+        const newMessage = data.message.trim();
+        
+        // Check if message exists in cache first (for recent messages)
+        const cachedMessages = await redisClient.getCachedMessages(roomId, 100);
+        const cachedMessage = cachedMessages.find(m => m.id === data.messageId);
+        
+        if (cachedMessage) {
+          // Verify ownership
+          if (cachedMessage.userId !== userId) {
+            socket.emit('error', { message: 'Cannot edit this message' });
+            return;
+          }
+          
+          // Update in cache
+          await redisClient.updateMessage(roomId, data.messageId, newMessage);
+          
+          // Try to update in database (might not be persisted yet)
+          try {
+            await db.chatMessage.update({
+              where: { id: data.messageId },
+              data: { message: newMessage },
+            });
+          } catch (dbError) {
+            // Message not in DB yet - that's okay, will be saved with new content
+            console.log(`Message ${data.messageId} not in DB yet (will be saved with edited content)`);
+          }
+          
+          // Broadcast edit
+          io.to(roomId).emit('message-edited', { 
+            messageId: data.messageId, 
+            message: newMessage 
+          });
+          console.log(`✏️  Message ${data.messageId} edited by ${userId}`);
+          return;
+        }
+        
+        // If not in cache, check database
+        const message: any = await db.chatMessage.findUnique({
+          where: { id: data.messageId },
+        });
+        
+        if (!message || message.userId !== userId) {
+          socket.emit('error', { message: 'Cannot edit this message' });
+          return;
+        }
+        
+        // Update in database
+        await db.chatMessage.update({
+          where: { id: data.messageId },
+          data: { message: newMessage },
+        });
+        
+        // Broadcast edit
+        io.to(roomId).emit('message-edited', { 
+          messageId: data.messageId, 
+          message: newMessage 
+        });
+        
+        console.log(`✏️  Message ${data.messageId} edited by ${userId}`);
+      } catch (error) {
+        console.error('Edit message error:', error);
+        socket.emit('error', { message: 'Failed to edit message' });
       }
     });
     
