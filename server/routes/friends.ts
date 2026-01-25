@@ -381,4 +381,65 @@ router.post('/block', isAuthenticated, async (req, res) => {
   }
 });
 
+// Get blocked users
+router.get('/blocked', isAuthenticated, async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+
+    const blocks: any[] = await db.block.findMany({
+      where: { blockerId: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Populate blocked users
+    const blockedIds = blocks.map(b => b.blockedId);
+    if (blockedIds.length > 0) {
+      const blockedUsers = await db.user.findMany({
+        where: { _id: { $in: blockedIds.map(id => new ObjectId(id)) } },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          avatar: true,
+          avatarType: true,
+          examGoal: true,
+          totalPoints: true,
+        }
+      });
+
+      const userMap = new Map(blockedUsers.map(u => [u.id, u]));
+
+      // Attach blocked users to blocks
+      for (const block of blocks) {
+        block.blocked = userMap.get(block.blockedId);
+      }
+    }
+
+    res.json(blocks);
+  } catch (error) {
+    console.error('Error fetching blocked users:', error);
+    res.status(500).json({ error: 'Failed to fetch blocked users' });
+  }
+});
+
+// Unblock user
+router.delete('/block/:userId', isAuthenticated, async (req, res) => {
+  try {
+    const blockerId = (req.user as any).id;
+    const { userId } = req.params;
+
+    await db.block.deleteMany({
+      where: {
+        blockerId,
+        blockedId: userId,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
 export default router;
