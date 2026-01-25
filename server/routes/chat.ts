@@ -120,7 +120,7 @@ router.post('/messages', isAuthenticated, async (req, res) => {
     // Create message
     const messageId = generateId();
     const createdAt = new Date();
-    const newMessage = await db.chatMessage.create({
+    await db.chatMessage.create({
       data: {
         id: messageId,
         userId,
