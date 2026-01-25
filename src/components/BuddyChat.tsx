@@ -232,7 +232,7 @@ export default function BuddyChat() {
                             : 'bg-white/50 dark:bg-white/5 border border-white/20 dark:border-white/10 backdrop-blur-md rounded-bl-none'
                             }`}
                         >
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
                         </div>
 
                         {/* Task Suggestions */}
