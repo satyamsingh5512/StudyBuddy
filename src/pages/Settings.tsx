@@ -9,6 +9,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiFetch } from '@/config/api';
 import { Switch } from '@/components/ui/switch';
 import { soundManager } from '@/lib/sounds';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { getAvatarUrl } from '@/lib/avatar';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -22,6 +30,9 @@ export default function Settings() {
   const [notificationSounds, setNotificationSounds] = useState(soundManager.isEnabled('notifications'));
   const [timerSounds, setTimerSounds] = useState(soundManager.isEnabled('timer'));
   const [authSounds, setAuthSounds] = useState(soundManager.isEnabled('auth'));
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,6 +70,55 @@ export default function Settings() {
       const updated = await res.json();
       setUser(updated);
       toast({ title: 'Settings saved successfully' });
+    }
+  };
+
+  const handleStartVerification = async () => {
+    setIsVerifying(true);
+    try {
+      const res = await apiFetch('/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email }),
+      });
+
+      if (res.ok) {
+        setShowVerifyDialog(true);
+        toast({ title: 'Verification Sent', description: 'Check your email for the OTP.' });
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setIsVerifying(true);
+    try {
+      const res = await apiFetch('/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email, otp }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user); // Update user with verified status
+        setShowVerifyDialog(false);
+        setOtp('');
+        toast({ title: 'Success', description: 'Email verified successfully!' });
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Invalid OTP');
+      }
+    } catch (error: any) {
+      toast({ title: 'Verification Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -214,13 +274,23 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <img
-              src={user?.avatar || 'https://via.placeholder.com/80'}
+              src={getAvatarUrl(user)}
               alt={user?.name}
               className="h-20 w-20 rounded-full"
             />
             <div>
               <p className="font-medium text-lg">{user?.name}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
+              {!(user as any)?.emailVerified && (
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-xs text-primary"
+                  onClick={handleStartVerification}
+                  disabled={isVerifying}
+                >
+                  {isVerifying ? 'Sending...' : 'Verify Email'}
+                </Button>
+              )}
               {(user as any)?.username && (
                 <p className="text-sm text-muted-foreground">@{(user as any).username}</p>
               )}
@@ -238,6 +308,33 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Verify Email Dialog */}
+      <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Verification Code</DialogTitle>
+            <DialogDescription>
+              We sent a 6-digit code to {user?.email}. Please enter it below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="123456"
+              maxLength={6}
+              className="text-center text-2xl tracking-widest"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowVerifyDialog(false)}>Cancel</Button>
+            <Button onClick={handleVerifyOtp} disabled={isVerifying || otp.length < 6}>
+              {isVerifying ? 'Verifying...' : 'Verify'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
