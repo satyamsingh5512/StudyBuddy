@@ -149,7 +149,7 @@ Include: Registration dates, exam dates, result dates, counseling dates.`;
 });
 
 // Clear cache endpoint (admin only - you can add admin middleware)
-router.post('/cache/clear', async (req, res) => {
+router.post('/cache/clear', async (_req, res) => {
   newsCache.clear();
   res.json({ success: true, message: 'News cache cleared' });
 });

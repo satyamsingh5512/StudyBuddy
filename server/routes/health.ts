@@ -13,7 +13,7 @@ const router = Router();
  * GET /health
  * Basic health check
  */
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
  * GET /health/detailed
  * Detailed health status
  */
-router.get('/detailed', async (req, res) => {
+router.get('/detailed', async (_req, res) => {
   try {
     const mongoHealthy = await checkMongoHealth();
     const memoryUsage = process.memoryUsage();
@@ -57,7 +57,7 @@ router.get('/detailed', async (req, res) => {
  * GET /health/database
  * Database connection status
  */
-router.get('/database', async (req, res) => {
+router.get('/database', async (_req, res) => {
   const mongoHealthy = await checkMongoHealth();
 
   res.json({
