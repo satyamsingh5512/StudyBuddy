@@ -127,9 +127,9 @@ async function createMongoIndexes(db: Db) {
     await db.collection('friendships').createIndex({ senderId: 1, receiverId: 1 }, { unique: true });
     await db.collection('friendships').createIndex({ receiverId: 1, status: 1 });
 
-    // Sessions
+    // Sessions - for connect-mongo
     await db.collection('sessions').createIndex({ sid: 1 }, { unique: true });
-    await db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await db.collection('sessions').createIndex({ expires: 1 }, { expireAfterSeconds: 0 });
 
     console.log('✅ MongoDB indexes created');
   } catch (error) {

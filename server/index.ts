@@ -29,6 +29,7 @@ import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
 import healthRoutes from './routes/health';
 import { setupSocketHandlers } from './socket/handlers';
+import { setupEnhancedChatHandlers } from './socket/chatHandlers';
 import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
@@ -107,7 +108,7 @@ async function startServer() {
 
   // OPTIMIZATION: Compression middleware (40% smaller responses)
   app.use(compression({
-    filter: (req, res) => {
+    filter: (req: any, res: any) => {
       if (req.headers['x-no-compression']) {
         return false;
       }
@@ -136,27 +137,80 @@ async function startServer() {
   // Global rate limiting (after health checks)
   app.use(globalRateLimiter);
   
+  // Session configuration with MongoDB store
+  const sessionStore = MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    ttl: 30 * 24 * 60 * 60, // 30 days in seconds
+    touchAfter: 24 * 3600, // Update session once per day (24 hours)
+    autoRemove: 'native', // Let MongoDB handle expired session removal
+    crypto: {
+      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+    },
+  });
+
+  // Log session store events for debugging
+  sessionStore.on('create', (sessionId) => {
+    console.log('📝 Session created:', sessionId);
+  });
+
+  sessionStore.on('touch', (sessionId) => {
+    console.log('👆 Session touched:', sessionId);
+  });
+
+  sessionStore.on('destroy', (sessionId) => {
+    console.log('🗑️  Session destroyed:', sessionId);
+  });
+
+  sessionStore.on('error', (error) => {
+    console.error('❌ Session store error:', error);
+  });
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-      resave: false,
-      saveUninitialized: false,
-      store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        ttl: 30 * 24 * 60 * 60, // 30 days
-        touchAfter: 24 * 3600, // Lazy session update
-      }),
+      resave: false, // Don't save session if unmodified
+      saveUninitialized: false, // Don't create session until something stored
+      rolling: true, // Reset cookie maxAge on every response
+      store: sessionStore,
+      name: 'studybuddy.sid', // Custom session cookie name
       cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days - persistent login
-        httpOnly: true,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+        httpOnly: true, // Prevent XSS attacks
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // CSRF protection
+        path: '/', // Cookie available for all paths
+        domain: undefined, // Let browser determine domain
       },
     })
   );
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Middleware to ensure session is saved on every request
+  app.use((req, res, next) => {
+    if (req.isAuthenticated() && req.session) {
+      // Touch the session to keep it alive
+      req.session.touch();
+    }
+    next();
+  });
+
+  // Debug middleware - log all requests with session info
+  if (process.env.NODE_ENV === 'development') {
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        console.log(`\n📨 ${req.method} ${req.path}`);
+        console.log(`   Session ID: ${req.sessionID}`);
+        console.log(`   Authenticated: ${req.isAuthenticated()}`);
+        console.log(`   User: ${req.user ? (req.user as any).email : 'none'}`);
+        if (req.session.cookie) {
+          console.log(`   Cookie expires: ${new Date(Date.now() + (req.session.cookie.maxAge || 0)).toISOString()}`);
+        }
+      }
+      next();
+    });
+  }
 
   // Detailed health check (authenticated only)
   app.get('/api/health/detailed', (req, res) => {
@@ -216,8 +270,8 @@ async function startServer() {
     });
   });
 
-  // Socket.io setup
-  setupSocketHandlers(io);
+  // Socket.io setup with enhanced chat handlers
+  setupEnhancedChatHandlers(io);
 
   const PORT = process.env.PORT || 3001;
 

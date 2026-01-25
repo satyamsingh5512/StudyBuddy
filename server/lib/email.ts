@@ -23,7 +23,7 @@ function createTransporter() {
 
 export async function sendOTPEmail(email: string, otp: string, name?: string): Promise<void> {
   const transporter = createTransporter();
-  
+
   // Skip email sending if SMTP not configured
   if (!transporter) {
     console.log(`⚠️  SMTP not configured - OTP: ${otp}`);
@@ -94,17 +94,16 @@ export async function sendOTPEmail(email: string, otp: string, name?: string): P
   await transporter.sendMail(mailOptions);
 }
 
-export async function sendPasswordResetEmail(email: string, resetToken: string, name?: string): Promise<void> {
+// Reusing the same template structure for consistency, but customized for reset password OTP
+export async function sendPasswordResetEmail(email: string, otp: string, name?: string): Promise<void> {
   const transporter = createTransporter();
-  
+
   // Skip email sending if SMTP not configured
   if (!transporter) {
-    console.log(`⚠️  SMTP not configured - Reset token: ${resetToken}`);
+    console.log(`⚠️  SMTP not configured - Reset OTP: ${otp}`);
     return;
   }
 
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-  
   const mailOptions = {
     from: process.env.EMAIL_FROM || `"StudyBuddy" <${process.env.SMTP_USER}>`,
     to: email,
@@ -136,20 +135,16 @@ export async function sendPasswordResetEmail(email: string, resetToken: string, 
                     <td style="padding: 0 40px 30px;">
                       <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.5;">
                         ${name ? `Hi ${name},` : 'Hello,'}<br><br>
-                        We received a request to reset your password. Click the button below to create a new password:
+                        Use the following code to reset your password:
                       </p>
-                      <div style="text-align: center; margin: 30px 0;">
-                        <a href="${resetUrl}" style="display: inline-block; background-color: #6366f1; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-size: 16px; font-weight: 600;">
-                          Reset Password
-                        </a>
+                      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 24px; text-align: center; margin: 20px 0;">
+                        <div style="font-size: 36px; font-weight: 700; color: #6366f1; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                          ${otp}
+                        </div>
                       </div>
                       <p style="margin: 20px 0 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
-                        This link will expire in <strong>1 hour</strong>.<br>
-                        If you didn't request this, please ignore this email and your password will remain unchanged.
-                      </p>
-                      <p style="margin: 20px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
-                        Or copy and paste this URL into your browser:<br>
-                        <span style="word-break: break-all;">${resetUrl}</span>
+                        This code will expire in <strong>10 minutes</strong>.<br>
+                        If you didn't request this, please ignore this email.
                       </p>
                     </td>
                   </tr>

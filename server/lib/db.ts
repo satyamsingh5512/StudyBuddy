@@ -7,29 +7,29 @@ import { getMongoDb, generateId, toObjectId, ObjectId } from './mongodb';
 
 export interface User {
   _id?: ObjectId;
-  id?: string;
+  id: string;
   email: string;
   name: string;
-  username?: string;
-  password?: string;
-  googleId?: string;
+  username: string | null;
+  password: string | null;
+  googleId: string | null;
   emailVerified: boolean;
-  verificationOtp?: string;
-  otpExpiry?: Date;
-  resetToken?: string;
-  resetTokenExpiry?: Date;
-  avatar?: string;
+  verificationOtp: string | null;
+  otpExpiry: Date | null;
+  resetToken: string | null;
+  resetTokenExpiry: Date | null;
+  avatar: string | null;
   avatarType: string;
   onboardingDone: boolean;
   examGoal: string;
-  examDate?: Date;
-  examAttempt?: number;
-  studentClass?: string;
-  batch?: string;
-  syllabus?: string;
-  schoolId?: string;
-  collegeId?: string;
-  coachingId?: string;
+  examDate: Date | null;
+  examAttempt: number | null;
+  studentClass: string | null;
+  batch: string | null;
+  syllabus: string | null;
+  schoolId: string | null;
+  collegeId: string | null;
+  coachingId: string | null;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
@@ -38,80 +38,159 @@ export interface User {
   createdAt: Date;
 }
 
-export const db = {
-  user: {
-    async findUnique(where: { email?: string; id?: string; googleId?: string; resetToken?: string }) {
+export interface FAQ {
+  id?: string;
+  _id?: ObjectId;
+  question: string;
+  answer: string;
+  examType: string;
+  published: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Block {
+  id?: string;
+  _id?: ObjectId;
+  blockerId: string;
+  blockedId: string;
+  reason?: string;
+  createdAt: Date;
+}
+
+export interface Friendship {
+  id?: string;
+  _id?: ObjectId;
+  senderId: string;
+  receiverId: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DirectMessage {
+  id?: string;
+  _id?: ObjectId;
+  senderId: string;
+  receiverId: string;
+  message: string;
+  read: boolean;
+  createdAt: Date;
+}
+
+export interface Schedule {
+  id?: string;
+  _id?: ObjectId;
+  userId: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+  title: string;
+  subject?: string;
+  notes?: string;
+  completed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+// Helper to create generic model wrappers
+const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: string) => {
+  return {
+    async findUnique(params: { where: any; select?: Record<string, boolean>; include?: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      let filter: any = {};
-      if (where.email) filter.email = where.email;
-      if (where.id) filter._id = toObjectId(where.id);
-      if (where.googleId) filter.googleId = where.googleId;
-      if (where.resetToken) filter.resetToken = where.resetToken;
+      const { where, select } = params;
+      const filter: any = { ...where };
 
-      const user = await mongoDb.collection('users').findOne(filter);
-      if (!user) return null;
+      // Map id to _id if present
+      if (filter.id) {
+        try {
+          filter._id = toObjectId(filter.id);
+        } catch (error) {
+          console.error('❌ Invalid ObjectId:', filter.id);
+          return null;
+        }
+        delete filter.id;
+      }
 
-      return { ...user, id: user._id.toString() } as User;
+      const options: any = {};
+      if (select) {
+        options.projection = {};
+        for (const key in select) {
+          if (select[key]) options.projection[key] = 1;
+        }
+        if (options.projection.id) {
+          options.projection._id = 1;
+          delete options.projection.id;
+        }
+      }
+
+      const doc = await mongoDb.collection(collectionName).findOne(filter, options);
+      if (!doc) return null;
+
+      return { ...doc, id: doc._id.toString() } as T;
     },
 
-    async findFirst(where: any) {
+    async findFirst(params: { where: any; orderBy?: any; select?: Record<string, boolean> }) {
+      // Handle params being just "where" or "{ where }"
+      const actualParams = params.where ? params : { where: params };
+
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      const user = await mongoDb.collection('users').findOne(where);
-      if (!user) return null;
+      const filter: any = { ...actualParams.where };
+      if (filter.id) {
+        filter._id = toObjectId(filter.id);
+        delete filter.id;
+      }
 
-      return { ...user, id: user._id.toString() } as User;
+      const options: any = {};
+      if (actualParams.select) {
+        options.projection = {};
+        for (const key in actualParams.select) {
+          if (actualParams.select[key]) options.projection[key] = 1;
+        }
+        if (options.projection.id) {
+          options.projection._id = 1;
+          delete options.projection.id;
+        }
+      }
+
+      // Handle sorting if needed (findFirst usually implies order)
+      const sort: any = {};
+      if (actualParams.orderBy) {
+        for (const [key, value] of Object.entries(actualParams.orderBy)) {
+          sort[key] = value === 'asc' ? 1 : -1;
+        }
+      }
+
+      const doc = await mongoDb.collection(collectionName).findOne(filter, { ...options, sort });
+      if (!doc) return null;
+
+      return { ...doc, id: doc._id.toString() } as T;
     },
 
-    async create(data: { data: Partial<User> }) {
+    async findMany(params?: { where?: any; orderBy?: any; take?: number; skip?: number; select?: Record<string, boolean>; include?: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      const userData = {
-        ...data.data,
-        emailVerified: data.data.emailVerified ?? false,
-        avatarType: data.data.avatarType ?? 'photo',
-        onboardingDone: data.data.onboardingDone ?? false,
-        examGoal: data.data.examGoal ?? 'JEE',
-        totalPoints: data.data.totalPoints ?? 0,
-        totalStudyMinutes: data.data.totalStudyMinutes ?? 0,
-        streak: data.data.streak ?? 0,
-        lastActive: data.data.lastActive ?? new Date(),
-        showProfile: data.data.showProfile ?? true,
-        createdAt: data.data.createdAt ?? new Date(),
-      };
+      const filter: any = { ...params?.where };
+      if (filter.id) {
+        filter._id = toObjectId(filter.id);
+        delete filter.id;
+      }
 
-      const result = await mongoDb.collection('users').insertOne(userData);
-      return { ...userData, id: result.insertedId.toString(), _id: result.insertedId } as User;
-    },
-
-    async update(params: { where: { id: string }; data: Partial<User> }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      const result = await mongoDb.collection('users').findOneAndUpdate(
-        { _id: toObjectId(params.where.id) },
-        { $set: params.data },
-        { returnDocument: 'after' }
-      );
-
-      if (!result) throw new Error('User not found');
-      return { ...result, id: result._id.toString() } as User;
-    },
-
-    async findMany(params?: { where?: any; orderBy?: any; take?: number; skip?: number }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      let query = mongoDb.collection('users').find(params?.where || {});
+      let query = mongoDb.collection(collectionName).find(filter);
 
       if (params?.orderBy) {
         const sort: any = {};
-        for (const [key, value] of Object.entries(params.orderBy)) {
-          sort[key] = value === 'asc' ? 1 : -1;
+        // Handle array of order bys
+        const orders = Array.isArray(params.orderBy) ? params.orderBy : [params.orderBy];
+        for (const order of orders) {
+          for (const [key, value] of Object.entries(order || {})) {
+            sort[key] = value === 'asc' ? 1 : -1;
+          }
         }
         query = query.sort(sort);
       }
@@ -119,53 +198,113 @@ export const db = {
       if (params?.skip) query = query.skip(params.skip);
       if (params?.take) query = query.limit(params.take);
 
-      const users = await query.toArray();
-      return users.map(u => ({ ...u, id: u._id.toString() })) as User[];
-    },
-  },
+      if (params?.select) {
+        const projection: any = {};
+        for (const key in params.select) {
+          if (params.select[key]) projection[key] = 1;
+        }
+        if (projection.id) {
+          projection._id = 1;
+          delete projection.id;
+        }
+        query = query.project(projection);
+      }
 
-  session: {
-    async create(data: { data: { sid: string; data: string; expiresAt: Date } }) {
+      const docs = await query.toArray();
+      return docs.map(d => ({ ...d, id: d._id.toString() })) as T[];
+    },
+
+    async create(params: { data: any; include?: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      await mongoDb.collection('sessions').insertOne(data.data);
-      return data.data;
+      const data = {
+        ...params.data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Clean up undefined
+      Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+
+      const result = await mongoDb.collection(collectionName).insertOne(data);
+      return { ...data, id: result.insertedId.toString(), _id: result.insertedId } as T;
     },
 
-    async findUnique(where: { sid: string }) {
+    async update(params: { where: { id: string }; data: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      return await mongoDb.collection('sessions').findOne({ sid: where.sid });
+      const updateData = { ...params.data, updatedAt: new Date() };
+
+      const result = await mongoDb.collection(collectionName).findOneAndUpdate(
+        { _id: toObjectId(params.where.id) },
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) throw new Error(`${collectionName} not found`);
+      return { ...result, id: result._id.toString() } as T;
     },
 
-    async update(params: { where: { sid: string }; data: any }) {
+    async updateMany(params: { where: any; data: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      await mongoDb.collection('sessions').updateOne(
-        { sid: params.where.sid },
+      const result = await mongoDb.collection(collectionName).updateMany(
+        params.where,
         { $set: params.data }
       );
+      return { count: result.modifiedCount };
     },
 
-    async delete(where: { sid: string }) {
+    async delete(params: { where: { id: string } }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      await mongoDb.collection('sessions').deleteOne({ sid: where.sid });
+      await mongoDb.collection(collectionName).deleteOne({ _id: toObjectId(params.where.id) });
+      return { id: params.where.id, success: true };
     },
 
-    async deleteMany(where: { expiresAt: { lt: Date } }) {
+    async deleteMany(params?: { where: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      await mongoDb.collection('sessions').deleteMany({
-        expiresAt: { $lt: where.expiresAt.lt }
-      });
+      const result = await mongoDb.collection(collectionName).deleteMany(params?.where || {});
+      return { count: result.deletedCount };
     },
-  },
+
+    async count(params?: { where: any }) {
+      const mongoDb = await getMongoDb();
+      if (!mongoDb) throw new Error('Database not connected');
+
+      return await mongoDb.collection(collectionName).countDocuments(params?.where || {});
+    }
+  };
+};
+
+export const db = {
+  user: createModel<User>('users'),
+  session: createModel('sessions'),
+  fAQ: createModel<FAQ>('faqs'),
+  schedule: createModel<Schedule>('schedules'),
+  timerSession: createModel('timer_sessions'),
+  notice: createModel('notices'),
+  dailyReport: createModel('daily_reports'),
+  todo: createModel('todos'),
+  friendship: createModel<Friendship>('friendships'),
+  block: createModel<Block>('blocks'),
+  directMessage: createModel<DirectMessage>('direct_messages'),
+  chatMessage: createModel('chat_messages'),
+  video: createModel('videos'),
+
+  // Schools & Messages
+  school: createModel('schools'),
+  college: createModel('colleges'),
+  coaching: createModel('coachings'),
+  schoolMessage: createModel('school_messages'),
+  collegeMessage: createModel('college_messages'),
+  coachingMessage: createModel('coaching_messages'),
 };
 
 export { generateId, toObjectId, ObjectId };

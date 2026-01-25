@@ -1,43 +1,46 @@
 /**
- * Admin Authorization Middleware
+ * Admin Middleware
  * File: server/middleware/admin.ts
  * 
- * Checks if authenticated user has admin privileges.
- * Admin user IDs are configured via ADMIN_USER_IDS environment variable.
+ * Middleware to check if user has admin privileges
  */
 
 import { Request, Response, NextFunction } from 'express';
 
-// Admin user IDs - comma-separated list in env
-// In production, consider storing admin status in database
-const ADMIN_USER_IDS = new Set(
-  (process.env.ADMIN_USER_IDS || '').split(',').filter(Boolean)
-);
-
 /**
- * Middleware to verify admin access
- * Must be used after isAuthenticated middleware
+ * Check if user is an admin
  */
-export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+export function isAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Authentication required' });
   }
+
+  const user = req.user as any;
   
-  const userId = (req.user as any)?.id;
-  
-  if (!userId || !ADMIN_USER_IDS.has(userId)) {
-    console.warn(`[SECURITY] Non-admin user ${userId} attempted admin action: ${req.method} ${req.path}`);
+  // Check if user has admin role
+  if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
     return res.status(403).json({ error: 'Admin access required' });
   }
-  
+
   next();
-};
+}
 
 /**
- * Check if a user ID has admin privileges
+ * Check if user is a super admin
  */
-export const checkIsAdmin = (userId: string): boolean => {
-  return ADMIN_USER_IDS.has(userId);
-};
+export function isSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
 
-export default isAdmin;
+  const user = req.user as any;
+  
+  // Check if user has super admin role
+  if (user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Super admin access required' });
+  }
+
+  next();
+}
+
+export default { isAdmin, isSuperAdmin };
