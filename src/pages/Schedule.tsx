@@ -36,7 +36,7 @@ export default function Schedule() {
       setLoading(true);
       const startDate = new Date(selectedDate);
       startDate.setDate(startDate.getDate() - 7);
-      
+
       const endDate = new Date(selectedDate);
       endDate.setDate(endDate.getDate() + 7);
 
@@ -44,7 +44,7 @@ export default function Schedule() {
         `${API_URL}/schedule?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { credentials: 'include' }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         // Convert database format to grid format
@@ -84,7 +84,7 @@ export default function Schedule() {
 
   const handleCellClick = async (day: string, hour: number) => {
     if (creating) return; // Prevent multiple clicks
-    
+
     console.log('Cell clicked:', day, hour);
     const entry = getEntry(day, hour);
     if (entry) {
@@ -95,7 +95,7 @@ export default function Schedule() {
       // Create new entry
       const date = getDateForDayHour(day);
       console.log('Creating new entry for date:', date);
-      
+
       setCreating(true);
       try {
         const response = await fetch(`${API_URL}/schedule`, {
@@ -113,7 +113,7 @@ export default function Schedule() {
         });
 
         console.log('Response status:', response.status);
-        
+
         if (response.ok) {
           const created = await response.json();
           console.log('Created schedule:', created);
@@ -190,13 +190,13 @@ export default function Schedule() {
 
     try {
       // Delete all entries in current view
-      await Promise.all(schedule.map(entry => 
+      await Promise.all(schedule.map(entry =>
         fetch(`${API_URL}/schedule/${entry.id}`, {
           method: 'DELETE',
           credentials: 'include',
         })
       ));
-      
+
       setSchedule([]);
       setEditingId(null);
       setEditText('');
@@ -216,8 +216,8 @@ export default function Schedule() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-auto"
           />
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleClear}
             className="flex items-center gap-2"
@@ -227,16 +227,19 @@ export default function Schedule() {
           </Button>
         </div>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Time Planner</CardTitle>
+
+      <Card className="shadow-md border-border/50">
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-lg md:text-xl flex items-center gap-2">
+            <span className="text-primary">📅</span>
+            Time Planner
+          </CardTitle>
           <p className="text-sm text-muted-foreground">Click on any time slot to add or edit tasks</p>
         </CardHeader>
-        <CardContent className="p-2 md:p-6">
+        <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
             </div>
           ) : (
             <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
@@ -250,7 +253,7 @@ export default function Schedule() {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Time Slots */}
                 {hours.map((hour) => (
                   <div key={`row-${hour}`} className="grid grid-cols-8 gap-1 md:gap-2 mb-1 md:mb-2">
@@ -260,7 +263,7 @@ export default function Schedule() {
                     {days.map((day) => {
                       const entry = getEntry(day, hour);
                       const isEditing = editingId === entry?.id;
-                      
+
                       return (
                         <div
                           key={`${day}-${hour}`}
@@ -286,7 +289,7 @@ export default function Schedule() {
                               </button>
                             </div>
                           )}
-                          
+
                           {isEditing && (
                             <div className="p-1.5 md:p-2 h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
                               <textarea
@@ -311,7 +314,7 @@ export default function Schedule() {
                               </div>
                             </div>
                           )}
-                          
+
                           {!entry && !isEditing && (
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <Plus className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />

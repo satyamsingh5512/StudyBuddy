@@ -35,7 +35,7 @@ const TodoItem = memo(
     onToggle: (id: string, completed: boolean) => void;
     onDelete: (id: string) => void;
   }) => (
-    <div className="flex items-start gap-3 p-3 rounded-md border group">
+    <div className="flex items-start gap-3 p-4 rounded-xl border group hover:shadow-sm transition-all duration-200 bg-card hover:border-primary/20">
       <Checkbox
         checked={todo.completed}
         onCheckedChange={() => onToggle(todo.id, todo.completed)}
@@ -52,7 +52,7 @@ const TodoItem = memo(
       <button
         type="button"
         onClick={() => onDelete(todo.id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/10 rounded-lg"
         title="Delete task"
       >
         <Trash2 className="h-4 w-4 text-destructive" />
@@ -221,24 +221,24 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-3 xs:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="hover:scale-105 transition-transform duration-200 shadow-sm hover:shadow-md border-primary/10">
           <CardContent className="pt-4 xs:pt-6">
-            <div className="text-xl xs:text-2xl font-bold">
+            <div className="text-xl xs:text-2xl font-bold text-primary">
               {completedCount}/{todos.length}
             </div>
-            <p className="text-xs text-muted-foreground">Tasks completed</p>
+            <p className="text-xs text-muted-foreground font-medium">Tasks completed</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:scale-105 transition-transform duration-200 shadow-sm hover:shadow-md border-primary/10">
           <CardContent className="pt-4 xs:pt-6">
-            <div className="text-xl xs:text-2xl font-bold">{user?.totalPoints}</div>
-            <p className="text-xs text-muted-foreground">Total points</p>
+            <div className="text-xl xs:text-2xl font-bold text-primary">{user?.totalPoints}</div>
+            <p className="text-xs text-muted-foreground font-medium">Total points</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="hover:scale-105 transition-transform duration-200 shadow-sm hover:shadow-md border-primary/10">
           <CardContent className="pt-4 xs:pt-6">
-            <div className="text-xl xs:text-2xl font-bold">{user?.streak}</div>
-            <p className="text-xs text-muted-foreground">Day streak</p>
+            <div className="text-xl xs:text-2xl font-bold text-primary">{user?.streak}</div>
+            <p className="text-xs text-muted-foreground font-medium">Day streak</p>
           </CardContent>
         </Card>
         <StudyTimer />
