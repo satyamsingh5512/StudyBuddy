@@ -1,9 +1,8 @@
 import { apiCache } from '@/lib/performance';
 
 // API configuration
-// For local development, use proxy (configured in vite.config.ts)
-// For production (Vercel), both frontend and backend are on the same domain
-export const API_URL = '/api';  // Uses Vite proxy in dev, same origin in production
+// Uses environment variable for production, /api for development
+export const API_URL = '/api';
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
