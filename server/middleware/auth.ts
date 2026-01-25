@@ -29,7 +29,7 @@ export const isAuthenticated = (req: Request, res: Response, next: NextFunction)
  * Allows both authenticated and unauthenticated users
  * Useful for endpoints that behave differently based on auth status
  */
-export const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = (_req: Request, _res: Response, next: NextFunction) => {
   // Just continue, authentication is optional
   next();
 };
@@ -109,7 +109,7 @@ export const isOwner = (req: Request, res: Response, next: NextFunction) => {
  * Attach user info to request
  * Useful for logging and analytics
  */
-export const attachUserInfo = (req: Request, res: Response, next: NextFunction) => {
+export const attachUserInfo = (req: Request, _res: Response, next: NextFunction) => {
   if (req.isAuthenticated()) {
     const user = req.user as any;
     (req as any).userId = user.id;
