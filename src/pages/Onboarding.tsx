@@ -23,8 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 
