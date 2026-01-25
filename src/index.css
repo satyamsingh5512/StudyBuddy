@@ -3,181 +3,226 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-  }
+    :root {
+        /* StudyBuddy Light Theme - Purple/Pink Gradient base */
+        /* We'll use the gradient for the body, but define HSL variables for components */
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  }
+        /* Text Colors */
+        --foreground: 260 10% 20%;
+        /* #333ish but cooler */
+        --background: 330 20% 96%;
+        /* #fff0f5 - pinkish white for fallbacks */
+
+        /* Card/Surface Colors */
+        --card: 0 0% 100%;
+        --card-foreground: 260 10% 20%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 260 10% 20%;
+
+        /* Primary Brand Colors (matching the buttons/gradients) */
+        --primary: 320 25% 45%;
+        /* #8B5A7C specific button bg from Auth */
+        --primary-foreground: 0 0% 98%;
+
+        --secondary: 260 20% 96%;
+        --secondary-foreground: 260 10% 20%;
+
+        --muted: 320 10% 90%;
+        --muted-foreground: 260 5% 40%;
+
+        --accent: 320 30% 85%;
+        --accent-foreground: 260 10% 20%;
+
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+
+        --border: 320 15% 85%;
+        /* Soft pinkish border */
+        --input: 15 35% 92%;
+        /* #F5E6E0 from Auth */
+        --ring: 320 25% 45%;
+
+        --radius: 0.75rem;
+    }
+
+    .dark {
+        /* StudyBuddy Dark Theme - Deep Space */
+
+        /* Text Colors */
+        --foreground: 260 20% 95%;
+        /* #E8E0F0 */
+        --background: 240 40% 7%;
+        /* #0a0a1a */
+
+        /* Card/Surface Colors - Glassmorphic look handled by components often, but defaults here */
+        --card: 240 30% 12%;
+        /* #141428 approx */
+        --card-foreground: 260 20% 95%;
+        --popover: 240 30% 12%;
+        --popover-foreground: 260 20% 95%;
+
+        /* Primary Brand Colors */
+        --primary: 260 30% 50%;
+        /* #6B5A9E */
+        --primary-foreground: 260 20% 95%;
+
+        --secondary: 240 25% 20%;
+        --secondary-foreground: 260 20% 95%;
+
+        --muted: 240 25% 20%;
+        --muted-foreground: 240 20% 80%;
+
+        --accent: 260 30% 25%;
+        --accent-foreground: 260 20% 95%;
+
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+
+        --border: 240 20% 25%;
+        --input: 240 25% 22%;
+        /* 40, 40, 70 approx */
+        --ring: 260 30% 50%;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-    transition-property: color, background-color, border-color;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 200ms;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
-    letter-spacing: -0.02em;
-  }
+    * {
+        @apply border-border;
+        transition-property: color, background-color, border-color;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 200ms;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+        font-family: 'Montserrat', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Global Background Gradient */
+        min-height: 100vh;
+        background-attachment: fixed;
+    }
+
+    /* Light Mode Gradient - Lighter Pastels for readability */
+    :root body {
+        background: linear-gradient(180deg, #E6E0F5 0%, #F5E6EE 50%, #F5E6E6 100%);
+    }
+
+    /* Dark Mode Gradient */
+    .dark body {
+        background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3a 30%, #2a1a4a 60%, #3a2a5a 100%);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Space Grotesk', 'Outfit', sans-serif;
+        font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+        letter-spacing: -0.02em;
+    }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .glass-card {
+        @apply backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl;
+        background-color: rgba(255, 255, 255, 0.85);
+    }
+
+    .dark .glass-card {
+        background-color: rgba(20, 20, 40, 0.7);
+    }
 }
 
 /* Smooth page transitions */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .page-transition {
-  animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.3s ease-out;
 }
 
 /* Loading animations */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
 }
 
 .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.05) 50%,
+            transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
 }
 
-/* Sliding tagline animation */
-@keyframes slideUp {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  90% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
+/* Grid background pattern */
+.grid-pattern {
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
-.animate-slide-up {
-  animation: slideUp 3s ease-in-out;
-}
-
-/* Fade in up animation for schedule items */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.dark .grid-pattern {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
 }
 
 /* Responsive breakpoint for extra small devices */
 @media (min-width: 475px) {
-  .xs\:flex-row {
-    flex-direction: row;
-  }
-  .xs\:flex-none {
-    flex: none;
-  }
-  .xs\:w-auto {
-    width: auto;
-  }
-  .xs\:items-center {
-    align-items: center;
-  }
+    .xs\:flex-row {
+        flex-direction: row;
+    }
+
+    .xs\:flex-none {
+        flex: none;
+    }
+
+    .xs\:w-auto {
+        width: auto;
+    }
+
+    .xs\:items-center {
+        align-items: center;
+    }
 }
 
-
-/* OPTIMIZATION: content-visibility for long lists (Vercel Best Practices 6.1) */
+/* OPTIMIZATION: content-visibility for long lists */
 .list-item-optimized {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 60px;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 60px;
 }
 
 .message-item-optimized {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 80px;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 80px;
 }
 
 .friend-item-optimized {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 72px;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 72px;
 }
