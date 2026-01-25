@@ -1,281 +1,343 @@
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { soundManager } from '@/lib/sounds';
-
-const SLIDING_TAGLINES = [
-  "Study smarter, not harder.",
-  "Turn your goals into daily actionable plans.",
-  "Consistency made simple with AI-driven routines.",
-  "Track, plan, and level up—effortlessly.",
-  "Where discipline meets intelligent automation.",
-];
+import { motion } from 'framer-motion';
+import { Play, ChevronDown, Check, MoreVertical, Users, MessageSquare, Folder } from 'lucide-react';
+import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 
 export default function Landing() {
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
+    const navigate = useNavigate();
+    const [isLoading, setIsLoading] = useState(false);
 
-  // Rotate taglines every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTaglineIndex((prev) => (prev + 1) % SLIDING_TAGLINES.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    const handleGetStarted = () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        navigate('/auth');
+    };
 
-  const handleGetStarted = () => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    soundManager.playClick();
-    
-    navigate('/auth');
-  };
+    return (
+        <UnifiedPageWrapper>
+            {/* Header */}
+            <header className="relative z-50">
+                <div className="container mx-auto px-6 h-20 flex items-center justify-between max-w-7xl">
+                    <div className="flex items-center gap-2">
+                        <Logo className="w-6 h-6 text-foreground" highlighted />
+                        <span className="font-semibold text-lg tracking-wider uppercase" style={{ letterSpacing: '0.2em' }}>
+                            StudyBuddy
+                        </span>
+                    </div>
 
-  const handleExploreDashboard = () => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    soundManager.playClick();
-    
-    navigate('/auth');
-  };
+                    <nav className="hidden md:flex items-center gap-8">
+                        <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            Resource <ChevronDown className="w-3 h-3" />
+                        </button>
+                        <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            Product <ChevronDown className="w-3 h-3" />
+                        </button>
+                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            Pricing
+                        </button>
+                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            Support
+                        </button>
+                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            About Us
+                        </button>
+                    </nav>
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-6xl">
-          <div className="flex items-center gap-2">
-            <Logo className="w-5 h-5" />
-            <span className="font-medium">StudyBuddy</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Button onClick={handleGetStarted} size="sm" variant="ghost" disabled={isLoading}>
-              {isLoading ? 'Connecting...' : 'Sign in'}
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1">
-        {/* Hero */}
-        <section className="container mx-auto px-6 pt-32 pb-24 max-w-7xl">
-          <div className="max-w-3xl">
-            {/* Main Tagline - Static */}
-            <h1 className="text-6xl font-bold tracking-tight leading-[1.1] mb-4">
-              Your Personal AI Study Mentor
-            </h1>
-            
-            {/* Sliding Tagline */}
-            <div className="h-10 mb-6 overflow-hidden">
-              <p 
-                key={currentTaglineIndex}
-                className="text-2xl font-medium text-primary animate-slide-up"
-              >
-                {SLIDING_TAGLINES[currentTaglineIndex]}
-              </p>
-            </div>
-
-            {/* Subheading */}
-            <p className="text-xl text-muted-foreground leading-relaxed mb-8 max-w-2xl">
-              StudyBuddy understands your study patterns, analyzes your goals, and builds a 
-              personalized preparation path for exams
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex items-center gap-4 mb-6">
-              <Button onClick={handleGetStarted} size="lg" disabled={isLoading} className="text-base px-8">
-                {isLoading ? (
-                  <>
-                    <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    Start Your Journey
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={handleExploreDashboard} 
-                size="lg" 
-                variant="outline" 
-                disabled={isLoading}
-                className="text-base px-8"
-              >
-                {isLoading ? 'Connecting...' : 'Explore the Dashboard'}
-              </Button>
-            </div>
-
-            {/* Supporting Line */}
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-yellow-500" />
-              Trusted, intelligent, and beautifully simple.
-            </p>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section className="border-t bg-muted/30">
-          <div className="container mx-auto px-6 py-24 max-w-7xl">
-            <h2 className="text-3xl font-bold mb-12">
-              Everything you need to succeed
-            </h2>
-            <div className="grid md:grid-cols-3 gap-12">
-              <div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
+                    <div className="flex items-center gap-3">
+                        <ThemeToggle />
+                        <Button
+                            onClick={handleGetStarted}
+                            className="rounded-full bg-foreground text-background hover:bg-foreground/90 px-6"
+                            disabled={isLoading}
+                        >
+                            Sign In
+                        </Button>
+                    </div>
                 </div>
-                <h3 className="font-semibold mb-2 text-lg">AI-Powered Planning</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Get personalized study plans based on your goals, patterns, and exam timeline.
-                </p>
-              </div>
-              <div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="font-semibold mb-2 text-lg">Smart Study Timer</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Track focus sessions with Pomodoro timer, earn points, and build consistent habits.
-                </p>
-              </div>
-              <div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <h3 className="font-semibold mb-2 text-lg">Community Support</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Connect with peers, share progress, and stay motivated together.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+            </header>
 
-        {/* CTA */}
-        <section className="border-t">
-          <div className="container mx-auto px-6 py-24 max-w-7xl">
-            <div className="max-w-2xl">
-              <h2 className="text-4xl font-bold tracking-tight mb-4">
-                Ready to transform your study routine?
-              </h2>
-              <p className="text-lg text-muted-foreground mb-8">
-                Join thousands of students who are achieving their goals with StudyBuddy's intelligent study system.
-              </p>
-              <Button onClick={handleGetStarted} size="lg" disabled={isLoading} className="text-base px-8">
-                {isLoading ? (
-                  <>
-                    <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    Start Your Journey
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </section>
-      </main>
+            {/* Hero Content */}
+            <main className="relative z-10 pt-16 pb-32">
+                <div className="container mx-auto px-6 max-w-7xl">
+                    {/* Hero Text */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="text-center max-w-4xl mx-auto mb-12"
+                    >
+                        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
+                            <span className="italic">Write your Task</span>
+                            <span className="relative inline-block mx-2">
+                                .
+                                {/* Decorative squiggle under the period */}
+                                <svg className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-8 h-4" viewBox="0 0 32 16">
+                                    <path d="M4 8 Q8 4 12 8 Q16 12 20 8 Q24 4 28 8" stroke="currentColor" strokeWidth="2" fill="none" className="text-foreground" />
+                                </svg>
+                            </span>
+                            <span> so that</span>
+                            <br />
+                            <span>your mind is </span>
+                            <span className="relative inline-block">
+                                empty
+                                {/* Decorative dot */}
+                                <span className="absolute -right-4 top-0 w-2 h-2 bg-foreground rounded-full" />
+                            </span>
+                            <span className="italic">.</span>
+                        </h1>
 
-      {/* Footer */}
-      <footer className="border-t bg-muted/30">
-        <div className="container mx-auto px-6 py-12 max-w-7xl">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Logo className="w-5 h-5" />
-                <span className="font-semibold">StudyBuddy</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your Personal AI Study Mentor
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Legal</h4>
-              <div className="space-y-2">
-                <a href="/privacy" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Privacy Policy
-                </a>
-                <a href="/terms" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Terms & Conditions
-                </a>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Product</h4>
-              <div className="space-y-2">
-                <button 
-                  onClick={handleGetStarted} 
-                  className="block text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
-                  disabled={isLoading}
-                >
-                  Get Started
-                </button>
-                <button 
-                  onClick={handleExploreDashboard} 
-                  className="block text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
-                  disabled={isLoading}
-                >
-                  Dashboard
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="border-t pt-8">
-            <p className="text-sm text-muted-foreground text-center">
-              © 2025 StudyBuddy. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
+                        <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
+                            Do you want to be on top of your schedule? It's hard to imagine achieving this without
+                            using some digital assistance. Here's task management app that helps to be more
+                            productive any time.
+                        </p>
+
+                        {/* CTA Buttons */}
+                        <div className="flex items-center justify-center gap-4">
+                            <Button
+                                onClick={handleGetStarted}
+                                className="rounded-full bg-foreground text-background hover:bg-foreground/90 px-8 py-6 text-base"
+                                disabled={isLoading}
+                            >
+                                Get Start
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="rounded-full px-6 py-6 text-base border-foreground/20 hover:bg-foreground/5"
+                            >
+                                How It Work <Play className="ml-2 w-4 h-4" />
+                            </Button>
+                        </div>
+                    </motion.div>
+                    {/* Floating Cards Section */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
+                        className="relative max-w-7xl mx-auto h-auto md:h-[450px] flex flex-col md:block items-center gap-8 md:gap-0 py-12 md:py-0 px-4 md:px-0"
+                    >
+                        {/* Yellow Glow in Center */}
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-96 md:h-96 bg-gradient-radial from-yellow-300/40 via-yellow-200/20 to-transparent dark:from-yellow-500/20 dark:via-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+
+                        {/* Left Card - Project Card */}
+                        <motion.div
+                            initial={{ opacity: 0, x: -50, rotate: -8 }}
+                            animate={{ opacity: 1, x: 0, rotate: -8 }}
+                            transition={{ duration: 0.6, delay: 0.4 }}
+                            className="relative md:absolute md:left-[2%] md:top-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-64 z-10"
+                        >
+                            <div className="bg-card border-2 border-dashed border-border rounded-2xl p-5 shadow-xl">
+                                <div className="flex items-start justify-between mb-4">
+                                    <span className="px-3 py-1 bg-orange-400 text-white text-xs font-medium rounded-full">
+                                        UX Designer
+                                    </span>
+                                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                                </div>
+
+                                <h3 className="font-semibold mb-2">Dribbble Inspiration</h3>
+                                <p className="text-xs text-muted-foreground mb-4">
+                                    Exploration for ios design dashboard drown for EN, color and white color can be clean design
+                                </p>
+
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex -space-x-2">
+                                        <div className="w-7 h-7 rounded-full bg-pink-300 border-2 border-card" />
+                                        <div className="w-7 h-7 rounded-full bg-blue-300 border-2 border-card" />
+                                        <div className="w-7 h-7 rounded-full bg-green-300 border-2 border-card" />
+                                        <div className="w-7 h-7 rounded-full bg-yellow-300 border-2 border-card" />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1 text-orange-500">
+                                        <div className="w-3 h-3 border-2 border-orange-500 rounded-full" />
+                                        <span className="text-xs font-medium">Progress</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">0/4</span>
+                                </div>
+
+                                <div className="flex items-center gap-4 mt-4 pt-4 border-t text-muted-foreground">
+                                    <MessageSquare className="w-4 h-4" />
+                                    <Users className="w-4 h-4" />
+                                    <Folder className="w-4 h-4" />
+                                </div>
+                            </div>
+
+                            {/* Decorative star - Hidden on mobile to reduce clutter, or adjust position */}
+                            <svg className="absolute -top-6 -right-6 w-6 h-6 hidden md:block" viewBox="0 0 24 24">
+                                <path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" fill="currentColor" className="text-foreground" />
+                            </svg>
+                        </motion.div>
+
+                        {/* NEW 4th Card - Study Group (Second Position) */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 40, rotate: -4 }}
+                            animate={{ opacity: 1, y: 0, rotate: -4 }}
+                            transition={{ duration: 0.6, delay: 0.45 }}
+                            className="relative md:absolute md:left-[26%] md:top-[65%] md:-translate-y-1/2 w-full max-w-[240px] md:w-56 z-20"
+                        >
+                            <div className="bg-card border-2 border-dashed border-border rounded-2xl p-4 shadow-xl backdrop-blur-sm bg-card/90">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                                            <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <span className="font-semibold text-sm">Study Group</span>
+                                    </div>
+                                    <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mb-3">Math Finals Prep</p>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex -space-x-2">
+                                        <div className="w-8 h-8 rounded-full bg-purple-200 border-2 border-card flex items-center justify-center text-[10px] font-bold">JD</div>
+                                        <div className="w-8 h-8 rounded-full bg-teal-200 border-2 border-card flex items-center justify-center text-[10px] font-bold">AS</div>
+                                        <div className="w-8 h-8 rounded-full bg-card border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-[10px]">+3</div>
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-7 text-xs px-2">
+                                        Join
+                                    </Button>
+                                </div>
+                            </div>
+                        </motion.div>
+
+                        {/* Center Card - Today Tasks */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6, delay: 0.5 }}
+                            className="relative md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-72 z-10"
+                        >
+                            <div className="bg-card border-2 border-dashed border-border rounded-2xl p-5 shadow-2xl">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="font-semibold text-lg">Today</h3>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+                                            <span className="text-xs">#</span>
+                                        </div>
+                                        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center">
+                                            <span className="text-xs">@</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {[
+                                        { text: 'Job Interview', checked: true },
+                                        { text: 'Send Resume', checked: true },
+                                        { text: 'Shopping for Home', checked: false },
+                                        { text: 'Portfolio Design', checked: true },
+                                        { text: 'Traveling with family', checked: false },
+                                        { text: 'Start New project', checked: false },
+                                    ].map((task, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <div className={`w-5 h-5 rounded flex items-center justify-center ${task.checked
+                                                ? 'bg-emerald-500 text-white'
+                                                : 'border-2 border-border'
+                                                }`}>
+                                                {task.checked && <Check className="w-3 h-3" />}
+                                            </div>
+                                            <span className={`text-sm ${task.checked ? '' : 'text-muted-foreground'}`}>
+                                                {task.text}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Decorative star - Hidden on mobile */}
+                            <svg className="absolute -bottom-8 -right-8 w-5 h-5 hidden md:block" viewBox="0 0 24 24">
+                                <path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" fill="currentColor" className="text-foreground" />
+                            </svg>
+
+                            {/* Connecting Line - Hidden on mobile */}
+                            <svg className="absolute top-1/2 -left-16 w-16 h-20 -translate-y-1/2 hidden md:block">
+                                <path d="M64 40 Q32 20 0 30" stroke="currentColor" strokeWidth="2" fill="none" className="text-foreground/30" />
+                            </svg>
+                        </motion.div>
+
+                        {/* Right Card - Dashboard Preview */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 50, rotate: 8 }}
+                            animate={{ opacity: 1, x: 0, rotate: 8 }}
+                            transition={{ duration: 0.6, delay: 0.6 }}
+                            className="relative md:absolute md:right-[2%] md:top-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-64"
+                        >
+                            <div className="bg-card border-2 border-dashed border-border rounded-2xl overflow-hidden shadow-xl">
+                                {/* Mini Dashboard Header */}
+                                <div className="bg-gradient-to-r from-emerald-400 to-teal-500 p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-2 h-2 rounded-full bg-white/50" />
+                                        <div className="w-2 h-2 rounded-full bg-white/50" />
+                                        <div className="w-2 h-2 rounded-full bg-white/50" />
+                                    </div>
+                                    <div className="bg-white/20 rounded p-2">
+                                        <div className="flex justify-between text-white text-xs font-medium">
+                                            <span>Company Statistics</span>
+                                            <span>4.57%</span>
+                                        </div>
+                                        <div className="flex gap-2 mt-2">
+                                            <div className="bg-purple-500 rounded px-2 py-1 text-white text-xs">54</div>
+                                            <div className="flex-1 h-6 bg-white/30 rounded" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card Content */}
+                                <div className="p-4">
+                                    <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full">
+                                        UI Designer
+                                    </span>
+
+                                    <h3 className="font-semibold mt-3 mb-1">Dribbble Inspiration</h3>
+                                    <p className="text-xs text-muted-foreground mb-4">
+                                        Inspiration for ios design Sam's design for EN color color can be clean design
+                                    </p>
+
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="flex -space-x-2">
+                                            <div className="w-6 h-6 rounded-full bg-pink-300 border-2 border-card" />
+                                            <div className="w-6 h-6 rounded-full bg-blue-300 border-2 border-card" />
+                                            <div className="w-6 h-6 rounded-full bg-green-300 border-2 border-card" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1 text-emerald-500">
+                                            <div className="w-3 h-3 border-2 border-emerald-500 rounded-full" />
+                                            <span className="text-xs font-medium">Progress</span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">0/4</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="relative z-10 py-8 border-t bg-background/50 backdrop-blur-sm">
+                <div className="container mx-auto px-6 max-w-7xl">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <Logo className="w-5 h-5" />
+                            <span className="text-sm text-muted-foreground">© 2025 StudyBuddy. All rights reserved.</span>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                Privacy
+                            </a>
+                            <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                Terms
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </UnifiedPageWrapper>
+    );
 }
