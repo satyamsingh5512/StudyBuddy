@@ -1,8 +1,9 @@
 import { apiCache } from '@/lib/performance';
 
 // API configuration
-// Uses environment variable for production, /api for development
-export const API_URL = '/api';
+// For production: use VITE_API_URL environment variable (Render backend)
+// For development: use /api (Vite proxy)
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
