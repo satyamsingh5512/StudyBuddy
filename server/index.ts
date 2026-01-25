@@ -28,7 +28,6 @@ import usernameRoutes from './routes/username';
 import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
 import healthRoutes from './routes/health';
-import { setupSocketHandlers } from './socket/handlers';
 import { setupEnhancedChatHandlers } from './socket/chatHandlers';
 import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
@@ -120,14 +119,14 @@ async function startServer() {
   app.use(express.json({ limit: '1mb' }));
   
   // Public health check endpoints (before rate limiting and auth)
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
     });
   });
 
-  app.get('/api/health', (req, res) => {
+  app.get('/api/health', (_req, res) => {
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
@@ -188,7 +187,7 @@ async function startServer() {
   app.use(passport.session());
 
   // Middleware to ensure session is saved on every request
-  app.use((req, res, next) => {
+  app.use((req, _res, next) => {
     if (req.isAuthenticated() && req.session) {
       // Touch the session to keep it alive
       req.session.touch();
@@ -270,7 +269,7 @@ async function startServer() {
     });
   });
 
-  // Socket.io setup with enhanced chat handlers
+  // Socket.io setup with enhanced chat handlers (Redis caching + batch persistence)
   setupEnhancedChatHandlers(io);
 
   const PORT = process.env.PORT || 3001;
