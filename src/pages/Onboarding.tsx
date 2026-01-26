@@ -36,12 +36,71 @@ const AVATAR_STYLES = [
 ];
 
 const EXAMS = [
-  { id: 'JEE', name: 'JEE (Joint Entrance Examination)', hasAttempts: true },
-  { id: 'NEET', name: 'NEET (National Eligibility cum Entrance Test)', hasAttempts: true },
-  { id: 'UPSC', name: 'UPSC (Union Public Service Commission)', hasAttempts: false },
-  { id: 'CAT', name: 'CAT (Common Admission Test)', hasAttempts: false },
-  { id: 'GATE', name: 'GATE (Graduate Aptitude Test in Engineering)', hasAttempts: false },
-  { id: 'Other', name: 'Other Exam', hasAttempts: false },
+  // Engineering
+  { id: 'JEE_MAIN', name: 'JEE Main', category: 'Engineering', hasAttempts: true },
+  { id: 'JEE_ADVANCED', name: 'JEE Advanced', category: 'Engineering', hasAttempts: true },
+  { id: 'BITSAT', name: 'BITSAT', category: 'Engineering', hasAttempts: false },
+  { id: 'VITEEE', name: 'VITEEE', category: 'Engineering', hasAttempts: false },
+  { id: 'SRMJEEE', name: 'SRMJEEE', category: 'Engineering', hasAttempts: false },
+  { id: 'WBJEE', name: 'WBJEE', category: 'Engineering', hasAttempts: false },
+  { id: 'MHT_CET', name: 'MHT-CET', category: 'Engineering', hasAttempts: false },
+
+  // Medical
+  { id: 'NEET_UG', name: 'NEET UG', category: 'Medical', hasAttempts: true },
+  { id: 'NEET_PG', name: 'NEET PG', category: 'Medical', hasAttempts: false },
+  { id: 'AIIMS', name: 'AIIMS', category: 'Medical', hasAttempts: false },
+
+  // Government/Civil Services
+  { id: 'UPSC_CSE', name: 'UPSC Civil Services', category: 'Government', hasAttempts: false },
+  { id: 'UPSC_NDA', name: 'UPSC NDA', category: 'Government', hasAttempts: false },
+  { id: 'UPSC_CDS', name: 'UPSC CDS', category: 'Government', hasAttempts: false },
+  { id: 'SSC_CGL', name: 'SSC CGL', category: 'Government', hasAttempts: false },
+  { id: 'SSC_CHSL', name: 'SSC CHSL', category: 'Government', hasAttempts: false },
+  { id: 'IBPS_PO', name: 'IBPS PO', category: 'Government', hasAttempts: false },
+  { id: 'IBPS_CLERK', name: 'IBPS Clerk', category: 'Government', hasAttempts: false },
+  { id: 'SBI_PO', name: 'SBI PO', category: 'Government', hasAttempts: false },
+  { id: 'RBI_GRADE_B', name: 'RBI Grade B', category: 'Government', hasAttempts: false },
+  { id: 'RAILWAYS', name: 'Railway Exams', category: 'Government', hasAttempts: false },
+
+  // MBA/Management
+  { id: 'CAT', name: 'CAT', category: 'MBA', hasAttempts: false },
+  { id: 'XAT', name: 'XAT', category: 'MBA', hasAttempts: false },
+  { id: 'SNAP', name: 'SNAP', category: 'MBA', hasAttempts: false },
+  { id: 'MAT', name: 'MAT', category: 'MBA', hasAttempts: false },
+  { id: 'CMAT', name: 'CMAT', category: 'MBA', hasAttempts: false },
+  { id: 'NMAT', name: 'NMAT', category: 'MBA', hasAttempts: false },
+
+  // Graduate/Post Graduate
+  { id: 'GATE', name: 'GATE', category: 'Graduate', hasAttempts: false },
+  { id: 'NET_JRF', name: 'UGC NET/JRF', category: 'Graduate', hasAttempts: false },
+  { id: 'CSIR_NET', name: 'CSIR NET', category: 'Graduate', hasAttempts: false },
+  { id: 'CUET_UG', name: 'CUET UG', category: 'Graduate', hasAttempts: false },
+  { id: 'CUET_PG', name: 'CUET PG', category: 'Graduate', hasAttempts: false },
+
+  // Law
+  { id: 'CLAT', name: 'CLAT', category: 'Law', hasAttempts: false },
+  { id: 'AILET', name: 'AILET', category: 'Law', hasAttempts: false },
+  { id: 'LSAT', name: 'LSAT India', category: 'Law', hasAttempts: false },
+
+  // Defence
+  { id: 'AFCAT', name: 'AFCAT', category: 'Defence', hasAttempts: false },
+  { id: 'CAPF', name: 'CAPF', category: 'Defence', hasAttempts: false },
+
+  // Design & Architecture
+  { id: 'NATA', name: 'NATA', category: 'Architecture', hasAttempts: false },
+  { id: 'NID', name: 'NID DAT', category: 'Design', hasAttempts: false },
+  { id: 'NIFT', name: 'NIFT', category: 'Design', hasAttempts: false },
+  { id: 'UCEED', name: 'UCEED', category: 'Design', hasAttempts: false },
+
+  // School Level
+  { id: 'NTSE', name: 'NTSE', category: 'School', hasAttempts: false },
+  { id: 'KVPY', name: 'KVPY', category: 'School', hasAttempts: false },
+  { id: 'OLYMPIAD', name: 'Olympiads', category: 'School', hasAttempts: false },
+  { id: 'BOARDS_10', name: 'Class 10 Boards', category: 'School', hasAttempts: false },
+  { id: 'BOARDS_12', name: 'Class 12 Boards', category: 'School', hasAttempts: false },
+
+  // Other
+  { id: 'CUSTOM', name: '🎯 Custom Goal', category: 'Other', hasAttempts: false },
 ];
 
 const CLASSES = ['11th', '12th', 'Dropper', 'Graduate', 'Working Professional'];
@@ -63,7 +122,7 @@ export default function Onboarding() {
   const { toast } = useToast();
 
   const selectedExam = EXAMS.find((e) => e.id === examGoal);
-  const maxAttempts = examGoal === 'JEE' ? 3 : examGoal === 'NEET' ? 2 : 0;
+  const maxAttempts = examGoal.startsWith('JEE') ? 3 : examGoal.startsWith('NEET') ? 2 : 0;
 
   const fetchExamData = async () => {
     if (!examGoal) return;
@@ -214,10 +273,22 @@ export default function Onboarding() {
                       <SelectValue placeholder="Select exam" />
                     </SelectTrigger>
                     <SelectContent>
-                      {EXAMS.map((exam) => (
-                        <SelectItem key={exam.id} value={exam.id}>
-                          {exam.name}
-                        </SelectItem>
+                      {Object.entries(EXAMS.reduce((acc, exam) => {
+                        const category = exam.category || 'Other';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(exam);
+                        return acc;
+                      }, {} as Record<string, typeof EXAMS>)).map(([category, exams]) => (
+                        <div key={category}>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30">
+                            {category}
+                          </div>
+                          {exams.map((exam) => (
+                            <SelectItem key={exam.id} value={exam.id}>
+                              {exam.name}
+                            </SelectItem>
+                          ))}
+                        </div>
                       ))}
                     </SelectContent>
                   </Select>
