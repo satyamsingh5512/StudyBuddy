@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
-import { db as prisma } from '../lib/db';
+import { db } from '../lib/db';
 
 router.use(isAuthenticated);
 
@@ -11,7 +11,7 @@ router.use(isAuthenticated);
 router.get('/:examType', async (req, res) => {
   try {
     const { examType } = req.params;
-    const faqs = await prisma.fAQ.findMany({
+    const faqs = await db.fAQ.findMany({
       where: {
         examType,
         published: true,
@@ -27,7 +27,7 @@ router.get('/:examType', async (req, res) => {
 // Create FAQ (admin only - you can add admin check middleware)
 router.post('/', async (req, res) => {
   try {
-    const faq = await prisma.fAQ.create({
+    const faq = await db.fAQ.create({
       data: req.body,
     });
     res.json(faq);
@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
 // Update FAQ
 router.patch('/:id', async (req, res) => {
   try {
-    const faq = await prisma.fAQ.update({
+    const faq = await db.fAQ.update({
       where: { id: req.params.id },
       data: req.body,
     });
@@ -52,7 +52,7 @@ router.patch('/:id', async (req, res) => {
 // Delete FAQ
 router.delete('/:id', async (req, res) => {
   try {
-    await prisma.fAQ.delete({
+    await db.fAQ.delete({
       where: { id: req.params.id },
     });
     res.json({ success: true });
