@@ -19,7 +19,6 @@ import noticeRoutes from './routes/notices';
 import aiRoutes from './routes/ai';
 import userRoutes from './routes/users';
 import faqRoutes from './routes/faqs';
-import uploadRoutes from './routes/upload';
 import timerRoutes from './routes/timer';
 import scheduleRoutes from './routes/schedule';
 import friendsRoutes from './routes/friends';
@@ -48,7 +47,8 @@ async function startServer() {
     console.error('Current MONGODB_URI:', process.env.MONGODB_URI?.replace(/:[^:@]+@/, ':****@'));
     console.error('\nServer will continue but authentication will NOT work!\n');
   } else {
-    console.log('✅ MongoDB ready as primary database');
+    console.log('✅ MongoDB connected and ready');
+    console.log('📊 Database: MongoDB (Native Driver)');
   }
 
   const app = express();
@@ -241,7 +241,6 @@ async function startServer() {
   app.use('/api/ai', aiRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/faqs', faqRoutes);
-  app.use('/api/upload', uploadRoutes);
   app.use('/api/timer', timerRoutes);
   app.use('/api/schedule', scheduleRoutes);
   app.use('/api/friends', friendsRoutes);
@@ -295,9 +294,6 @@ async function startServer() {
     console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'MongoDB Connected' : '⚠️  Not configured'}`);
     console.log(
       `🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' ? 'Configured' : '⚠️  Not configured'}`
-    );
-    console.log(
-      `☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name' ? 'Configured' : '⚠️  Not configured'}\n`
     );
   });
 
