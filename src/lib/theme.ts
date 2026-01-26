@@ -12,14 +12,14 @@ export function getTheme(): Theme {
 export function setTheme(theme: Theme) {
   localStorage.setItem('theme', theme);
   
-  // Use requestAnimationFrame to batch DOM updates
-  requestAnimationFrame(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  });
+  const root = document.documentElement;
+  
+  // Apply theme instantly
+  if (theme === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
 }
 
 export function toggleTheme(): Theme {
