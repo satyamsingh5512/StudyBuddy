@@ -1,0 +1,50 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    # Runs every 14 minutes to prevent Render free tier from spinning down
+    # Render spins down after 15 minutes of inactivity
+    - cron: '*/14 * * * *'
+  
+  # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Backend Health Endpoint
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔄 Keep-Alive Ping Started"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⏰ Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🎯 Target: https://YOUR-APP-NAME.onrender.com/api/health"
+          echo ""
+          
+          # Ping the backend
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -m 30 \
+            https://YOUR-APP-NAME.onrender.com/api/health)
+          
+          echo "📊 Response Code: $response"
+          echo ""
+          
+          # Check if successful
+          if [ $response -eq 200 ]; then
+            echo "✅ Backend is alive and responding!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 0
+          else
+            echo "❌ Backend returned HTTP $response"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 1
+          fi
+      
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "⚠️  Backend health check failed!"
+          echo "Please check your Render deployment."
