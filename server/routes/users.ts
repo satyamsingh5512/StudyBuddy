@@ -16,6 +16,7 @@ import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
 import { db } from '../lib/db';
 import { cache } from '../lib/cache';
+import { sendWelcomeEmail } from '../lib/email';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.use(isAuthenticated);
  * BEFORE: 800ms (query + join every time)
  * AFTER: 50ms (cache) / 240ms (optimized query)
  */
-router.get('/leaderboard', async (req, res) => {
+router.get('/leaderboard', async (_req, res) => {
   try {
     const cacheKey = 'leaderboard:top10';
 
@@ -142,6 +143,11 @@ router.post('/onboarding', async (req, res) => {
     // Invalidate caches
     cache.delete(`user:${userId}`);
     cache.delete('leaderboard:top10');
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.name).catch(() => {
+      // Silently handle email errors - don't block onboarding
+    });
 
     res.json(user);
   } catch (error) {
