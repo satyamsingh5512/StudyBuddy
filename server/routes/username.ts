@@ -156,7 +156,7 @@ export async function removeUserFromTrie(username: string) {
 }
 
 // Refresh trie (useful for admin operations)
-router.post('/refresh-trie', async (req, res) => {
+router.post('/refresh-trie', async (_req, res) => {
   try {
     trieInitialized = false;
     await initializeTrie();

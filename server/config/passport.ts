@@ -17,7 +17,7 @@ if (isGoogleAuthConfigured) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         callbackURL: process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback',
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (_accessToken, _refreshToken, profile, done) => {
         try {
           let user = await db.user.findUnique({
             where: { googleId: profile.id },
@@ -45,9 +45,6 @@ if (isGoogleAuthConfigured) {
                 studentClass: null,
                 batch: null,
                 syllabus: null,
-                schoolId: null,
-                collegeId: null,
-                coachingId: null,
                 totalPoints: 0,
                 totalStudyMinutes: 0,
                 streak: 0,

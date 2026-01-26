@@ -8,7 +8,7 @@ import path from 'path';
 const router = Router();
 
 // Export MongoDB data to JSON (admin only)
-router.get('/export', isAuthenticated, isAdmin, async (req: any, res: any) => {
+router.get('/export', isAuthenticated, isAdmin, async (_req: any, res: any) => {
   try {
     console.log(`📦 MongoDB export triggered by admin ${req.user.id}`);
     

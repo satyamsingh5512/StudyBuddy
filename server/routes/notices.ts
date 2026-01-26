@@ -6,7 +6,7 @@ const router = Router();
 
 router.use(isAuthenticated);
 
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const notices = await db.notice.findMany({
       where: { published: true },

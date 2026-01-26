@@ -46,7 +46,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 // Create a new schedule entry
 router.post('/', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { date, startTime, endTime, title, subject, notes } = req.body;
 
     console.log('Creating schedule for user:', userId);
@@ -77,7 +77,7 @@ router.post('/', isAuthenticated, async (req, res) => {
 router.put('/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
     const { date, startTime, endTime, title, subject, notes, completed } = req.body;
 
     console.log('Updating schedule:', id, 'for user:', userId);
@@ -112,7 +112,7 @@ router.put('/:id', isAuthenticated, async (req, res) => {
 router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    const userId = (req.user as any).id;
 
     const schedule = await db.schedule.deleteMany({
       where: { id, userId },

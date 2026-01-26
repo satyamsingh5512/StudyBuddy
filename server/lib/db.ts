@@ -27,9 +27,6 @@ export interface User {
   studentClass: string | null;
   batch: string | null;
   syllabus: string | null;
-  schoolId: string | null;
-  collegeId: string | null;
-  coachingId: string | null;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
@@ -323,15 +320,6 @@ export const db = {
   block: createModel<Block>('blocks'),
   directMessage: createModel<DirectMessage>('direct_messages'),
   chatMessage: createModel('chat_messages'),
-  video: createModel('videos'),
-
-  // Schools & Messages
-  school: createModel('schools'),
-  college: createModel('colleges'),
-  coaching: createModel('coachings'),
-  schoolMessage: createModel('school_messages'),
-  collegeMessage: createModel('college_messages'),
-  coachingMessage: createModel('coaching_messages'),
 };
 
 export { generateId, toObjectId, ObjectId };

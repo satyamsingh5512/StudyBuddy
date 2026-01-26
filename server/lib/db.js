@@ -187,12 +187,4 @@ exports.db = {
     block: createModel('blocks'),
     directMessage: createModel('direct_messages'),
     chatMessage: createModel('chat_messages'),
-    video: createModel('videos'),
-    // Schools & Messages
-    school: createModel('schools'),
-    college: createModel('colleges'),
-    coaching: createModel('coachings'),
-    schoolMessage: createModel('school_messages'),
-    collegeMessage: createModel('college_messages'),
-    coachingMessage: createModel('coaching_messages'),
 };

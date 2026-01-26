@@ -122,7 +122,7 @@ router.patch('/:id', async (req, res) => {
     if (req.body.completed && !existingTodo.completed) {
       await db.user.update({
         where: { id: userId },
-        data: { totalPoints: existingTodo.totalPoints + 1 },
+        data: { totalPoints: { increment: 1 } },
       });
       cache.invalidatePattern(`user:${userId}`);
     }
