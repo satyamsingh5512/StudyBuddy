@@ -56,7 +56,7 @@ export default function Messages() {
 
   const fetchConversations = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/messages/conversations`, {
+      const response = await fetch(`${API_URL}/api/messages/conversations`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -70,7 +70,7 @@ export default function Messages() {
 
   const fetchUserDetails = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/list`, {
+      const response = await fetch(`${API_URL}/api/friends/list`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -86,7 +86,7 @@ export default function Messages() {
   const fetchMessages = useCallback(async (id: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/messages/${id}`, {
+      const response = await fetch(`${API_URL}/api/messages/${id}`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -119,7 +119,7 @@ export default function Messages() {
     if (!newMessage.trim() || !userId) return;
 
     try {
-      const response = await fetch(`${API_URL}/messages`, {
+      const response = await fetch(`${API_URL}/api/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

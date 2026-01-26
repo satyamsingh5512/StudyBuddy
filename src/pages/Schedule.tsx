@@ -41,7 +41,7 @@ export default function Schedule() {
       endDate.setDate(endDate.getDate() + 7);
 
       const response = await fetch(
-        `${API_URL}/schedule?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `${API_URL}/api/schedule?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         { credentials: 'include' }
       );
 
@@ -98,7 +98,7 @@ export default function Schedule() {
 
       setCreating(true);
       try {
-        const response = await fetch(`${API_URL}/schedule`, {
+        const response = await fetch(`${API_URL}/api/schedule`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -143,7 +143,7 @@ export default function Schedule() {
   const handleSave = async (id: string) => {
     if (editText.trim()) {
       try {
-        const response = await fetch(`${API_URL}/schedule/${id}`, {
+        const response = await fetch(`${API_URL}/api/schedule/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -168,7 +168,7 @@ export default function Schedule() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/schedule/${id}`, {
+      const response = await fetch(`${API_URL}/api/schedule/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -191,7 +191,7 @@ export default function Schedule() {
     try {
       // Delete all entries in current view
       await Promise.all(schedule.map(entry =>
-        fetch(`${API_URL}/schedule/${entry.id}`, {
+        fetch(`${API_URL}/api/schedule/${entry.id}`, {
           method: 'DELETE',
           credentials: 'include',
         })

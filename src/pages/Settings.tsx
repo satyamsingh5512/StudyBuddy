@@ -76,7 +76,7 @@ export default function Settings() {
   const handleStartVerification = async () => {
     setIsVerifying(true);
     try {
-      const res = await apiFetch('/auth/resend-otp', {
+      const res = await apiFetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user?.email }),
@@ -99,7 +99,7 @@ export default function Settings() {
   const handleVerifyOtp = async () => {
     setIsVerifying(true);
     try {
-      const res = await apiFetch('/auth/verify-otp', {
+      const res = await apiFetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user?.email, otp }),

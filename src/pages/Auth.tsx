@@ -42,10 +42,10 @@ export default function Auth() {
         try {
             let endpoint = '';
             if (authType === 'verify-signup') {
-                endpoint = '/auth/resend-otp';
+                endpoint = '/api/auth/resend-otp';
             } else if (authType === 'verify-reset') {
                 // For reset pass, we just hit forgot-password again to generate new code
-                endpoint = '/auth/forgot-password';
+                endpoint = '/api/auth/forgot-password';
             } else {
                 return;
             }
