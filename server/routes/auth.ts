@@ -89,11 +89,16 @@ router.post('/signup', async (req, res) => {
 
     // Send verification email
     try {
-      await sendOTPEmail(email, otp, name);
+      const emailPromise = sendOTPEmail(email, otp, name);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email timeout')), 5000)
+      );
+      
+      await Promise.race([emailPromise, timeoutPromise]);
       console.log(`✅ OTP email sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp} (Email service error)`);
+      console.log(`📧 OTP for ${email}: ${otp} (Email service error or timeout)`);
     }
 
     res.json({
@@ -208,11 +213,16 @@ router.post('/resend-otp', async (req, res) => {
 
     // Send verification email
     try {
-      await sendOTPEmail(email, otp);
+      const emailPromise = sendOTPEmail(email, otp);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email timeout')), 5000)
+      );
+      
+      await Promise.race([emailPromise, timeoutPromise]);
       console.log(`✅ OTP email sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp} (Email service error)`);
+      console.log(`📧 OTP for ${email}: ${otp} (Email service error or timeout)`);
     }
 
     res.json({
@@ -310,13 +320,18 @@ router.post('/forgot-password', async (req, res) => {
       },
     });
 
-    // Send password reset email
+    // Send password reset email with timeout
+    const emailPromise = sendPasswordResetEmail(email, otp, user.name);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email timeout')), 5000)
+    );
+
     try {
-      await sendPasswordResetEmail(email, otp, user.name);
+      await Promise.race([emailPromise, timeoutPromise]);
       console.log(`✅ Password reset OTP sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send password reset email:', emailError);
-      console.log(`🔑 Reset OTP for ${email}: ${otp} (Email service not configured)`);
+      console.log(`🔑 Reset OTP for ${email}: ${otp} (Email service not configured or timed out)`);
     }
 
     res.json({
