@@ -93,6 +93,33 @@ export interface Schedule {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface DailyReport {
+  id?: string;
+  _id?: ObjectId;
+  userId: string;
+  date: Date;
+  studyHours: number;
+  completionPct: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Todo {
+  id?: string;
+  _id?: ObjectId;
+  userId: string;
+  title: string;
+  subject: string;
+  difficulty: string;
+  questionsTarget: number;
+  questionsCompleted: number;
+  completed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Helper to create generic model wrappers
 const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: string) => {
   return {
@@ -290,8 +317,8 @@ export const db = {
   schedule: createModel<Schedule>('schedules'),
   timerSession: createModel('timer_sessions'),
   notice: createModel('notices'),
-  dailyReport: createModel('daily_reports'),
-  todo: createModel('todos'),
+  dailyReport: createModel<DailyReport>('daily_reports'),
+  todo: createModel<Todo>('todos'),
   friendship: createModel<Friendship>('friendships'),
   block: createModel<Block>('blocks'),
   directMessage: createModel<DirectMessage>('direct_messages'),
