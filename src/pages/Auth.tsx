@@ -76,15 +76,20 @@ export default function Auth() {
 
         try {
             if (authType === 'signup') {
+                // Validation
+                if (password.length < 8) {
+                    throw new Error('Password must be at least 8 characters long');
+                }
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
+                
                 const res = await fetch(`${API_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({
-                        email,
+                        email: email.trim(),
                         password,
                         name: email.split('@')[0],
                     }),
@@ -92,71 +97,82 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-                // Don't auto-login, go to verification
                 setAuthType('verify-signup');
                 setResendCooldown(60);
-                toast({ title: 'Account Created', description: 'Please check your email for the verification code.' });
+                toast({ title: 'Account Created', description: data.message || 'Please check your email for the verification code.' });
 
             } else if (authType === 'verify-signup') {
+                if (otp.length !== 6) {
+                    throw new Error('Please enter a valid 6-digit code');
+                }
+                
                 const res = await fetch(`${API_URL}/api/auth/verify-otp`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ email, otp }),
+                    body: JSON.stringify({ email: email.trim(), otp: otp.trim() }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Verification failed');
 
                 soundManager.playLogin();
-                toast({ title: 'Success!', description: 'Email verified. You are now logged in.' });
-                window.location.href = '/';
+                toast({ title: 'Success!', description: data.message || 'Email verified. You are now logged in.' });
+                setTimeout(() => window.location.href = '/', 500);
 
             } else if (authType === 'signin') {
                 const res = await fetch(`${API_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({ email: email.trim(), password }),
                 });
                 const data = await res.json();
                 if (!res.ok) {
                     if (data.code === 'EMAIL_NOT_VERIFIED') {
                         setAuthType('verify-signup');
-                        throw new Error('Please verify your email first');
+                        setResendCooldown(60);
                     }
                     throw new Error(data.error || 'Login failed');
                 }
                 soundManager.playLogin();
-                window.location.href = '/';
+                toast({ title: 'Welcome back!', description: 'Login successful' });
+                setTimeout(() => window.location.href = '/', 500);
 
             } else if (authType === 'forgot-password') {
                 const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ email }),
+                    body: JSON.stringify({ email: email.trim() }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Request failed');
 
                 setAuthType('verify-reset');
                 setResendCooldown(60);
-                toast({ title: 'Code Sent', description: 'Check your email for the password reset code.' });
+                toast({ title: 'Code Sent', description: data.message || 'Check your email for the password reset code.' });
 
             } else if (authType === 'verify-reset') {
+                if (otp.length !== 6) {
+                    throw new Error('Please enter a valid 6-digit code');
+                }
+                if (password.length < 8) {
+                    throw new Error('Password must be at least 8 characters long');
+                }
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
+                
                 const res = await fetch(`${API_URL}/api/auth/reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ email, otp, password }),
+                    body: JSON.stringify({ email: email.trim(), otp: otp.trim(), password }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Reset failed');
 
-                toast({ title: 'Password Reset', description: 'Your password has been changed. Please sign in.' });
+                toast({ title: 'Password Reset', description: data.message || 'Your password has been changed. Please sign in.' });
                 setAuthType('signin');
                 setPassword('');
                 setConfirmPassword('');

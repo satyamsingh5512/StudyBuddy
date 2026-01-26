@@ -17,6 +17,11 @@ build/
 *.tsbuildinfo
 .vite/
 
+# Compiled TypeScript (server)
+server/**/*.js
+server/**/*.js.map
+!server/**/*.config.js
+
 # Capacitor
 android/
 ios/
@@ -48,9 +53,20 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Documentation
+# Documentation (keep important docs)
 *.md
 !README.md
+!QUICK_DEPLOY.md
+!VERCEL_SETUP.md
+!CONNECTION_TEST.md
+!ERROR_FIXES_APPLIED.md
+!DEPLOYMENT_CHECKLIST.md
+!RENDER_DEPLOYMENT_FIX.md
 
 # Prisma (not used - MongoDB only)
 prisma/
+
+# Backup files
+*.backup
+*.old
+*.bak

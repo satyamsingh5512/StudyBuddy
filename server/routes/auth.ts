@@ -35,18 +35,30 @@ router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
+    // Validation
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Password validation
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
     // Check if user already exists
-    const existingUser = await db.user.findUnique({ where: { email } });
+    const existingUser = await db.user.findUnique({ where: { email: email.toLowerCase() } });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
+      return res.status(400).json({ error: 'An account with this email already exists' });
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Generate OTP
     const otp = crypto.randomInt(100000, 999999).toString();
@@ -55,9 +67,9 @@ router.post('/signup', async (req, res) => {
     // Create user with all required fields
     const newUser = await db.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         password: hashedPassword,
-        name,
+        name: name.trim(),
         username: null,
         googleId: null,
         emailVerified: false,
@@ -69,7 +81,7 @@ router.post('/signup', async (req, res) => {
         avatarType: 'initials',
         onboardingDone: false,
         examGoal: '',
-        examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 180 days from now
+        examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
         examAttempt: null,
         studentClass: null,
         batch: null,
@@ -87,7 +99,7 @@ router.post('/signup', async (req, res) => {
     
     console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
 
-    // Send verification email
+    // Send verification email with timeout
     try {
       const emailPromise = sendOTPEmail(email, otp, name);
       const timeoutPromise = new Promise((_, reject) => 
@@ -98,17 +110,16 @@ router.post('/signup', async (req, res) => {
       console.log(`✅ OTP email sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp} (Email service error or timeout)`);
+      console.log(`📧 OTP for ${email}: ${otp}`);
     }
 
     res.json({
-      message: 'Signup successful. Please check your email for verification code.',
-      // Always include OTP in development mode
+      message: 'Account created successfully. Please check your email for verification code.',
       ...(process.env.NODE_ENV === 'development' && { otp })
     });
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ error: 'Failed to create account' });
+    res.status(500).json({ error: 'Failed to create account. Please try again.' });
   }
 });
 
@@ -118,38 +129,39 @@ router.post('/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP are required' });
+      return res.status(400).json({ error: 'Email and verification code are required' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     if (user.emailVerified) {
-      return res.status(400).json({ error: 'Email already verified' });
+      return res.status(400).json({ error: 'Email is already verified' });
     }
 
     if (!user.verificationOtp || !user.otpExpiry) {
-      return res.status(400).json({ error: 'No OTP found. Please request a new one.' });
+      return res.status(400).json({ error: 'No verification code found. Please request a new one.' });
     }
 
     if (new Date() > user.otpExpiry) {
-      return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+      return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
     }
 
-    if (user.verificationOtp !== otp) {
-      return res.status(400).json({ error: 'Invalid OTP' });
+    if (user.verificationOtp !== otp.trim()) {
+      return res.status(400).json({ error: 'Invalid verification code' });
     }
 
-    // Mark email as verified
+    // Mark email as verified and clear OTP
     const updatedUser = await db.user.update({
       where: { id: user.id! },
       data: {
         emailVerified: true,
         verificationOtp: undefined,
         otpExpiry: undefined,
+        lastActive: new Date(),
       },
     });
 
@@ -157,26 +169,27 @@ router.post('/verify-otp', async (req, res) => {
     req.login(updatedUser, (err) => {
       if (err) {
         console.error('❌ Login error after verification:', err);
-        return res.status(500).json({ error: 'Failed to log in after verification' });
+        return res.status(500).json({ error: 'Email verified but failed to log in. Please try signing in.' });
       }
       
       // Explicitly save session
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('❌ Session save error:', saveErr);
-          return res.status(500).json({ error: 'Failed to save session' });
+          return res.status(500).json({ error: 'Email verified but failed to save session. Please try signing in.' });
         }
         
-        console.log('✅ User logged in after verification:', updatedUser.email);
-        console.log('📝 Session ID:', req.sessionID);
-        console.log('🍪 Session expires:', new Date(Date.now() + (req.session.cookie.maxAge || 0)));
+        console.log('✅ User verified and logged in:', updatedUser.email);
         
-        res.json({ message: 'Email verified successfully', user: updatedUser });
+        res.json({ 
+          message: 'Email verified successfully. Welcome to StudyBuddy!', 
+          user: updatedUser 
+        });
       });
     });
   } catch (error) {
     console.error('OTP verification error:', error);
-    res.status(500).json({ error: 'Failed to verify OTP' });
+    res.status(500).json({ error: 'Failed to verify code. Please try again.' });
   }
 });
 
@@ -189,14 +202,14 @@ router.post('/resend-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     if (user.emailVerified) {
-      return res.status(400).json({ error: 'Email already verified' });
+      return res.status(400).json({ error: 'Email is already verified' });
     }
 
     // Generate new OTP
@@ -211,28 +224,27 @@ router.post('/resend-otp', async (req, res) => {
       },
     });
 
-    // Send verification email
+    // Send verification email with timeout
     try {
-      const emailPromise = sendOTPEmail(email, otp);
+      const emailPromise = sendOTPEmail(email, otp, user.name);
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Email timeout')), 5000)
       );
       
       await Promise.race([emailPromise, timeoutPromise]);
-      console.log(`✅ OTP email sent to ${email}`);
+      console.log(`✅ OTP resent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp} (Email service error or timeout)`);
+      console.log(`📧 OTP for ${email}: ${otp}`);
     }
 
     res.json({
-      message: 'OTP sent successfully',
-      // Always include OTP in development mode
+      message: 'Verification code sent successfully',
       ...(process.env.NODE_ENV === 'development' && { otp })
     });
   } catch (error) {
     console.error('Resend OTP error:', error);
-    res.status(500).json({ error: 'Failed to resend OTP' });
+    res.status(500).json({ error: 'Failed to resend verification code. Please try again.' });
   }
 });
 
@@ -245,50 +257,75 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (!user || !user.password) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     if (!user.emailVerified) {
+      // Generate new OTP for unverified users
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+      
+      await db.user.update({
+        where: { id: user.id! },
+        data: { verificationOtp: otp, otpExpiry },
+      });
+
+      // Try to send OTP
+      try {
+        const emailPromise = sendOTPEmail(user.email, otp, user.name);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Email timeout')), 5000)
+        );
+        await Promise.race([emailPromise, timeoutPromise]);
+        console.log(`✅ Verification OTP sent to ${user.email}`);
+      } catch (emailError) {
+        console.log(`📧 OTP for ${user.email}: ${otp}`);
+      }
+
       return res.status(403).json({
-        error: 'Email not verified. Please verify your email first.',
-        code: 'EMAIL_NOT_VERIFIED'
+        error: 'Please verify your email first. A new verification code has been sent.',
+        code: 'EMAIL_NOT_VERIFIED',
+        ...(process.env.NODE_ENV === 'development' && { otp })
       });
     }
+
+    // Update last active
+    await db.user.update({
+      where: { id: user.id! },
+      data: { lastActive: new Date() },
+    });
 
     // Log the user in
     req.login(user, (err) => {
       if (err) {
         console.error('❌ Login error:', err);
-        return res.status(500).json({ error: 'Failed to log in' });
+        return res.status(500).json({ error: 'Failed to log in. Please try again.' });
       }
       
       // Explicitly save session to ensure it persists
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('❌ Session save error:', saveErr);
-          return res.status(500).json({ error: 'Failed to save session' });
+          return res.status(500).json({ error: 'Failed to save session. Please try again.' });
         }
         
         console.log('✅ User logged in:', user.email);
-        console.log('📝 Session ID:', req.sessionID);
-        console.log('🍪 Session cookie maxAge:', req.session.cookie.maxAge, 'ms');
-        console.log('🍪 Session expires:', new Date(Date.now() + (req.session.cookie.maxAge || 0)));
         
         res.json({ message: 'Login successful', user });
       });
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to log in' });
+    res.status(500).json({ error: 'Failed to log in. Please try again.' });
   }
 });
 
@@ -301,11 +338,13 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
     // Don't reveal if user exists or not for security
     if (!user) {
-      return res.json({ message: 'If an account exists, a password reset code has been sent' });
+      return res.json({ 
+        message: 'If an account with this email exists, a password reset code has been sent' 
+      });
     }
 
     // Generate OTP
@@ -321,26 +360,26 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     // Send password reset email with timeout
-    const emailPromise = sendPasswordResetEmail(email, otp, user.name);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Email timeout')), 5000)
-    );
-
     try {
+      const emailPromise = sendPasswordResetEmail(email, otp, user.name);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email timeout')), 5000)
+      );
+      
       await Promise.race([emailPromise, timeoutPromise]);
       console.log(`✅ Password reset OTP sent to ${email}`);
     } catch (emailError) {
       console.error('⚠️  Failed to send password reset email:', emailError);
-      console.log(`🔑 Reset OTP for ${email}: ${otp} (Email service not configured or timed out)`);
+      console.log(`🔑 Reset OTP for ${email}: ${otp}`);
     }
 
     res.json({
-      message: 'If an account exists, a password reset code has been sent',
+      message: 'If an account with this email exists, a password reset code has been sent',
       ...(process.env.NODE_ENV === 'development' && { otp })
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ error: 'Failed to process request' });
+    res.status(500).json({ error: 'Failed to process request. Please try again.' });
   }
 });
 
@@ -350,25 +389,30 @@ router.post('/reset-password', async (req, res) => {
     const { email, otp, password } = req.body;
 
     if (!email || !otp || !password) {
-      return res.status(400).json({ error: 'Email, OTP, and password are required' });
+      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    // Password validation
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
+    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     if (!user.resetToken || user.resetToken !== otp) {
-      return res.status(400).json({ error: 'Invalid OTP' });
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
     if (!user.resetTokenExpiry || new Date() > user.resetTokenExpiry) {
-      return res.status(400).json({ error: 'OTP expired' });
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     await db.user.update({
       where: { id: user.id! },
@@ -379,18 +423,16 @@ router.post('/reset-password', async (req, res) => {
       },
     });
 
-    res.json({ message: 'Password reset successful' });
+    console.log('✅ Password reset successful for:', user.email);
+
+    res.json({ message: 'Password reset successful. You can now sign in with your new password.' });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ error: 'Failed to reset password' });
+    res.status(500).json({ error: 'Failed to reset password. Please try again.' });
   }
 });
 
 router.get('/me', (req, res) => {
-  console.log('🔍 Checking auth - Session ID:', req.sessionID);
-  console.log('🔍 Is authenticated:', req.isAuthenticated());
-  console.log('🔍 User:', req.user ? (req.user as any).email : 'none');
-  
   if (req.isAuthenticated()) {
     res.json(req.user);
   } else {
