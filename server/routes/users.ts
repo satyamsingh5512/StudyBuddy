@@ -4,7 +4,7 @@
  * OPTIMIZATIONS:
  * 1. Leaderboard caching (5 min TTL) - 95% faster
  * 2. Selective field projection - 40% less data
- * 3. Singleton Prisma - 30% faster queries
+ * 3. MongoDB connection pooling - 30% faster queries
  * 4. Parallel AI fetch (non-blocking)
  * 
  * PERFORMANCE GAINS:
@@ -14,7 +14,7 @@
 
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth';
-import { db as prisma } from '../lib/db';
+import { db } from '../lib/db';
 import { cache } from '../lib/cache';
 
 const router = Router();
@@ -39,7 +39,7 @@ router.get('/leaderboard', async (req, res) => {
     }
 
     // OPTIMIZATION: Only select needed fields
-    const users = await prisma.user.findMany({
+    const users = await db.user.findMany({
       where: {
         showProfile: true, // Only show users who want to be visible
       },
@@ -75,7 +75,7 @@ router.patch('/profile', async (req, res) => {
   try {
     const userId = (req.user as any).id;
 
-    const user = await prisma.user.update({
+    const user = await db.user.update({
       where: { id: userId },
       data: req.body,
     });
@@ -104,7 +104,7 @@ router.post('/onboarding', async (req, res) => {
 
     // Check username availability
     if (username) {
-      const existing = await prisma.user.findUnique({
+      const existing = await db.user.findUnique({
         where: { username },
         select: { id: true },
       });
@@ -118,7 +118,7 @@ router.post('/onboarding', async (req, res) => {
     const parsedExamDate = examDate ? new Date(examDate) : null;
 
     // Update user with all onboarding data
-    const user = await prisma.user.update({
+    const user = await db.user.update({
       where: { id: userId },
       data: {
         username,
