@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/components/Logo';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import ThemeToggle from '@/components/ThemeToggle';
+import { API_URL } from '@/config/api';
 
 export default function Auth() {
     const [authType, setAuthType] = useState<'signin' | 'signup' | 'verify-signup' | 'forgot-password' | 'verify-reset'>('signin');
@@ -49,7 +50,7 @@ export default function Auth() {
                 return;
             }
 
-            const res = await fetch(`${endpoint}`, {
+            const res = await fetch(`${API_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -78,7 +79,7 @@ export default function Auth() {
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
-                const res = await fetch(`/api/auth/signup`, {
+                const res = await fetch(`${API_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -97,7 +98,7 @@ export default function Auth() {
                 toast({ title: 'Account Created', description: 'Please check your email for the verification code.' });
 
             } else if (authType === 'verify-signup') {
-                const res = await fetch(`/api/auth/verify-otp`, {
+                const res = await fetch(`${API_URL}/api/auth/verify-otp`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -111,7 +112,7 @@ export default function Auth() {
                 window.location.href = '/';
 
             } else if (authType === 'signin') {
-                const res = await fetch(`/api/auth/login`, {
+                const res = await fetch(`${API_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -129,7 +130,7 @@ export default function Auth() {
                 window.location.href = '/';
 
             } else if (authType === 'forgot-password') {
-                const res = await fetch(`/api/auth/forgot-password`, {
+                const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -146,7 +147,7 @@ export default function Auth() {
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
-                const res = await fetch(`/api/auth/reset-password`, {
+                const res = await fetch(`${API_URL}/api/auth/reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
