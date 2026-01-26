@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { prisma } from '../lib/prisma';
+import { db } from '../lib/db';
 const userLastMessage = new Map<string, number>();
 const onlineUsers = new Set<string>();
 const RATE_LIMIT_MS = 30000; // 30 seconds
@@ -20,7 +20,7 @@ export const setupSocketHandlers = (io: Server) => {
       io.to('global-chat').emit('user-online', userId);
 
       // Send recent messages - optimized query
-      const messages = await prisma.chatMessage.findMany({
+      const messages = await db.chatMessage.findMany({
         take: 50,
         orderBy: { createdAt: 'desc' },
         select: {
@@ -58,7 +58,7 @@ export const setupSocketHandlers = (io: Server) => {
 
       userLastMessage.set(userId, now);
 
-      const message = await prisma.chatMessage.create({
+      const message = await db.chatMessage.create({
         data: {
           userId,
           message: data.message,
@@ -86,12 +86,12 @@ export const setupSocketHandlers = (io: Server) => {
       if (!userId) return;
 
       // Verify the message belongs to the user
-      const message = await prisma.chatMessage.findUnique({
+      const message = await db.chatMessage.findUnique({
         where: { id: messageId },
       });
 
       if (message && message.userId === userId) {
-        await prisma.chatMessage.delete({
+        await db.chatMessage.delete({
           where: { id: messageId },
         });
         io.to('global-chat').emit('message-deleted', messageId);
