@@ -4,7 +4,6 @@ import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
 import { db } from '../lib/db';
-const prisma = db;
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -54,7 +53,7 @@ router.post('/', isAuthenticated, async (req, res) => {
     console.log('Schedule data:', { date, startTime, endTime, title, subject, notes });
 
     // Create the schedule entry immediately for better UX
-    const schedule = await prisma.schedule.create({
+    const schedule = await db.schedule.create({
       data: {
         userId,
         date: new Date(date),
@@ -92,7 +91,7 @@ router.put('/:id', isAuthenticated, async (req, res) => {
     if (notes !== undefined) updateData.notes = notes;
     if (completed !== undefined) updateData.completed = completed;
 
-    const result = await prisma.schedule.updateMany({
+    const result = await db.schedule.updateMany({
       where: { id, userId },
       data: updateData,
     });
@@ -115,7 +114,7 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const userId = req.user!.id;
 
-    const schedule = await prisma.schedule.deleteMany({
+    const schedule = await db.schedule.deleteMany({
       where: { id, userId },
     });
 
