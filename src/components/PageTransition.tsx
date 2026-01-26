@@ -6,31 +6,32 @@ interface PageTransitionProps {
     children: ReactNode;
 }
 
-const variants = {
+const pageVariants = {
     initial: {
         opacity: 0,
-        y: 8,
+        y: 20,
         scale: 0.98,
-        filter: 'blur(4px)'
     },
     enter: {
         opacity: 1,
         y: 0,
         scale: 1,
-        filter: 'blur(0px)',
         transition: {
-            duration: 0.4,
-            ease: [0.25, 1, 0.5, 1], // Cubic bezier for smooth entry
+            type: 'spring',
+            stiffness: 260,
+            damping: 25,
+            mass: 0.8,
+            staggerChildren: 0.05,
+            when: 'beforeChildren',
         }
     },
     exit: {
         opacity: 0,
-        y: -8,
-        scale: 0.98,
-        filter: 'blur(4px)',
+        y: -10,
+        scale: 0.99,
         transition: {
-            duration: 0.2, // Faster exit
-            ease: 'easeIn'
+            duration: 0.15,
+            ease: [0.4, 0, 1, 1], // Fast out
         }
     }
 };
@@ -39,14 +40,15 @@ export default function PageTransition({ children }: PageTransitionProps) {
     const location = useLocation();
 
     return (
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
             <motion.div
                 key={location.pathname}
-                variants={variants}
+                variants={pageVariants}
                 initial="initial"
                 animate="enter"
                 exit="exit"
                 className="w-full h-full"
+                style={{ transformOrigin: 'top center' }}
             >
                 {children}
             </motion.div>
