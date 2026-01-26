@@ -21,13 +21,13 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "⏰ Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo "🎯 Target: https://YOUR-APP-NAME.onrender.com/api/health"
+          echo "🎯 Target: https://studybuddy-backend-5ayj.onrender.com/api/health"
           echo ""
           
           # Ping the backend
           response=$(curl -s -o /dev/null -w "%{http_code}" \
             -m 30 \
-            https://YOUR-APP-NAME.onrender.com/api/health)
+            https://studybuddy-backend-5ayj.onrender.com/api/health)
           
           echo "📊 Response Code: $response"
           echo ""
