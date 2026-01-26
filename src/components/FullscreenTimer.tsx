@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom } from '@/store/atoms';
-import { 
-  Play, 
-  Pause, 
-  X, 
+import {
+  Play,
+  Pause,
+  X,
   Settings
 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -135,9 +136,9 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
       setPomodoroDuration(tempDuration);
       localStorage.setItem('pomodoroDuration', tempDuration.toString());
       setShowSettings(false);
-      toast({ 
-        title: 'Timer updated', 
-        description: `Focus duration set to ${tempDuration} minutes` 
+      toast({
+        title: 'Timer updated',
+        description: `Focus duration set to ${tempDuration} minutes`
       });
     }
   };
@@ -148,8 +149,8 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 bg-background z-[100] flex items-center justify-center">
       {/* Header */}
       <div className="absolute top-6 left-0 right-0 flex items-center justify-between px-6">
         <div className="text-sm text-muted-foreground">
@@ -224,7 +225,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
               strokeLinecap="round"
             />
           </svg>
-          
+
           {/* Timer Display */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
@@ -246,8 +247,8 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
             {studying ? 'Focus Mode Active' : 'Ready to Focus'}
           </h2>
           <p className="text-muted-foreground">
-            {studying 
-              ? 'Stay focused and avoid distractions' 
+            {studying
+              ? 'Stay focused and avoid distractions'
               : 'Press space or click play to begin'
             }
           </p>
@@ -283,6 +284,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
