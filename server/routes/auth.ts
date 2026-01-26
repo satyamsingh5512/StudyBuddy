@@ -65,27 +65,19 @@ router.post('/signup', async (req, res) => {
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create user with all required fields
+    // Note: Don't set googleId/username to null - they have unique sparse indexes
     const newUser = await db.user.create({
       data: {
         email: email.toLowerCase(),
         password: hashedPassword,
         name: name.trim(),
-        username: null,
-        googleId: null,
         emailVerified: false,
         verificationOtp: otp,
         otpExpiry,
-        resetToken: null,
-        resetTokenExpiry: null,
-        avatar: null,
         avatarType: 'initials',
         onboardingDone: false,
         examGoal: '',
         examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-        examAttempt: null,
-        studentClass: null,
-        batch: null,
-        syllabus: null,
         totalPoints: 0,
         totalStudyMinutes: 0,
         streak: 0,
@@ -93,7 +85,7 @@ router.post('/signup', async (req, res) => {
         showProfile: true,
       },
     });
-    
+
     console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
     console.log('📧 OTP for', newUser.email, ':', otp);
     console.log('⚠️  Email service not working - Use OTP above for testing');
@@ -160,19 +152,19 @@ router.post('/verify-otp', async (req, res) => {
         console.error('❌ Login error after verification:', err);
         return res.status(500).json({ error: 'Email verified but failed to log in. Please try signing in.' });
       }
-      
+
       // Explicitly save session
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('❌ Session save error:', saveErr);
           return res.status(500).json({ error: 'Email verified but failed to save session. Please try signing in.' });
         }
-        
+
         console.log('✅ User verified and logged in:', updatedUser.email);
-        
-        res.json({ 
-          message: 'Email verified successfully. Welcome to StudyBuddy!', 
-          user: updatedUser 
+
+        res.json({
+          message: 'Email verified successfully. Welcome to StudyBuddy!',
+          user: updatedUser
         });
       });
     });
@@ -253,7 +245,7 @@ router.post('/login', async (req, res) => {
       // Generate new OTP for unverified users
       const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-      
+
       await db.user.update({
         where: { id: user.id! },
         data: { verificationOtp: otp, otpExpiry },
@@ -283,16 +275,16 @@ router.post('/login', async (req, res) => {
         console.error('❌ Login error:', err);
         return res.status(500).json({ error: 'Failed to log in. Please try again.' });
       }
-      
+
       // Explicitly save session to ensure it persists
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('❌ Session save error:', saveErr);
           return res.status(500).json({ error: 'Failed to save session. Please try again.' });
         }
-        
+
         console.log('✅ User logged in:', user.email);
-        
+
         res.json({ message: 'Login successful', user });
       });
     });
@@ -315,8 +307,8 @@ router.post('/forgot-password', async (req, res) => {
 
     // Don't reveal if user exists or not for security
     if (!user) {
-      return res.json({ 
-        message: 'If an account with this email exists, a password reset code has been sent' 
+      return res.json({
+        message: 'If an account with this email exists, a password reset code has been sent'
       });
     }
 
