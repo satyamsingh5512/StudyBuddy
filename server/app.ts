@@ -77,16 +77,16 @@ app.use(compression({
 app.use(express.json({ limit: '1mb' }));
 
 // Health check endpoints
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
   });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
   });
 });
@@ -128,7 +128,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Touch session middleware
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   if (req.isAuthenticated() && req.session) {
     req.session.touch();
   }
@@ -154,15 +154,15 @@ app.use('/api/health', healthRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
-  
+
   const origin = req.headers.origin;
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
-  
+
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
