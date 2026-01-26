@@ -19,7 +19,7 @@ router.get('/google', (req, res, next) => {
   })(req, res, next);
 });
 
-router.get('/google/callback', (req, res, next) => {
+router.get('/google/callback', (req, res) => {
   if (!isGoogleAuthConfigured) {
     return res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
   }
@@ -86,9 +86,6 @@ router.post('/signup', async (req, res) => {
         studentClass: null,
         batch: null,
         syllabus: null,
-        schoolId: null,
-        collegeId: null,
-        coachingId: null,
         totalPoints: 0,
         totalStudyMinutes: 0,
         streak: 0,
@@ -99,6 +96,7 @@ router.post('/signup', async (req, res) => {
     
     console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
     console.log('📧 OTP for', newUser.email, ':', otp);
+    console.log('⚠️  Email service not working - Use OTP above for testing');
 
     // Try to send email but don't block on it
     sendOTPEmail(email, otp, name).catch(err => {
@@ -106,8 +104,7 @@ router.post('/signup', async (req, res) => {
     });
 
     res.json({
-      message: 'Account created successfully. Please check your email for verification code.',
-      otp: otp // Always return OTP until email is configured
+      message: 'Account created successfully. Please check your email for verification code.'
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -223,8 +220,7 @@ router.post('/resend-otp', async (req, res) => {
     });
 
     res.json({
-      message: 'Verification code sent successfully',
-      otp: otp // Always return OTP
+      message: 'Verification code sent successfully'
     });
   } catch (error) {
     console.error('Resend OTP error:', error);
@@ -271,8 +267,7 @@ router.post('/login', async (req, res) => {
 
       return res.status(403).json({
         error: 'Please verify your email first. A new verification code has been sent.',
-        code: 'EMAIL_NOT_VERIFIED',
-        otp: otp // Always return OTP
+        code: 'EMAIL_NOT_VERIFIED'
       });
     }
 
@@ -344,8 +339,7 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     res.json({
-      message: 'If an account with this email exists, a password reset code has been sent',
-      otp: otp // Always return OTP
+      message: 'If an account with this email exists, a password reset code has been sent'
     });
   } catch (error) {
     console.error('Forgot password error:', error);

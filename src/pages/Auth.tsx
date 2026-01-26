@@ -42,10 +42,10 @@ export default function Auth() {
         try {
             let endpoint = '';
             if (authType === 'verify-signup') {
-                endpoint = '/api/auth/resend-otp';
+                endpoint = '/auth/resend-otp';
             } else if (authType === 'verify-reset') {
                 // For reset pass, we just hit forgot-password again to generate new code
-                endpoint = '/api/auth/forgot-password';
+                endpoint = '/auth/forgot-password';
             } else {
                 return;
             }
@@ -60,20 +60,13 @@ export default function Auth() {
 
             if (!res.ok) throw new Error(data.error || 'Failed to resend code');
 
-            // Show OTP in toast if available
-            if (data.otp) {
-                toast({ 
-                    title: 'Code Resent', 
-                    description: `Your verification code is: ${data.otp}`,
-                    duration: 10000
-                });
-            } else {
-                toast({ 
-                    title: 'Code Resent', 
-                    description: 'Please check your email for the new code.',
-                    duration: 5000
-                });
-            }
+            console.log('📧 Resend OTP response:', data); // Debug log
+
+            toast({ 
+                title: 'Code Resent', 
+                description: 'Please check your email for the new code.',
+                duration: 5000
+            });
 
             setResendCooldown(60);
         } catch (error: any) {
@@ -98,7 +91,7 @@ export default function Auth() {
                     throw new Error('Passwords do not match');
                 }
                 
-                const res = await fetch(`${API_URL}/api/auth/signup`, {
+                const res = await fetch(`${API_URL}/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -111,20 +104,13 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-                // Show OTP in toast if available
-                if (data.otp) {
-                    toast({ 
-                        title: 'Account Created', 
-                        description: `Your verification code is: ${data.otp}`,
-                        duration: 10000 
-                    });
-                } else {
-                    toast({ 
-                        title: 'Account Created', 
-                        description: data.message || 'Please check your email for the verification code.',
-                        duration: 5000
-                    });
-                }
+                console.log('📧 Signup response:', data); // Debug log
+
+                toast({ 
+                    title: 'Account Created', 
+                    description: data.message || 'Please check your email for the verification code.',
+                    duration: 5000
+                });
 
                 setAuthType('verify-signup');
                 setResendCooldown(60);
@@ -134,7 +120,7 @@ export default function Auth() {
                     throw new Error('Please enter a valid 6-digit code');
                 }
                 
-                const res = await fetch(`${API_URL}/api/auth/verify-otp`, {
+                const res = await fetch(`${API_URL}/auth/verify-otp`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -148,7 +134,7 @@ export default function Auth() {
                 setTimeout(() => window.location.href = '/', 500);
 
             } else if (authType === 'signin') {
-                const res = await fetch(`${API_URL}/api/auth/login`, {
+                const res = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -157,14 +143,12 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) {
                     if (data.code === 'EMAIL_NOT_VERIFIED') {
-                        // Show OTP in toast if available
-                        if (data.otp) {
-                            toast({ 
-                                title: 'Email Not Verified', 
-                                description: `Your verification code is: ${data.otp}`,
-                                duration: 10000
-                            });
-                        }
+                        console.log('📧 Login response (unverified):', data); // Debug log
+                        toast({ 
+                            title: 'Email Not Verified', 
+                            description: 'A new verification code has been sent to your email.',
+                            duration: 5000
+                        });
                         setAuthType('verify-signup');
                         setResendCooldown(60);
                     }
@@ -175,7 +159,7 @@ export default function Auth() {
                 setTimeout(() => window.location.href = '/', 500);
 
             } else if (authType === 'forgot-password') {
-                const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+                const res = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -184,20 +168,13 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Request failed');
 
-                // Show OTP in toast if available
-                if (data.otp) {
-                    toast({ 
-                        title: 'Code Sent', 
-                        description: `Your reset code is: ${data.otp}`,
-                        duration: 10000
-                    });
-                } else {
-                    toast({ 
-                        title: 'Code Sent', 
-                        description: data.message || 'Check your email for the password reset code.',
-                        duration: 5000
-                    });
-                }
+                console.log('📧 Forgot password response:', data); // Debug log
+
+                toast({ 
+                    title: 'Code Sent', 
+                    description: data.message || 'Check your email for the password reset code.',
+                    duration: 5000
+                });
 
                 setAuthType('verify-reset');
                 setResendCooldown(60);
@@ -213,7 +190,7 @@ export default function Auth() {
                     throw new Error('Passwords do not match');
                 }
                 
-                const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+                const res = await fetch(`${API_URL}/auth/reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
