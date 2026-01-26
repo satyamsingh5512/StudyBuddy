@@ -157,7 +157,10 @@ export default function Onboarding() {
       if (res.ok) {
         const updatedUser = await res.json();
         setUser(updatedUser);
-        toast({ title: 'Welcome to StudyBuddy!' });
+        toast({
+          title: `🎉 Welcome aboard, ${name}!`,
+          description: "Your journey to success starts now. We're thrilled to have you with us!"
+        });
       } else {
         const error = await res.json();
         toast({ title: error.error || 'Failed to complete onboarding', variant: 'destructive' });
