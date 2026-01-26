@@ -10,8 +10,8 @@ const router = Router();
 // Export MongoDB data to JSON (admin only)
 router.get('/export', isAuthenticated, isAdmin, async (_req: any, res: any) => {
   try {
-    console.log(`📦 MongoDB export triggered by admin ${req.user.id}`);
-    
+    console.log(`📦 MongoDB export triggered by admin`);
+
     const db = await getMongoDb();
     if (!db) {
       return res.status(500).json({ error: 'Database not connected' });
@@ -55,11 +55,11 @@ router.get('/export', isAuthenticated, isAdmin, async (_req: any, res: any) => {
 });
 
 // Get backup status
-router.get('/status', isAuthenticated, async (req: any, res: any) => {
+router.get('/status', isAuthenticated, async (_req: any, res: any) => {
   try {
     const db = await getMongoDb();
     const connected = db !== null;
-    
+
     res.json({
       mongodbConnected: connected,
       database: db?.databaseName || 'Not connected',
