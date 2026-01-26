@@ -6,7 +6,7 @@ const router = Router();
 import { db } from '../lib/db';
 
 // Health check endpoint
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
