@@ -48,5 +48,5 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Prisma
-prisma/migrations/
+# Prisma (not used - MongoDB only)
+prisma/
