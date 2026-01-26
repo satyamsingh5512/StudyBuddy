@@ -44,7 +44,7 @@ export default defineConfig({
           'framer-vendor': ['framer-motion'],
           'query-vendor': ['@tanstack/react-query'],
           'state-vendor': ['@dnd-kit/core', '@dnd-kit/sortable'],
-          'ai-vendor': ['@google/generative-ai', 'groq-sdk'],
+          'ai-vendor': ['groq-sdk'],
         },
       },
     },
