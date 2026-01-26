@@ -60,8 +60,22 @@ export default function Auth() {
 
             if (!res.ok) throw new Error(data.error || 'Failed to resend code');
 
+            // Show OTP in toast if available
+            if (data.otp) {
+                toast({ 
+                    title: 'Code Resent', 
+                    description: `Your verification code is: ${data.otp}`,
+                    duration: 10000
+                });
+            } else {
+                toast({ 
+                    title: 'Code Resent', 
+                    description: 'Please check your email for the new code.',
+                    duration: 5000
+                });
+            }
+
             setResendCooldown(60);
-            toast({ title: 'Code Resent', description: 'Please check your email for the new code.' });
         } catch (error: any) {
             toast({ title: 'Error', description: error.message, variant: 'destructive' });
         } finally {
@@ -97,9 +111,23 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Signup failed');
 
+                // Show OTP in toast if available
+                if (data.otp) {
+                    toast({ 
+                        title: 'Account Created', 
+                        description: `Your verification code is: ${data.otp}`,
+                        duration: 10000 
+                    });
+                } else {
+                    toast({ 
+                        title: 'Account Created', 
+                        description: data.message || 'Please check your email for the verification code.',
+                        duration: 5000
+                    });
+                }
+
                 setAuthType('verify-signup');
                 setResendCooldown(60);
-                toast({ title: 'Account Created', description: data.message || 'Please check your email for the verification code.' });
 
             } else if (authType === 'verify-signup') {
                 if (otp.length !== 6) {
@@ -129,6 +157,14 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) {
                     if (data.code === 'EMAIL_NOT_VERIFIED') {
+                        // Show OTP in toast if available
+                        if (data.otp) {
+                            toast({ 
+                                title: 'Email Not Verified', 
+                                description: `Your verification code is: ${data.otp}`,
+                                duration: 10000
+                            });
+                        }
                         setAuthType('verify-signup');
                         setResendCooldown(60);
                     }
@@ -148,9 +184,23 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Request failed');
 
+                // Show OTP in toast if available
+                if (data.otp) {
+                    toast({ 
+                        title: 'Code Sent', 
+                        description: `Your reset code is: ${data.otp}`,
+                        duration: 10000
+                    });
+                } else {
+                    toast({ 
+                        title: 'Code Sent', 
+                        description: data.message || 'Check your email for the password reset code.',
+                        duration: 5000
+                    });
+                }
+
                 setAuthType('verify-reset');
                 setResendCooldown(60);
-                toast({ title: 'Code Sent', description: data.message || 'Check your email for the password reset code.' });
 
             } else if (authType === 'verify-reset') {
                 if (otp.length !== 6) {

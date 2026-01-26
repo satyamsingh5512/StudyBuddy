@@ -16,6 +16,7 @@
     "check": "node check-setup.js",
     "clean": "bash cleanup.sh",
     "clean:deep": "bash cleanup.sh --deep",
+    "db:cleanup": "tsx --env-file=.env scripts/cleanup-database.ts",
     "cap:init": "npx cap init",
     "cap:add:android": "npx cap add android",
     "cap:sync": "npm run build && npx cap sync",

@@ -98,24 +98,16 @@ router.post('/signup', async (req, res) => {
     });
     
     console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
+    console.log('📧 OTP for', newUser.email, ':', otp);
 
-    // Send verification email with timeout
-    try {
-      const emailPromise = sendOTPEmail(email, otp, name);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email timeout')), 5000)
-      );
-      
-      await Promise.race([emailPromise, timeoutPromise]);
-      console.log(`✅ OTP email sent to ${email}`);
-    } catch (emailError) {
-      console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp}`);
-    }
+    // Try to send email but don't block on it
+    sendOTPEmail(email, otp, name).catch(err => {
+      console.error('⚠️  Email send failed:', err.message);
+    });
 
     res.json({
       message: 'Account created successfully. Please check your email for verification code.',
-      ...(process.env.NODE_ENV === 'development' && { otp })
+      otp: otp // Always return OTP until email is configured
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -225,22 +217,14 @@ router.post('/resend-otp', async (req, res) => {
     });
 
     // Send verification email with timeout
-    try {
-      const emailPromise = sendOTPEmail(email, otp, user.name);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email timeout')), 5000)
-      );
-      
-      await Promise.race([emailPromise, timeoutPromise]);
-      console.log(`✅ OTP resent to ${email}`);
-    } catch (emailError) {
-      console.error('⚠️  Failed to send OTP email:', (emailError as any).message);
-      console.log(`📧 OTP for ${email}: ${otp}`);
-    }
+    console.log(`📧 OTP for ${email}:`, otp);
+    sendOTPEmail(email, otp, user.name).catch(err => {
+      console.error('⚠️  Email send failed:', err.message);
+    });
 
     res.json({
       message: 'Verification code sent successfully',
-      ...(process.env.NODE_ENV === 'development' && { otp })
+      otp: otp // Always return OTP
     });
   } catch (error) {
     console.error('Resend OTP error:', error);
@@ -280,21 +264,15 @@ router.post('/login', async (req, res) => {
       });
 
       // Try to send OTP
-      try {
-        const emailPromise = sendOTPEmail(user.email, otp, user.name);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Email timeout')), 5000)
-        );
-        await Promise.race([emailPromise, timeoutPromise]);
-        console.log(`✅ Verification OTP sent to ${user.email}`);
-      } catch (emailError) {
-        console.log(`📧 OTP for ${user.email}: ${otp}`);
-      }
+      console.log(`📧 OTP for ${user.email}:`, otp);
+      sendOTPEmail(user.email, otp, user.name).catch(err => {
+        console.error('⚠️  Email send failed:', err.message);
+      });
 
       return res.status(403).json({
         error: 'Please verify your email first. A new verification code has been sent.',
         code: 'EMAIL_NOT_VERIFIED',
-        ...(process.env.NODE_ENV === 'development' && { otp })
+        otp: otp // Always return OTP
       });
     }
 
@@ -360,22 +338,14 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     // Send password reset email with timeout
-    try {
-      const emailPromise = sendPasswordResetEmail(email, otp, user.name);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email timeout')), 5000)
-      );
-      
-      await Promise.race([emailPromise, timeoutPromise]);
-      console.log(`✅ Password reset OTP sent to ${email}`);
-    } catch (emailError) {
-      console.error('⚠️  Failed to send password reset email:', emailError);
-      console.log(`🔑 Reset OTP for ${email}: ${otp}`);
-    }
+    console.log(`🔑 Reset OTP for ${email}:`, otp);
+    sendPasswordResetEmail(email, otp, user.name).catch(err => {
+      console.error('⚠️  Email send failed:', err.message);
+    });
 
     res.json({
       message: 'If an account with this email exists, a password reset code has been sent',
-      ...(process.env.NODE_ENV === 'development' && { otp })
+      otp: otp // Always return OTP
     });
   } catch (error) {
     console.error('Forgot password error:', error);
