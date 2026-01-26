@@ -32,13 +32,6 @@ async function cleanupDatabase() {
       'blocks',
       'direct_messages',
       'chat_messages',
-      'videos',
-      'schools',
-      'colleges',
-      'coachings',
-      'school_messages',
-      'college_messages',
-      'coaching_messages',
     ];
 
     console.log('📋 Collections to clean:');

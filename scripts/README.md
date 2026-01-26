@@ -79,3 +79,92 @@ The script:
 **Error: Authentication failed**
 - Verify MongoDB credentials
 - Check database user permissions
+
+
+---
+
+## Test Email Configuration
+
+Tests SMTP email configuration and sends a test email.
+
+### Usage
+
+```bash
+npm run test:email
+```
+
+### What it does
+
+- Verifies all SMTP environment variables are set
+- Tests connection to SMTP server
+- Sends a test email with sample OTP
+- Provides detailed diagnostics
+
+### Environment Variables Required
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+EMAIL_FROM="StudyBuddy <your-email@gmail.com>"
+```
+
+### Example Output
+
+```
+🔍 Testing Email Configuration...
+
+Environment Variables:
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: 587
+  SMTP_SECURE: false
+  SMTP_USER: ✅ Set
+  SMTP_PASS: ✅ Set (hidden)
+  EMAIL_FROM: StudyBuddy <email@gmail.com>
+
+📧 Creating email transporter...
+🔌 Verifying SMTP connection...
+✅ SMTP connection successful!
+
+📨 Sending test email to email@gmail.com...
+✅ Test email sent successfully!
+   Message ID: <abc123@gmail.com>
+
+📬 Check your inbox: email@gmail.com
+   (Check spam folder if not in inbox)
+```
+
+### Troubleshooting
+
+**Error: SMTP credentials not configured**
+- Add SMTP_USER and SMTP_PASS to .env file
+- For Gmail, use App Password (not regular password)
+
+**Error: SMTP connection failed**
+- Verify SMTP credentials are correct
+- Check if 2-Step Verification is enabled (required for App Passwords)
+- Verify network/firewall allows port 587
+- Try regenerating Gmail App Password
+
+**Email sent but not received**
+- Check spam/junk folder
+- Check Gmail Promotions tab
+- Search for "StudyBuddy" in Gmail
+- Add sender to contacts
+
+### Gmail App Password Setup
+
+1. Go to https://myaccount.google.com/security
+2. Enable 2-Step Verification
+3. Go to App passwords
+4. Select Mail → Other (Custom name)
+5. Enter "StudyBuddy"
+6. Copy the 16-character password
+7. Use as SMTP_PASS in .env
+
+### See Also
+
+- `EMAIL_TROUBLESHOOTING.md` - Detailed email troubleshooting guide
+- `CHECK_EMAIL_DELIVERY.md` - How to verify email delivery
