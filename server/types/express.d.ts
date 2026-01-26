@@ -1,9 +1,7 @@
-import { User as PrismaUser } from '@prisma/client';
+import { User } from '../lib/db';
 
 declare global {
   namespace Express {
-    interface User extends PrismaUser {}
+    interface User extends User {}
   }
 }
-
-export {};
