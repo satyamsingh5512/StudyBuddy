@@ -151,9 +151,9 @@ export default function StudyTimer() {
       setPomodoroDuration(tempDuration);
       localStorage.setItem('pomodoroDuration', tempDuration.toString());
       setShowSettings(false);
-      toast({ 
-        title: 'Timer duration updated', 
-        description: `Pomodoro set to ${tempDuration} minutes` 
+      toast({
+        title: 'Timer duration updated',
+        description: `Pomodoro set to ${tempDuration} minutes`
       });
     } else {
       toast({
@@ -175,7 +175,7 @@ export default function StudyTimer() {
               Pomodoro: <span className="font-medium">{pomodoroDuration}min</span> focus
             </p>
           </div>
-          
+
           {/* Controls - Always Horizontal */}
           <div className="flex gap-1.5 sm:gap-2 shrink-0">
             <Button
@@ -187,13 +187,13 @@ export default function StudyTimer() {
             >
               <Maximize className="h-3.5 w-3.5" />
             </Button>
-            
+
             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={handleOpenSettings} 
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleOpenSettings}
                   className="h-8 w-8 p-0 shrink-0"
                 >
                   <Settings className="h-3.5 w-3.5" />
@@ -230,7 +230,7 @@ export default function StudyTimer() {
                 </div>
               </DialogContent>
             </Dialog>
-            
+
             <Button
               size="sm"
               onClick={toggleStudying}
@@ -248,8 +248,8 @@ export default function StudyTimer() {
             {/* Circular Progress - Responsive Size */}
             <div className="flex items-center justify-center py-2">
               <div className="relative">
-                <svg 
-                  className="w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 transform -rotate-90" 
+                <svg
+                  className="w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 transform -rotate-90"
                   viewBox="0 0 80 80"
                 >
                   <circle
@@ -281,7 +281,7 @@ export default function StudyTimer() {
                 </div>
               </div>
             </div>
-            
+
             {/* Time Display - Responsive Typography */}
             <div className="text-center">
               <div className="font-mono text-lg xs:text-xl sm:text-2xl font-bold">
@@ -352,10 +352,10 @@ export default function StudyTimer() {
           </div>
         )}
       </CardContent>
-      
-      <FullscreenTimer 
-        isOpen={showFullscreen} 
-        onClose={() => setShowFullscreen(false)} 
+
+      <FullscreenTimer
+        isOpen={showFullscreen}
+        onClose={() => setShowFullscreen(false)}
       />
     </Card>
   );

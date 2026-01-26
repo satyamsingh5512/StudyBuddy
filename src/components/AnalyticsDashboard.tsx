@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { apiFetch } from '@/config/api';
 import { formatTime } from '@/lib/utils';
-import { 
-  Clock, 
-  Target, 
-  TrendingUp, 
+import {
+  Clock,
+  Target,
+  TrendingUp,
   Calendar,
   BarChart3,
   Activity
@@ -52,8 +52,8 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
   const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
   const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
   const totalSessions = analytics.reduce((sum, day) => sum + day.sessions, 0);
-  const avgUnderstanding = analytics.length > 0 
-    ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length 
+  const avgUnderstanding = analytics.length > 0
+    ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length
     : 0;
 
   const maxHours = Math.max(...analytics.map(d => d.studyHours), 1);
@@ -67,11 +67,11 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
 
     if (date.toDateString() === today.toDateString()) return 'Today';
     if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
@@ -180,7 +180,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
                 <div className="relative w-full max-w-12 h-44 bg-muted/50 rounded-sm overflow-hidden">
                   <div
                     className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
-                    style={{ 
+                    style={{
                       height: `${(day.studyHours / maxHours) * 100}%`,
                       animationDelay: `${index * 100}ms`
                     }}
@@ -224,7 +224,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
                   <div className="relative w-4 sm:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
                     <div
                       className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
-                      style={{ 
+                      style={{
                         height: `${(day.studyHours / maxHours) * 100}%`,
                         animationDelay: `${index * 100}ms`
                       }}
@@ -234,7 +234,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
                   <div className="relative w-4 sm:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
                     <div
                       className="absolute bottom-0 w-full bg-foreground/40 dark:bg-foreground/30 transition-all duration-700 ease-out rounded-sm"
-                      style={{ 
+                      style={{
                         height: `${(day.tasksCompleted / maxTasks) * 100}%`,
                         animationDelay: `${index * 100 + 50}ms`
                       }}
@@ -275,7 +275,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
 
             const maxSessions = Math.max(...Object.values(sessionTypeTotals), 1);
             const sessionEntries = Object.entries(sessionTypeTotals);
-            
+
             if (sessionEntries.length === 0) {
               return (
                 <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg p-6">
@@ -298,7 +298,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
                     <div className="relative w-14 h-40 bg-muted/50 rounded-sm overflow-hidden">
                       <div
                         className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
-                        style={{ 
+                        style={{
                           height: `${(count / maxSessions) * 100}%`,
                           animationDelay: `${index * 100}ms`
                         }}
@@ -329,12 +329,12 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Most Productive Day</p>
               <p className="text-lg font-semibold">
-                {analytics.length > 0 
+                {analytics.length > 0
                   ? getDateLabel(
-                      analytics.reduce((max, day) => 
-                        day.studyHours > max.studyHours ? day : max
-                      ).date
-                    )
+                    analytics.reduce((max, day) =>
+                      day.studyHours > max.studyHours ? day : max
+                    ).date
+                  )
                   : 'No data'
                 }
               </p>
@@ -342,7 +342,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Daily Average</p>
               <p className="text-lg font-semibold">
-                {analytics.length > 0 
+                {analytics.length > 0
                   ? `${(totalStudyHours / analytics.length).toFixed(1)}h/day`
                   : '0h/day'
                 }
@@ -351,7 +351,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Sessions per Day</p>
               <p className="text-lg font-semibold">
-                {analytics.length > 0 
+                {analytics.length > 0
                   ? `${(totalSessions / analytics.length).toFixed(1)} avg`
                   : '0 avg'
                 }
