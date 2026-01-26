@@ -1,7 +1,7 @@
 export const getAvatarUrl = (user: any) => {
     if (!user) return 'https://via.placeholder.com/40';
 
-    // 1. If photo type and has url, return it (Cloudinary)
+    // 1. If photo type and has url, return it (uploaded image)
     if (user.avatarType === 'photo' && user.avatar) {
         return user.avatar;
     }
