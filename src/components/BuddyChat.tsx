@@ -34,6 +34,7 @@ export default function BuddyChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const user = useAtomValue(userAtom);
   const { toast } = useToast();
 
@@ -92,6 +93,8 @@ export default function BuddyChat() {
       });
     } finally {
       setIsLoading(false);
+      // Auto-focus the input after response
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -346,6 +349,7 @@ export default function BuddyChat() {
                   <div className="p-3 bg-white/50 dark:bg-black/20 backdrop-blur-md border-t border-white/10">
                     <div className="relative flex items-end gap-2 bg-background/50 dark:bg-black/40 rounded-2xl border border-white/20 dark:border-white/10 p-1.5 shadow-inner">
                       <textarea
+                        ref={inputRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
