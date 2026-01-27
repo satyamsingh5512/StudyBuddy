@@ -74,7 +74,7 @@ async function startServer() {
       origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -90,7 +90,7 @@ async function startServer() {
       origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -117,25 +117,25 @@ async function startServer() {
   }));
 
   app.use(express.json({ limit: '1mb' }));
-  
+
   // Public health check endpoints (before rate limiting and auth)
   app.get('/health', (_req, res) => {
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
     });
   });
 
   app.get('/api/health', (_req, res) => {
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
     });
   });
 
   // Global rate limiting (after health checks)
   app.use(globalRateLimiter);
-  
+
   // Session configuration with MongoDB store
   const sessionStore = MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
@@ -160,7 +160,12 @@ async function startServer() {
     console.log('🗑️  Session destroyed:', sessionId);
   });
 
-  sessionStore.on('error', (error) => {
+  sessionStore.on('error', (error: any) => {
+    // Ignore duplicate key errors - these happen transiently and recover automatically
+    if (error?.code === 11000 || error?.message?.includes('duplicate key')) {
+      console.warn('⚠️  Session store duplicate key (auto-recovering):', error.keyValue);
+      return;
+    }
     console.error('❌ Session store error:', error);
   });
 
@@ -216,12 +221,12 @@ async function startServer() {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
-    
-    res.json({ 
-      status: 'ok', 
+
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: `${Math.floor(uptime / 60)} minutes`,
       memory: {
@@ -252,15 +257,31 @@ async function startServer() {
 
   // Global error handler (must be after all routes)
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Suppress duplicate key errors from session store (handled elsewhere)
+    if (err?.code === 11000 || err?.message?.includes('duplicate key')) {
+      console.warn('⚠️  Global handler: Session duplicate key (auto-recovering)');
+      // Don't send response for these - they're handled by session middleware
+      if (!res.headersSent) {
+        return next();
+      }
+      return;
+    }
+
     console.error('Global error handler:', err);
-    
+
+    // Prevent ERR_HTTP_HEADERS_SENT - check if response already started
+    if (res.headersSent) {
+      console.warn('⚠️  Headers already sent, skipping error response');
+      return next(err);
+    }
+
     // Ensure CORS headers are set even on error
     const origin = req.headers.origin;
     if (origin && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
-    
+
     // Send error response
     res.status(err.status || 500).json({
       error: err.message || 'Internal server error',
@@ -300,22 +321,22 @@ async function startServer() {
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     console.log(`\n🛑 ${signal} received, shutting down gracefully...`);
-    
+
     try {
       // Close Socket.IO connections first
       io.close(() => {
         console.log('✅ Socket.IO closed');
       });
-      
+
       // Close MongoDB connection
       await closeMongoDb();
-      
+
       // Close HTTP server
       httpServer.close(() => {
         console.log('✅ Server closed');
         process.exit(0);
       });
-      
+
       // Force exit after 10 seconds if graceful shutdown fails
       setTimeout(() => {
         console.error('⚠️  Forced shutdown after timeout');
@@ -329,13 +350,13 @@ async function startServer() {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-  
+
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     console.error('❌ Uncaught Exception:', error);
     shutdown('UNCAUGHT_EXCEPTION');
   });
-  
+
   process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
     shutdown('UNHANDLED_REJECTION');

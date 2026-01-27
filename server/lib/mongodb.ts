@@ -37,7 +37,7 @@ export async function getMongoDb(): Promise<Db | null> {
   try {
     isConnecting = true;
     console.log('🔄 Connecting to MongoDB...');
-    
+
     // Workaround for Node.js TLS issues with MongoDB Atlas
     mongoClient = new MongoClient(MONGODB_URL, {
       maxPoolSize: 10,
@@ -52,12 +52,12 @@ export async function getMongoDb(): Promise<Db | null> {
 
     await mongoClient.connect();
     mongoDb = mongoClient.db();
-    
+
     console.log('✅ MongoDB connected');
-    
+
     // Create indexes for fast queries
     await createMongoIndexes(mongoDb);
-    
+
     return mongoDb;
   } catch (error: any) {
     console.error('❌ MongoDB connection failed:', error.message);
@@ -128,7 +128,43 @@ async function createMongoIndexes(db: Db) {
     await db.collection('friendships').createIndex({ receiverId: 1, status: 1 });
 
     // Sessions - for connect-mongo
-    await db.collection('sessions').createIndex({ sid: 1 }, { unique: true });
+    // Comprehensive session cleanup to prevent duplicate key errors
+    try {
+      const sessionsCollection = db.collection('sessions');
+
+      // Step 1: Clean up any corrupted sessions with null sid (prevents future errors)
+      const deletedResult = await sessionsCollection.deleteMany({ sid: null });
+      if (deletedResult.deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${deletedResult.deletedCount} corrupted sessions with null sid`);
+      }
+
+      // Step 2: Check and fix the index if needed
+      const existingIndexes = await sessionsCollection.indexes();
+      const sidIndex = existingIndexes.find(idx => idx.name === 'sid_1');
+
+      // If index exists but is not sparse, drop it and recreate
+      if (sidIndex && !sidIndex.sparse) {
+        console.log('🔄 Fixing sessions index (adding sparse)...');
+        await sessionsCollection.dropIndex('sid_1');
+      }
+
+      // Step 3: Create proper sparse index (allows null values)
+      await sessionsCollection.createIndex({ sid: 1 }, { unique: true, sparse: true });
+
+      // Step 4: Clean up expired sessions
+      const now = new Date();
+      const expiredResult = await sessionsCollection.deleteMany({ expires: { $lt: now } });
+      if (expiredResult.deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${expiredResult.deletedCount} expired sessions`);
+      }
+    } catch (indexError: any) {
+      // Index might not exist, that's fine
+      if (!indexError.message?.includes('index not found')) {
+        console.warn('⚠️  Session index fix warning:', indexError.message);
+      }
+      // Try to create the index anyway
+      await db.collection('sessions').createIndex({ sid: 1 }, { unique: true, sparse: true });
+    }
     await db.collection('sessions').createIndex({ expires: 1 }, { expireAfterSeconds: 0 });
 
     console.log('✅ MongoDB indexes created');

@@ -1,11 +1,7 @@
 import { motion } from 'framer-motion';
 import Logo from './Logo';
 
-interface LoadingScreenProps {
-  message?: string;
-}
-
-export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenProps) {
+export default function LoadingScreen() {
   return (
     <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-[100]">
       <motion.div
@@ -47,14 +43,6 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
               />
             ))}
           </div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-sm font-medium text-muted-foreground tracking-wide"
-          >
-            {message}
-          </motion.p>
         </div>
       </motion.div>
     </div>

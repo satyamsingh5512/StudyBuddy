@@ -99,7 +99,7 @@ function App() {
   }
 
   if (isLoading) {
-    return <LoadingScreen message="Loading StudyBuddy" />;
+    return <LoadingScreen />;
   }
 
   // Check if user needs onboarding
@@ -108,7 +108,7 @@ function App() {
   const getDefaultRoute = () => {
     if (!user)
       return (
-        <Suspense fallback={<LoadingScreen message="Loading..." />}>
+        <Suspense fallback={<LoadingScreen />}>
           <Landing />
         </Suspense>
       );
@@ -118,7 +118,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Suspense fallback={<LoadingScreen message="Loading..." />}>
+      <Suspense fallback={<LoadingScreen />}>
         <Routes>
           {/* Public routes - always accessible */}
           <Route path="/auth" element={<Auth />} />
