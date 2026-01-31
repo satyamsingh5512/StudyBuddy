@@ -1,9 +1,14 @@
 /**
  * Middleware Index
  * File: server/middleware/index.ts
- * 
+ *
  * Central export point for all middleware
  */
+
+import * as auth from './auth';
+import * as rateLimiting from './rateLimiting';
+import * as security from './security';
+import * as admin from './admin';
 
 // Authentication
 export {
@@ -15,22 +20,8 @@ export {
   attachUserInfo,
 } from './auth';
 
-// Authorization
-export {
-  UserRole,
-  Permission,
-  hasRole,
-  hasPermission,
-  hasAnyPermission,
-  requireAdmin,
-  requireModerator,
-  canAccessResource,
-  getUserPermissions,
-  checkPermission,
-} from './authorization';
-
 // Admin
-export { isAdmin, checkIsAdmin } from './admin';
+export { isAdmin, isSuperAdmin } from './admin';
 
 // Rate Limiting (original)
 export {
@@ -45,18 +36,6 @@ export {
   globalRateLimiter,
 } from './rateLimiting';
 
-// Advanced Rate Limiting
-export {
-  createAdvancedRateLimiter,
-  strictRateLimiter,
-  moderateRateLimiter,
-  generousRateLimiter,
-  addToWhitelist,
-  removeFromWhitelist,
-  addToBlacklist,
-  removeFromBlacklist,
-} from './advancedRateLimiting';
-
 // Security
 export { securityHeaders, bodySizeGuard, getClientIP } from './security';
 
@@ -65,32 +44,21 @@ export { securityHeaders, bodySizeGuard, getClientIP } from './security';
  */
 export const middleware = {
   // Authentication
-  isAuthenticated: require('./auth').isAuthenticated,
-  requireEmailVerified: require('./auth').requireEmailVerified,
-  requireOnboarding: require('./auth').requireOnboarding,
-  
-  // Authorization
-  requireAdmin: require('./authorization').requireAdmin,
-  requireModerator: require('./authorization').requireModerator,
-  hasRole: require('./authorization').hasRole,
-  hasPermission: require('./authorization').hasPermission,
-  
+  isAuthenticated: auth.isAuthenticated,
+  requireEmailVerified: auth.requireEmailVerified,
+  requireOnboarding: auth.requireOnboarding,
+
   // Rate Limiting
-  authRateLimiter: require('./rateLimiting').authRateLimiter,
-  aiRateLimiter: require('./rateLimiting').aiRateLimiter,
-  apiRateLimiter: require('./rateLimiting').apiRateLimiter,
-  
-  // Advanced Rate Limiting
-  strictRateLimiter: require('./advancedRateLimiting').strictRateLimiter,
-  moderateRateLimiter: require('./advancedRateLimiting').moderateRateLimiter,
-  generousRateLimiter: require('./advancedRateLimiting').generousRateLimiter,
-  
+  authRateLimiter: rateLimiting.authRateLimiter,
+  aiRateLimiter: rateLimiting.aiRateLimiter,
+  apiRateLimiter: rateLimiting.apiRateLimiter,
+
   // Security
-  securityHeaders: require('./security').securityHeaders,
-  bodySizeGuard: require('./security').bodySizeGuard,
-  
+  securityHeaders: security.securityHeaders,
+  bodySizeGuard: security.bodySizeGuard,
+
   // Admin
-  isAdmin: require('./admin').isAdmin,
+  isAdmin: admin.isAdmin,
 };
 
 export default middleware;

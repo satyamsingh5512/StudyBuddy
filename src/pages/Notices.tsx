@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { motion } from 'framer-motion';
 import { apiFetch } from '@/config/api';
 
 interface Notice {
@@ -22,10 +22,6 @@ const categoryColors: Record<string, string> = {
 export default function Notices() {
   const [notices, setNotices] = useState<Notice[]>([]);
 
-  useEffect(() => {
-    fetchNotices();
-  }, []);
-
   const fetchNotices = async () => {
     const res = await apiFetch('/notices');
     if (res.ok) {
@@ -33,6 +29,10 @@ export default function Notices() {
       setNotices(data);
     }
   };
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
 
   return (
     <div className="space-y-6">

@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom } from '@/store/atoms';
 import {
   Play,
   Pause,
   X,
   Settings
 } from 'lucide-react';
+import { useAtom } from 'jotai';
+import { studyingAtom, studyTimeAtom } from '@/store/atoms';
 import { Button } from './ui/button';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
@@ -33,13 +33,18 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved) : 50;
+    return saved ? parseInt(saved, 10) : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
 
   const POMODORO_DURATION = pomodoroDuration * 60;
+
+  const toggleStudying = useCallback(() => {
+    setStudying(!studying);
+    soundManager.playClick();
+  }, [studying, setStudying]);
 
   const saveSession = useCallback(async (minutes: number) => {
     if (minutes < 1) return;
@@ -110,12 +115,7 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
       document.removeEventListener('keydown', handleKeyPress);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
-
-  const toggleStudying = () => {
-    setStudying(!studying);
-    soundManager.playClick();
-  };
+  }, [isOpen, onClose, toggleStudying]);
 
   const stopAndSave = () => {
     if (studyTime > 0) {

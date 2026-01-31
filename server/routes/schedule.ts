@@ -1,9 +1,8 @@
 import { Router } from 'express';
-
 import { isAuthenticated } from '../middleware/auth';
+import { db } from '../lib/db';
 
 const router = Router();
-import { db } from '../lib/db';
 
 // Health check endpoint
 router.get('/health', (_req, res) => {

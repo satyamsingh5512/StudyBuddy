@@ -1,12 +1,12 @@
-import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Play, Users, MessageSquare, Folder, TrendingUp, Calendar, Target, BarChart3, Clock, Award } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAtomValue } from 'jotai';
+import { Button } from '@/components/ui/button';
 import { userAtom } from '@/store/atoms';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
-import { motion } from 'framer-motion';
-import { Play, Users, MessageSquare, Folder, TrendingUp, Calendar, Target, BarChart3, Clock, Award } from 'lucide-react';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 
 export default function Landing() {

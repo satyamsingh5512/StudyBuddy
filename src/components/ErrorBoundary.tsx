@@ -27,9 +27,12 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.hasError) {
-      if (this.props.fallback) {
-        return <>{this.props.fallback}</>;
+    const { hasError, error } = this.state;
+    const { fallback, children } = this.props;
+
+    if (hasError) {
+      if (fallback) {
+        return <>{fallback}</>;
       }
 
       return (
@@ -42,7 +45,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground text-center">
-                {this.state.error?.message || 'An unexpected error occurred'}
+                {error?.message || 'An unexpected error occurred'}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -65,6 +68,6 @@ export default class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }

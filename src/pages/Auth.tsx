@@ -131,7 +131,9 @@ export default function Auth() {
 
                 soundManager.playLogin();
                 toast({ title: 'Success!', description: data.message || 'Email verified. You are now logged in.' });
-                setTimeout(() => window.location.href = '/', 500);
+                setTimeout(() => {
+                  window.location.href = '/';
+                }, 500);
 
             } else if (authType === 'signin') {
                 const res = await fetch(`${API_URL}/auth/login`, {
@@ -156,7 +158,9 @@ export default function Auth() {
                 }
                 soundManager.playLogin();
                 toast({ title: 'Welcome back!', description: 'Login successful' });
-                setTimeout(() => window.location.href = '/', 500);
+                setTimeout(() => {
+                  window.location.href = '/';
+                }, 500);
 
             } else if (authType === 'forgot-password') {
                 const res = await fetch(`${API_URL}/auth/forgot-password`, {
@@ -316,7 +320,6 @@ export default function Auth() {
                                                     maxLength={6}
                                                     className="w-full h-14 rounded-xl text-center text-2xl tracking-[0.5em] font-bold focus:outline-none focus:ring-2 transition-all bg-input text-foreground font-montserrat"
                                                     required
-                                                    autoFocus
                                                 />
                                             </div>
 
@@ -383,17 +386,13 @@ export default function Auth() {
                                     {authType === 'signin' && (
                                         <div className="flex items-center justify-between text-xs py-1">
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRememberMe(!rememberMe)}
-                                                    className={`w-8 h-4 rounded-full transition-all relative ${rememberMe ? 'bg-primary' : 'bg-muted'}`}
-                                                >
-                                                    <motion.div
-                                                        className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow"
-                                                        animate={{ left: rememberMe ? '16px' : '2px' }}
-                                                        transition={{ duration: 0.2 }}
-                                                    />
-                                                </button>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={rememberMe}
+                                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                                    className="w-4 h-4 rounded"
+                                                    aria-label="Remember me"
+                                                />
                                                 <span className="text-muted-foreground">Remember me</span>
                                             </label>
                                             <button

@@ -1,8 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { apiFetch } from '@/config/api';
-import { formatTime } from '@/lib/utils';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Clock,
   Target,
@@ -11,6 +7,10 @@ import {
   BarChart3,
   Activity
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { apiFetch } from '@/config/api';
+import { formatTime } from '@/lib/utils';
 
 interface AnalyticsData {
   date: string;
@@ -30,11 +30,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState(7);
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       const res = await apiFetch(`/timer/analytics?days=${timeRange}`);
@@ -47,7 +43,11 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
   const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
@@ -80,7 +80,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
       <Card className={className}>
         <CardContent className="pt-6">
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -205,11 +205,11 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
           </CardTitle>
           <div className="flex items-center gap-6 text-sm mt-2">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-foreground/80 rounded-sm"></div>
+              <div className="w-3 h-3 bg-foreground/80 rounded-sm" />
               <span className="text-muted-foreground">Study Hours</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-foreground/40 rounded-sm"></div>
+              <div className="w-3 h-3 bg-foreground/40 rounded-sm" />
               <span className="text-muted-foreground">Tasks Completed</span>
             </div>
           </div>

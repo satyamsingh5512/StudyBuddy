@@ -26,7 +26,7 @@ import usernameRoutes from './routes/username';
 import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
 import healthRoutes from './routes/health';
-import chatRoutes from './routes/chat';
+import adminRoutes from './routes/admin';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
 
@@ -151,13 +151,13 @@ app.use('/api/username', usernameRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/health', healthRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
 
-  const origin = req.headers.origin;
+  const { origin } = req.headers;
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');

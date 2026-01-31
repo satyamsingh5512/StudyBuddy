@@ -1,6 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Search, HelpCircle, Mail, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Search, HelpCircle, Mail, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import Logo from '@/components/Logo';
 import { Input } from '@/components/ui/input';

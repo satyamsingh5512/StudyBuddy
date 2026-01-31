@@ -1,10 +1,11 @@
+import crypto from 'crypto';
 import { Router } from 'express';
 import passport from 'passport';
 import bcrypt from 'bcryptjs';
 import { isGoogleAuthConfigured } from '../config/passport';
 import { db } from '../lib/db';
 import { sendOTPEmail, sendPasswordResetEmail } from '../lib/email';
-import crypto from 'crypto';
+import { isTempEmail, getTempEmailError } from '../lib/emailValidator';
 
 const router = Router();
 
@@ -44,6 +45,11 @@ router.post('/signup', async (req, res) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check for temporary/disposable email
+    if (isTempEmail(email)) {
+      return res.status(400).json({ error: getTempEmailError() });
     }
 
     // Password validation

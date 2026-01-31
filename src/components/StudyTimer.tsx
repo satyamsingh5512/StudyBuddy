@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom } from '@/store/atoms';
-import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';

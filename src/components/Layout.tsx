@@ -1,10 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAtom } from 'jotai';
 import { useState } from 'react';
-import { userAtom, studyingAtom } from '@/store/atoms';
-import { useNetworkStatus } from '@/lib/networkStatus';
-import { getAvatarUrl } from '@/lib/avatar';
-import PageTransition from '@/components/PageTransition';
 import {
   LayoutDashboard,
   Calendar,
@@ -20,6 +15,11 @@ import {
   X,
   Newspaper,
 } from 'lucide-react';
+import { useAtom } from 'jotai';
+import { userAtom, studyingAtom } from '@/store/atoms';
+import { useNetworkStatus } from '@/lib/networkStatus';
+import { getAvatarUrl } from '@/lib/avatar';
+import PageTransition from '@/components/PageTransition';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -43,7 +43,6 @@ const navItems = [
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/news', icon: Newspaper, label: 'News' },
   { path: '/notices', icon: Bell, label: 'Notices' },
-  { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/friends', icon: User, label: 'Friends' },
   { path: '/messages', icon: MessageSquare, label: 'Messages' },
   { path: '/settings', icon: Settings, label: 'Settings' },

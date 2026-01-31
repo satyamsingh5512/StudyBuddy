@@ -31,7 +31,6 @@ async function cleanupDatabase() {
       'friendships',
       'blocks',
       'direct_messages',
-      'chat_messages',
     ];
 
     console.log('📋 Collections to clean:');

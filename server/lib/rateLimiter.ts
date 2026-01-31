@@ -34,7 +34,8 @@ const buckets = new Map<string, TokenBucket>();
 // Cleanup old buckets every 5 minutes
 setInterval(() => {
   const now = Date.now();
-  for (const [key, bucket] of buckets) {
+  const entries = Array.from(buckets.entries());
+  for (const [key, bucket] of entries) {
     if (now - bucket.lastRefill > 300000) { // 5 minutes
       buckets.delete(key);
     }

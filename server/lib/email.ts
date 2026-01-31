@@ -152,6 +152,179 @@ export async function sendPasswordResetEmail(email: string, otp: string, name?: 
   }
 }
 
+export async function sendDailyStatsEmail(
+  email: string,
+  name: string,
+  stats: {
+    completedTodos: number;
+    totalTodos: number;
+    completedSchedules: number;
+    totalSchedules: number;
+    studyMinutes: number;
+    streak: number;
+    totalPoints: number;
+  }
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`⚠️  Resend API key not configured - Skipping daily stats for ${email}`);
+    return;
+  }
+
+  const motivationalQuotes = [
+    "Success is the sum of small efforts repeated day in and day out.",
+    "The expert in anything was once a beginner.",
+    "Don't watch the clock; do what it does. Keep going.",
+    "The only way to do great work is to love what you do.",
+    "Believe you can and you're halfway there.",
+    "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    "The future depends on what you do today.",
+    "Education is the passport to the future, for tomorrow belongs to those who prepare for it today.",
+    "The beautiful thing about learning is that no one can take it away from you.",
+    "Strive for progress, not perfection."
+  ];
+
+  const quote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+  const studyHours = Math.floor(stats.studyMinutes / 60);
+  const studyMins = stats.studyMinutes % 60;
+  const todoCompletionRate = stats.totalTodos > 0 ? Math.round((stats.completedTodos / stats.totalTodos) * 100) : 0;
+  const scheduleCompletionRate = stats.totalSchedules > 0 ? Math.round((stats.completedSchedules / stats.totalSchedules) * 100) : 0;
+
+  try {
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
+      to: email,
+      subject: 'Your Daily Study Summary - StudyBuddy',
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Daily Study Summary</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 40px 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+
+                    <!-- Header -->
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center;">
+                        <h1 style="margin: 0 0 8px; color: #ffffff; font-size: 28px; font-weight: 700;">StudyBuddy</h1>
+                        <p style="margin: 0; color: #e0e7ff; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">DAILY STUDY SUMMARY</p>
+                      </td>
+                    </tr>
+
+                    <!-- Greeting -->
+                    <tr>
+                      <td style="padding: 32px 40px 24px;">
+                        <h2 style="margin: 0 0 8px; color: #1e293b; font-size: 22px; font-weight: 600;">Hello ${name},</h2>
+                        <p style="margin: 0; color: #64748b; font-size: 15px; line-height: 1.6;">
+                          Here's a summary of your progress today. Keep up the excellent work.
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Stats Grid -->
+                    <tr>
+                      <td style="padding: 0 40px 24px;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td width="50%" style="padding-right: 8px;">
+                              <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="color: #6366f1; font-size: 32px; font-weight: 700; margin-bottom: 4px;">${stats.completedTodos}/${stats.totalTodos}</div>
+                                <div style="color: #64748b; font-size: 13px; font-weight: 500;">Tasks Completed</div>
+                                ${stats.totalTodos > 0 ? `<div style="color: #10b981; font-size: 12px; font-weight: 600; margin-top: 4px;">${todoCompletionRate}%</div>` : ''}
+                              </div>
+                            </td>
+                            <td width="50%" style="padding-left: 8px;">
+                              <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="color: #8b5cf6; font-size: 32px; font-weight: 700; margin-bottom: 4px;">${stats.completedSchedules}/${stats.totalSchedules}</div>
+                                <div style="color: #64748b; font-size: 13px; font-weight: 500;">Schedule Items</div>
+                                ${stats.totalSchedules > 0 ? `<div style="color: #10b981; font-size: 12px; font-weight: 600; margin-top: 4px;">${scheduleCompletionRate}%</div>` : ''}
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Study Time & Streak -->
+                    <tr>
+                      <td style="padding: 0 40px 24px;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td width="50%" style="padding-right: 8px;">
+                              <div style="background-color: #fef3c7; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="color: #d97706; font-size: 28px; font-weight: 700; margin-bottom: 4px;">
+                                  ${studyHours > 0 ? `${studyHours}h ${studyMins}m` : `${studyMins}m`}
+                                </div>
+                                <div style="color: #92400e; font-size: 13px; font-weight: 500;">Study Time</div>
+                              </div>
+                            </td>
+                            <td width="50%" style="padding-left: 8px;">
+                              <div style="background-color: #dbeafe; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="color: #2563eb; font-size: 28px; font-weight: 700; margin-bottom: 4px;">${stats.streak} days</div>
+                                <div style="color: #1e40af; font-size: 13px; font-weight: 500;">Current Streak</div>
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Total Points -->
+                    <tr>
+                      <td style="padding: 0 40px 32px;">
+                        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; padding: 24px; text-align: center;">
+                          <div style="color: #ffffff; font-size: 36px; font-weight: 700; margin-bottom: 4px;">${stats.totalPoints.toLocaleString()}</div>
+                          <div style="color: #d1fae5; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">TOTAL POINTS EARNED</div>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <!-- Motivational Quote -->
+                    <tr>
+                      <td style="padding: 0 40px 32px;">
+                        <div style="border-left: 4px solid #6366f1; background-color: #f8fafc; padding: 20px 24px; border-radius: 4px;">
+                          <p style="margin: 0; color: #475569; font-size: 15px; line-height: 1.7; font-style: italic;">
+                            "${quote}"
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                      <td style="padding: 24px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
+                        <p style="margin: 0 0 16px; color: #64748b; font-size: 13px; line-height: 1.5;">
+                          Keep pushing forward. Every step counts toward your goal.
+                        </p>
+                        <a href="${process.env.CLIENT_URL || 'https://studybuddy.app'}" style="display: inline-block; background-color: #6366f1; color: #ffffff; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 6px; text-decoration: none; margin-bottom: 16px;">
+                          Continue Learning
+                        </a>
+                        <p style="margin: 16px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.5;">
+                          © ${new Date().getFullYear()} StudyBuddy. All rights reserved.<br>
+                          AI-Powered Study Companion
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+    });
+    console.log(`📧 Daily stats email sent to ${email}`);
+  } catch (error: any) {
+    console.error('⚠️  Daily stats email error:', error.message);
+    throw error;
+  }
+}
+
 export async function sendWelcomeEmail(email: string, name: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.log(`⚠️  Resend API key not configured - Skipping welcome email for ${email}`);

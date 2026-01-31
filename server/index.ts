@@ -1,5 +1,6 @@
 // Load environment variables FIRST - must be at the very top
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 import express from 'express';
@@ -8,7 +9,6 @@ import compression from 'compression';
 import session from 'express-session';
 import passport from 'passport';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
 import MongoStore from 'connect-mongo';
 
 import './config/passport';
@@ -27,7 +27,6 @@ import usernameRoutes from './routes/username';
 import backupRoutes from './routes/backup';
 import newsRoutes from './routes/news';
 import healthRoutes from './routes/health';
-import { setupEnhancedChatHandlers } from './socket/chatHandlers';
 import { getMongoDb, closeMongoDb } from './lib/mongodb';
 import { bodySizeGuard, securityHeaders } from './middleware/security';
 import { globalRateLimiter } from './middleware/rateLimiting';
@@ -68,22 +67,6 @@ async function startServer() {
     // Support comma-separated additional origins from env
     ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
   ].filter(Boolean);
-
-  const io = new Server(httpServer, {
-    cors: {
-      origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.)
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      },
-      credentials: true,
-    },
-  });
 
   app.use(
     cors({
@@ -276,7 +259,7 @@ async function startServer() {
     }
 
     // Ensure CORS headers are set even on error
-    const origin = req.headers.origin;
+    const { origin } = req.headers;
     if (origin && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -288,9 +271,6 @@ async function startServer() {
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
   });
-
-  // Socket.io setup with enhanced chat handlers (Redis caching + batch persistence)
-  setupEnhancedChatHandlers(io);
 
   const PORT = process.env.PORT || 3001;
 
@@ -323,11 +303,6 @@ async function startServer() {
     console.log(`\n🛑 ${signal} received, shutting down gracefully...`);
 
     try {
-      // Close Socket.IO connections first
-      io.close(() => {
-        console.log('✅ Socket.IO closed');
-      });
-
       // Close MongoDB connection
       await closeMongoDb();
 

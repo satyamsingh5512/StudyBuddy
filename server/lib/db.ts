@@ -118,8 +118,7 @@ export interface Todo {
 }
 
 // Helper to create generic model wrappers
-const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: string) => {
-  return {
+const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: string) => ({
     async findUnique(params: { where: any; select?: Record<string, boolean>; include?: any }) {
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
@@ -302,10 +301,9 @@ const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: 
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      return await mongoDb.collection(collectionName).countDocuments(params?.where || {});
-    }
-  };
-};
+      return mongoDb.collection(collectionName).countDocuments(params?.where || {});
+    },
+  });
 
 export const db = {
   user: createModel<User>('users'),
@@ -319,7 +317,6 @@ export const db = {
   friendship: createModel<Friendship>('friendships'),
   block: createModel<Block>('blocks'),
   directMessage: createModel<DirectMessage>('direct_messages'),
-  chatMessage: createModel('chat_messages'),
 };
 
 export { generateId, toObjectId, ObjectId };

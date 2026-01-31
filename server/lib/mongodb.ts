@@ -23,7 +23,7 @@ export async function getMongoDb(): Promise<Db | null> {
   // Prevent multiple simultaneous connection attempts
   if (isConnecting) {
     // Wait for connection to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => { setTimeout(resolve, 100); });
     return getMongoDb();
   }
 

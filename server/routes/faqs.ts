@@ -1,9 +1,8 @@
 import { Router } from 'express';
-
 import { isAuthenticated } from '../middleware/auth';
+import { db } from '../lib/db';
 
 const router = Router();
-import { db } from '../lib/db';
 
 router.use(isAuthenticated);
 

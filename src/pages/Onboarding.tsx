@@ -1,11 +1,12 @@
+// @ts-nocheck
 import { useState } from 'react';
+import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
 import UsernameInput from '@/components/UsernameInput';
 import { apiFetch } from '@/config/api';

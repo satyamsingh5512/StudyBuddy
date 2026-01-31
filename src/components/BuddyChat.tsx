@@ -293,12 +293,12 @@ export default function BuddyChat() {
                           {/* Task Suggestions */}
                           {message.tasks && message.tasks.length > 0 && (
                             <div className="mt-3 space-y-2">
-                              {message.tasks.map((task, index) => (
+                              {message.tasks.map((task) => (
                                 <motion.div
-                                  key={index}
+                                  key={`${message.id}-${task.title}`}
                                   initial={{ opacity: 0, x: -10 }}
                                   animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: index * 0.1 }}
+                                  transition={{ delay: 0.1 }}
                                   className="group relative bg-card/50 hover:bg-card border border-border rounded-xl p-3 transition-all hover:shadow-md cursor-pointer"
                                   onClick={() => handleAddTask(task)}
                                 >

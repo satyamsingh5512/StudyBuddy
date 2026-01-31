@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Trash2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus } from 'lucide-react';
 import { API_URL } from '@/config/api';
 
 interface ScheduleEntry {
@@ -25,13 +25,9 @@ export default function Schedule() {
   const [creating, setCreating] = useState(false);
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 10 PM
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const days = useMemo(() => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], []);
 
-  useEffect(() => {
-    fetchSchedules();
-  }, [selectedDate]);
-
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
       const startDate = new Date(selectedDate);
@@ -51,7 +47,7 @@ export default function Schedule() {
         const converted = data.map((item: any) => {
           const date = new Date(item.date);
           const dayIndex = (date.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-          const hour = parseInt(item.startTime.split(':')[0]);
+          const hour = parseInt(item.startTime.split(':')[0], 10);
           return {
             id: item.id,
             day: days[dayIndex],
@@ -67,11 +63,14 @@ export default function Schedule() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, days]);
 
-  const getEntry = (day: string, hour: number) => {
-    return schedule.find(e => e.day === day && e.hour === hour);
-  };
+  useEffect(() => {
+    fetchSchedules();
+  }, [selectedDate, fetchSchedules]);
+
+  const getEntry = (day: string, hour: number) =>
+    schedule.find(e => e.day === day && e.hour === hour);
 
   const getDateForDayHour = (day: string) => {
     const date = new Date(selectedDate);
@@ -140,6 +139,25 @@ export default function Schedule() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await fetch(`${API_URL}/schedule/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        setSchedule(prev => prev.filter(e => e.id !== id));
+        if (editingId === id) {
+          setEditingId(null);
+          setEditText('');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+    }
+  };
+
   const handleSave = async (id: string) => {
     if (editText.trim()) {
       try {
@@ -164,25 +182,6 @@ export default function Schedule() {
     }
     setEditingId(null);
     setEditText('');
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const response = await fetch(`${API_URL}/schedule/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setSchedule(prev => prev.filter(e => e.id !== id));
-        if (editingId === id) {
-          setEditingId(null);
-          setEditText('');
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting schedule:', error);
-    }
   };
 
   const handleClear = async () => {

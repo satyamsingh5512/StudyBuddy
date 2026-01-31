@@ -1,6 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Users, Zap, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Users, Zap, Heart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import Logo from '@/components/Logo';
 import { Card, CardContent } from '@/components/ui/card';

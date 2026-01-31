@@ -24,10 +24,6 @@ export default function Reports() {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
   const fetchReports = async () => {
     const res = await apiFetch('/reports');
     if (res.ok) {
@@ -35,6 +31,10 @@ export default function Reports() {
       setReports(data);
     }
   };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
 
   const submitReport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

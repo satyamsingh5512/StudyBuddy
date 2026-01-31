@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Input } from './ui/input';
 import { Check, X, Loader2 } from 'lucide-react';
+import { Input } from './ui/input';
 import { API_URL } from '@/config/api';
 
 interface UsernameInputProps {

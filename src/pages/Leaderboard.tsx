@@ -19,10 +19,6 @@ export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
-
   const fetchLeaderboard = async () => {
     setLoading(true);
     const res = await apiFetch('/users/leaderboard');
@@ -32,6 +28,10 @@ export default function Leaderboard() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
 
   return (
     <div className="space-y-6">

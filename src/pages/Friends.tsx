@@ -1,8 +1,5 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Search,
   UserPlus,
@@ -17,6 +14,9 @@ import {
   Shield,
   Loader2
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/config/api';
 import { getAvatarUrl } from '@/lib/avatar';
 
@@ -76,21 +76,6 @@ export default function Friends() {
 
   // OPTIMIZATION: Debounce search query (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  useEffect(() => {
-    if (activeTab === 'friends') fetchFriends();
-    if (activeTab === 'requests') fetchRequests();
-    if (activeTab === 'blocked') fetchBlocked();
-  }, [activeTab]);
-
-  // OPTIMIZATION: Auto-search when debounced query changes
-  useEffect(() => {
-    if (activeTab === 'search' && debouncedSearchQuery) {
-      handleSearch(debouncedSearchQuery);
-    } else if (!debouncedSearchQuery) {
-      setSearchResults([]);
-    }
-  }, [debouncedSearchQuery, activeTab]);
 
   const fetchFriends = async () => {
     try {
@@ -160,6 +145,21 @@ export default function Friends() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'friends') fetchFriends();
+    if (activeTab === 'requests') fetchRequests();
+    if (activeTab === 'blocked') fetchBlocked();
+  }, [activeTab]);
+
+  // OPTIMIZATION: Auto-search when debounced query changes
+  useEffect(() => {
+    if (activeTab === 'search' && debouncedSearchQuery) {
+      handleSearch(debouncedSearchQuery);
+    } else if (!debouncedSearchQuery) {
+      setSearchResults([]);
+    }
+  }, [debouncedSearchQuery, activeTab]);
 
   const sendFriendRequest = async (userId: string) => {
     try {

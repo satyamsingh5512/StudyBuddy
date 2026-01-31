@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
-import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { API_URL } from '@/config/api';
 import { Button } from '@/components/ui/button';
 
@@ -57,9 +57,9 @@ export default function News() {
   const [activeCategory, setActiveCategory] = useState<CategoryType>('all');
 
   const examType = user?.examGoal || 'JEE';
-  const CACHE_DURATION = 5 * 60 * 60 * 1000; // 5 hours
 
-  const loadData = async (forceRefresh = false) => {
+  const loadData = useCallback(async (forceRefresh = false) => {
+    const CACHE_DURATION = 5 * 60 * 60 * 1000; // 5 hours
     const cacheKey = `news_cache_${examType}`;
 
     // Try to load from cache first
@@ -116,11 +116,11 @@ export default function News() {
       setLoading(false);
       setDatesLoading(false);
     }
-  };
+  }, [examType]);
 
   useEffect(() => {
     loadData();
-  }, [examType]);
+  }, [examType, loadData]);
 
   const formatDate = (dateStr: string) => {
     try {

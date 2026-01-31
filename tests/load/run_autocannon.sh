@@ -23,10 +23,10 @@ case $ENV in
     BASE_URL="http://localhost:3001"
     ;;
   staging)
-    BASE_URL="https://your-staging-url.onrender.com"
+    BASE_URL="https://your-staging-url.vercel.app"
     ;;
   prod)
-    BASE_URL="https://your-prod-url.onrender.com"
+    BASE_URL="https://your-prod-url.vercel.app"
     echo "⚠️  WARNING: Running against production!"
     read -p "Are you sure? (y/N) " -n 1 -r
     echo
@@ -141,7 +141,7 @@ cat << 'EOF'
 4. throughput.average - Requests per second
 5. errors - Connection/timeout errors (should be 0)
 
-🎯 Targets for Render Free Tier:
+🎯 Targets for Vercel:
 - Health: p95 < 50ms, throughput > 500 RPS
 - Reads: p95 < 200ms, throughput > 100 RPS  
 - Writes: p95 < 500ms, throughput > 50 RPS
