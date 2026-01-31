@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import BackgroundElements from './BackgroundElements';
+import { cn } from '@/lib/utils';
 
 interface UnifiedPageWrapperProps {
     children?: React.ReactNode;
+    className?: string; // Added className prop
 }
 
-export default function UnifiedPageWrapper({ children }: UnifiedPageWrapperProps) {
+export default function UnifiedPageWrapper({ children, className }: UnifiedPageWrapperProps) {
     const [isDark, setIsDark] = useState(true); // Default to dark
 
     // Listen for theme changes on the html element (Tailwind dark mode strategy)
@@ -36,7 +38,7 @@ export default function UnifiedPageWrapper({ children }: UnifiedPageWrapperProps
     return (
         <>
             <BackgroundElements isDark={isDark} />
-            <div className="relative z-10 w-full min-h-screen">
+            <div className={cn("relative z-10 w-full min-h-screen", className)}>
                 {children}
             </div>
         </>
