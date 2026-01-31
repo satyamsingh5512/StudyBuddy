@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAtom } from 'jotai';
