@@ -14,6 +14,6 @@ export interface User {
   streak: number;
 }
 
-export const userAtom = atom<User | null | undefined>(undefined);
+export const userAtom = atom<User | null>(null);
 export const studyingAtom = atom(false);
 export const studyTimeAtom = atom(0);
