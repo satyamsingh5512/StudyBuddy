@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Play, Users, MessageSquare, Folder, TrendingUp, Calendar, Target, BarChart3, Clock, Award } from 'lucide-react';
+import { Play, Users, TrendingUp, Calendar, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAtomValue } from 'jotai';
 import { Button } from '@/components/ui/button';
@@ -118,287 +118,76 @@ export default function Landing() {
                             </Button>
                         </div>
                     </motion.div>
-                    {/* Floating Cards Section */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 40 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
-                        className="relative max-w-7xl mx-auto h-auto md:h-[450px] flex flex-col md:block items-center gap-6 md:gap-0 py-12 md:py-0 px-4 md:px-0"
-                    >
-                        {/* Yellow Glow in Center */}
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-96 md:h-96 bg-gradient-radial from-yellow-300/40 via-yellow-200/20 to-transparent dark:from-yellow-500/20 dark:via-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
 
-                        {/* Left Card - Analytics Dashboard */}
+                    {/* Features Section */}
+                    <div className="mt-32 max-w-7xl mx-auto">
                         <motion.div
-                            initial={{ opacity: 0, x: -50, rotate: -6 }}
-                            animate={{ opacity: 1, x: 0, rotate: -6 }}
-                            transition={{ duration: 0.6, delay: 0.4 }}
-                            className="relative md:absolute md:left-[5%] md:top-[40%] md:-translate-y-1/2 w-full max-w-[280px] md:w-64 z-10 order-4 md:order-none"
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            className="text-center mb-16"
                         >
-                            <div className="bg-card border border-border rounded-2xl p-5 shadow-xl backdrop-blur-sm">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                                            <TrendingUp className="w-4 h-4 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-sm">Performance</h3>
-                                            <p className="text-xs text-muted-foreground">Last 7 days</p>
-                                        </div>
-                                    </div>
-                                    <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-medium rounded-full">
-                                        +24%
-                                    </span>
-                                </div>
-
-                                {/* Mini Chart */}
-                                <div className="mb-4">
-                                    <div className="flex items-end justify-between h-20 gap-1">
-                                        {[40, 65, 45, 80, 60, 90, 75].map((height, i) => (
-                                            <div key={i} className="flex-1 bg-gradient-to-t from-blue-500 to-indigo-500 rounded-t" style={{ height: `${height}%` }} />
-                                        ))}
-                                    </div>
-                                    <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
-                                        <span>Mon</span>
-                                        <span>Tue</span>
-                                        <span>Wed</span>
-                                        <span>Thu</span>
-                                        <span>Fri</span>
-                                        <span>Sat</span>
-                                        <span>Sun</span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 pt-3 border-t">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            <span className="text-xs text-muted-foreground">Study Hours</span>
-                                        </div>
-                                        <span className="text-xs font-semibold">42.5h</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <span className="text-xs text-muted-foreground">Tasks Done</span>
-                                        </div>
-                                        <span className="text-xs font-semibold">127</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-purple-500" />
-                                            <span className="text-xs text-muted-foreground">Accuracy</span>
-                                        </div>
-                                        <span className="text-xs font-semibold">94.2%</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Decorative element */}
-                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full blur-sm opacity-60 hidden md:block" />
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-300 dark:to-indigo-300">
+                                Everything you need to excel
+                            </h2>
+                            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                                Powerful tools designed to help you study smarter, not harder.
+                            </p>
                         </motion.div>
 
-                        {/* Second Card - Smart Schedule */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 40, rotate: -3 }}
-                            animate={{ opacity: 1, y: 0, rotate: -3 }}
-                            transition={{ duration: 0.6, delay: 0.45 }}
-                            className="relative md:absolute md:left-[28%] md:top-[75%] md:-translate-y-1/2 w-full max-w-[240px] md:w-56 z-20 order-3 md:order-none"
-                        >
-                            <div className="bg-card border border-border rounded-2xl p-4 shadow-xl backdrop-blur-sm">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
-                                            <Calendar className="w-4 h-4 text-white" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-4">
+                            {[
+                                {
+                                    title: "Smart Scheduling",
+                                    desc: "Auto-adaptable calendar that manages your study time.",
+                                    icon: Calendar,
+                                    color: "text-purple-500",
+                                    bg: "bg-purple-500/10"
+                                },
+                                {
+                                    title: "Deep Analytics",
+                                    desc: "Track your progress with detailed performance metrics.",
+                                    icon: TrendingUp,
+                                    color: "text-blue-500",
+                                    bg: "bg-blue-500/10"
+                                },
+                                {
+                                    title: "AI Assistant",
+                                    desc: "24/7 personalized tutoring for any subject.",
+                                    icon: Target,
+                                    color: "text-emerald-500",
+                                    bg: "bg-emerald-500/10"
+                                },
+                                {
+                                    title: "Collaboration",
+                                    desc: "Study together in real-time with your peers.",
+                                    icon: Users,
+                                    color: "text-violet-500",
+                                    bg: "bg-violet-500/10"
+                                }
+                            ].map((feature, index) => (
+                                <motion.div
+                                    key={index}
+                                    initial={{ opacity: 0, y: 50 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true, margin: "-50px" }}
+                                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                                    className="group relative bg-card/50 hover:bg-card border border-border/50 hover:border-border rounded-3xl p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden"
+                                >
+                                    <div className="relative z-10">
+                                        <div className={`w-12 h-12 rounded-2xl ${feature.bg} flex items-center justify-center mb-6`}>
+                                            <feature.icon className={`w-6 h-6 ${feature.color}`} />
                                         </div>
-                                        <span className="font-semibold text-sm">Smart Schedule</span>
+                                        <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+                                        <p className="text-muted-foreground text-sm leading-relaxed">
+                                            {feature.desc}
+                                        </p>
                                     </div>
-                                    <Clock className="w-4 h-4 text-muted-foreground" />
-                                </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
 
-                                <div className="space-y-2 mb-3">
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                                        <div className="w-1 h-8 bg-blue-500 rounded-full" />
-                                        <div className="flex-1">
-                                            <p className="text-xs font-medium">Physics - Mechanics</p>
-                                            <p className="text-[10px] text-muted-foreground">09:00 - 10:30 AM</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                                        <div className="w-1 h-8 bg-purple-500 rounded-full" />
-                                        <div className="flex-1">
-                                            <p className="text-xs font-medium">Chemistry Lab</p>
-                                            <p className="text-[10px] text-muted-foreground">11:00 AM - 12:30 PM</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-2 border-t">
-                                    <span className="text-xs text-muted-foreground">Next: Math</span>
-                                    <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">in 45 min</span>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Center Card - AI-Powered Insights */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6, delay: 0.5 }}
-                            className="relative md:absolute md:left-[50%] md:top-[50%] md:-translate-x-1/2 md:-translate-y-1/2 w-full max-w-[280px] md:w-72 z-30 order-1 md:order-none mb-6 md:mb-0"
-                        >
-                            <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-2xl p-5 shadow-2xl backdrop-blur-sm">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
-                                            <Target className="w-5 h-5 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold">AI Insights</h3>
-                                            <p className="text-xs text-muted-foreground">Personalized for you</p>
-                                        </div>
-                                    </div>
-                                    <div className="px-2 py-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full">
-                                        <span className="text-xs text-white font-bold">AI</span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 mb-4">
-                                    <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                                        <div className="flex items-start gap-2">
-                                            <Award className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="text-xs font-medium text-blue-900 dark:text-blue-100">Strong Performance</p>
-                                                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                                                    You're excelling in Chemistry! Keep up the momentum.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                                        <div className="flex items-start gap-2">
-                                            <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="text-xs font-medium text-amber-900 dark:text-amber-100">Focus Area</p>
-                                                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                                                    Spend 30 more minutes on Physics this week.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                                        <div className="flex items-start gap-2">
-                                            <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="text-xs font-medium text-emerald-900 dark:text-emerald-100">Study Pattern</p>
-                                                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
-                                                    Your best study time is 9-11 AM. Schedule key topics then.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-3 border-t">
-                                    <span className="text-xs text-muted-foreground">Updated 2 min ago</span>
-                                    <Button size="sm" variant="ghost" className="h-7 text-xs px-2 hover:bg-primary/10">
-                                        View All
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Glow effect */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-2xl blur-xl -z-10" />
-                        </motion.div>
-
-                        {/* Right Card - Collaboration Hub */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 50, rotate: 6 }}
-                            animate={{ opacity: 1, x: 0, rotate: 6 }}
-                            transition={{ duration: 0.6, delay: 0.6 }}
-                            className="relative md:absolute md:right-[5%] md:top-[45%] md:-translate-y-1/2 w-full max-w-[280px] md:w-64 order-2 md:order-none"
-                        >
-                            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
-                                {/* Header with gradient */}
-                                <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 p-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                                                <Users className="w-4 h-4 text-white" />
-                                            </div>
-                                            <span className="text-white font-semibold text-sm">Team Workspace</span>
-                                        </div>
-                                        <span className="flex h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
-                                    </div>
-                                    <p className="text-white/80 text-xs">5 active members</p>
-                                </div>
-
-                                {/* Content */}
-                                <div className="p-4">
-                                    <div className="space-y-3 mb-4">
-                                        {/* Active Discussion */}
-                                        <div className="flex items-start gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                                AK
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-xs font-medium truncate">Arjun Kumar</p>
-                                                    <span className="text-[10px] text-muted-foreground">2m ago</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
-                                                    Shared notes on Organic Chemistry
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* File Shared */}
-                                        <div className="flex items-start gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                                PS
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-xs font-medium truncate">Priya Sharma</p>
-                                                    <span className="text-[10px] text-muted-foreground">15m ago</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 mt-1 p-1.5 bg-muted rounded text-xs">
-                                                    <Folder className="w-3 h-3" />
-                                                    <span className="truncate">Physics_Notes.pdf</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Live Session */}
-                                        <div className="p-2 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-950/30 dark:to-pink-950/30 rounded-lg border border-red-200 dark:border-red-800">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
-                                                <span className="text-xs font-medium text-red-900 dark:text-red-100">Live Study Session</span>
-                                            </div>
-                                            <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                                                Math Problem Solving - Join now
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 pt-3 border-t">
-                                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs">
-                                            <MessageSquare className="w-3 h-3 mr-1" />
-                                            Chat
-                                        </Button>
-                                        <Button size="sm" className="flex-1 h-8 text-xs bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600">
-                                            Join
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Decorative glow */}
-                            <div className="absolute -top-3 -right-3 w-8 h-8 bg-gradient-to-br from-purple-400 to-fuchsia-500 rounded-full blur-lg opacity-50 hidden md:block" />
-                        </motion.div>
-                    </motion.div>
                 </div>
             </main>
 
