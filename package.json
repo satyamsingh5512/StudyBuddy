@@ -19,6 +19,8 @@
     "db:cleanup": "tsx --env-file=.env scripts/cleanup-database.ts",
     "db:fix-sessions": "tsx --env-file=.env scripts/fix-sessions.ts",
     "test:email": "tsx --env-file=.env scripts/test-email.ts",
+    "test:admin-email": "tsx --env-file=.env scripts/test-admin-email.ts",
+    "test:temp-email": "tsx scripts/test-temp-email.ts",
     "cap:init": "npx cap init",
     "cap:add:android": "npx cap add android",
     "cap:sync": "npm run build && npx cap sync",
@@ -77,8 +79,6 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "resend": "^6.8.0",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"
   },
