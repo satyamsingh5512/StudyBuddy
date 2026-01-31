@@ -18,6 +18,8 @@
     "clean:deep": "bash cleanup.sh --deep",
     "db:cleanup": "tsx --env-file=.env scripts/cleanup-database.ts",
     "db:fix-sessions": "tsx --env-file=.env scripts/fix-sessions.ts",
+    "db:clear": "tsx --env-file=.env scripts/clear-database.ts",
+    "db:export-users": "tsx --env-file=.env scripts/export-users.ts",
     "test:email": "tsx --env-file=.env scripts/test-email.ts",
     "test:admin-email": "tsx --env-file=.env scripts/test-admin-email.ts",
     "test:temp-email": "tsx scripts/test-temp-email.ts",
