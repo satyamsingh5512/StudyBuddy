@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+dist/
+dist-server/
+build/
+
+# Build outputs
+*.js
+*.jsx
+!vite.config.ts
+!tailwind.config.js
+!postcss.config.js
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+
+# Capacitor
+android/
+ios/
