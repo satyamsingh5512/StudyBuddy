@@ -4,6 +4,6 @@
  */
 
 // Import the Express app (we'll need to export it from server/index.ts)
-import app from '../server/app';
+import app from '../server/app.js';
 
 export default app;
