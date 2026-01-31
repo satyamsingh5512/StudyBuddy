@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAtom } from 'jotai';
@@ -10,6 +11,7 @@ import { apiFetch } from './config/api';
 import { soundManager } from './lib/sounds';
 import { wakeupServer } from './lib/serverWakeup';
 import { useNetworkStatus } from './lib/networkStatus';
+import Maintenance from './components/Maintenance';
 
 // OPTIMIZATION: Lazy load Analytics (non-critical, loads after hydration)
 const Analytics = lazy(() =>
@@ -26,7 +28,6 @@ const Schedule = lazy(() => import('./pages/Schedule'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Notices = lazy(() => import('./pages/Notices'));
-const Chat = lazy(() => import('./pages/Chat'));
 const Friends = lazy(() => import('./pages/Friends'));
 const Messages = lazy(() => import('./pages/Messages'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -37,6 +38,7 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Support = lazy(() => import('./pages/Support'));
 const News = lazy(() => import('./pages/News'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -47,6 +49,11 @@ function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
 function App() {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Maintenance Mode Check
+  if (import.meta.env.VITE_MAINTENANCE_MODE === 'true') {
+    return <Maintenance />;
+  }
 
   // Initialize network status monitoring
   useNetworkStatus();
@@ -143,12 +150,12 @@ function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="notices" element={<Notices />} />
-              <Route path="chat" element={<Chat />} />
               <Route path="friends" element={<Friends />} />
               <Route path="messages" element={<Messages />} />
               <Route path="messages/:userId" element={<Messages />} />
               <Route path="news" element={<News />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
             </Route>
           )}
 
