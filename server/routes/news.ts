@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { groq } from '../lib/groqClient.js';
+import { getGroqClient } from '../lib/groqClient.js';
 import { newsRateLimiter } from '../middleware/rateLimiting.js';
 
 const router = Router();
@@ -53,6 +53,8 @@ Return as JSON array:
 ]
 
 Make it realistic and helpful for current ${examType.toUpperCase()} aspirants.`;
+
+    const groq = getGroqClient();
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -116,6 +118,8 @@ Return as JSON:
 }
 
 Include: Registration dates, exam dates, result dates, counseling dates.`;
+
+    const groq = getGroqClient();
 
     const completion = await groq.chat.completions.create({
       messages: [

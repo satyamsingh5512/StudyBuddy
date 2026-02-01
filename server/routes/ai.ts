@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { generateTasksWithGroq, generateStudyPlan } from '../lib/groqClient.js';
+import { generateTasksWithGroq, generateStudyPlan, getGroqClient } from '../lib/groqClient.js';
 import { aiRateLimiter } from '../middleware/rateLimiting.js';
 import { db } from '../lib/db.js';
 
@@ -151,7 +151,7 @@ router.post('/exam-date', async (req, res) => {
     }
 
     // Use Groq to fetch latest exam date information
-    const { groq } = await import('../lib/groqClient');
+    const { getGroqClient } = await import('../lib/groqClient');
 
     const prompt = `You are an expert on Indian competitive exams. Provide the EXACT official exam date for ${examType} ${batch || '2025'}.
 
@@ -171,6 +171,8 @@ For ${examType}:
 - Current date for reference: ${new Date().toISOString().split('T')[0]}
 
 Example for NEET 2025: {"examDate": "2025-05-05", "source": "NTA", "session": "NEET UG 2025"}`;
+
+    const groq = getGroqClient();
 
     const completion = await groq.chat.completions.create({
       messages: [
@@ -261,7 +263,7 @@ router.post('/buddy-chat', async (req: any, res: any) => {
     const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
 
     // Use Groq (default)
-    const { groq } = await import('../lib/groqClient.js');
+    const { getGroqClient } = await import('../lib/groqClient.js');
 
     if (isTaskRequest) {
       const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
@@ -280,6 +282,7 @@ TASKS:
 
 Each task should have: title, subject, difficulty (easy/medium/hard), questionsTarget (5-50)`;
 
+      const groq = getGroqClient();
       const completion = await groq.chat.completions.create({
         messages: [
           { role: 'system', content: systemPrompt },
@@ -310,6 +313,7 @@ Be conversational, supportive, and helpful. Keep responses concise (2-3 sentence
 The user has ${daysUntilExam || 'many'} days until their exam.
 Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
 
+      const groq = getGroqClient();
       const completion = await groq.chat.completions.create({
         messages: [
           { role: 'system', content: systemPrompt },

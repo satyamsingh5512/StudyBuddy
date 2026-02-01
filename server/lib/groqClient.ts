@@ -1,8 +1,18 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || '',
-});
+let groqInstance: Groq | null = null;
+
+export const getGroqClient = (): Groq => {
+  if (!groqInstance) {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY is not configured');
+    }
+    groqInstance = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    });
+  }
+  return groqInstance;
+};
 
 export interface GeneratedTask {
   title: string;
@@ -29,7 +39,7 @@ User context:
 `
     : '';
 
-  const systemPrompt = `You are an expert study planner for ${examGoal} exam preparation. 
+  const systemPrompt = `You are an expert study planner for ${examGoal} exam preparation.
 Generate specific, actionable study tasks based on the user's request.
 ${contextInfo}
 
@@ -45,6 +55,8 @@ Example format:
   {"title": "Practice redox reactions", "subject": "Chemistry", "difficulty": "hard", "questionsTarget": 15}
 ]`;
 
+  const groq = getGroqClient();
+
   const completion = await groq.chat.completions.create({
     messages: [
       { role: 'system', content: systemPrompt },
@@ -56,7 +68,7 @@ Example format:
   });
 
   const response = completion.choices[0]?.message?.content || '';
-  
+
   // Extract JSON from response
   const jsonMatch = response.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
@@ -64,13 +76,13 @@ Example format:
   }
 
   const tasks = JSON.parse(jsonMatch[0]);
-  
+
   // Validate tasks
   return tasks.map((task: any) => ({
     title: task.title?.substring(0, 100) || 'Study task',
     subject: task.subject || 'General',
-    difficulty: ['easy', 'medium', 'hard'].includes(task.difficulty) 
-      ? task.difficulty 
+    difficulty: ['easy', 'medium', 'hard'].includes(task.difficulty)
+      ? task.difficulty
       : 'medium',
     questionsTarget: Math.min(Math.max(task.questionsTarget || 10, 5), 50),
   }));
@@ -103,6 +115,8 @@ Provide:
 
 Keep it concise and actionable (max 300 words).`;
 
+  const groq = getGroqClient();
+
   const completion = await groq.chat.completions.create({
     messages: [
       { role: 'system', content: 'You are an expert study mentor and motivational coach.' },
@@ -116,4 +130,4 @@ Keep it concise and actionable (max 300 words).`;
   return completion.choices[0]?.message?.content || 'Unable to generate study plan.';
 }
 
-export { groq };
+
