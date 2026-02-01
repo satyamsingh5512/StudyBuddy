@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { db } from '../lib/db';
+import { db } from '../lib/db.js';
 
 // Check if Google OAuth credentials are configured
 const isGoogleAuthConfigured =
