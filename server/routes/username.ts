@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { usernameTrie } from '../utils/trie';
-import { getMongoDb } from '../lib/mongodb';
+import { usernameTrie } from '../utils/trie.js';
+import { getMongoDb } from '../lib/mongodb.js';
 
 const router = Router();
 
@@ -12,7 +12,7 @@ async function initializeTrie() {
 
   try {
     console.log('🔄 Initializing username trie...');
-    
+
     const db = await getMongoDb();
     if (!db) {
       console.log('⚠️  MongoDB not connected, skipping trie initialization');

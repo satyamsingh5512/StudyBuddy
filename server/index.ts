@@ -11,25 +11,25 @@ import passport from 'passport';
 import { createServer } from 'http';
 import MongoStore from 'connect-mongo';
 
-import './config/passport';
-import authRoutes from './routes/auth';
-import todoRoutes from './routes/todos';
-import reportRoutes from './routes/reports';
-import noticeRoutes from './routes/notices';
-import aiRoutes from './routes/ai';
-import userRoutes from './routes/users';
-import faqRoutes from './routes/faqs';
-import timerRoutes from './routes/timer';
-import scheduleRoutes from './routes/schedule';
-import friendsRoutes from './routes/friends';
-import messagesRoutes from './routes/messages';
-import usernameRoutes from './routes/username';
-import backupRoutes from './routes/backup';
-import newsRoutes from './routes/news';
-import healthRoutes from './routes/health';
-import { getMongoDb, closeMongoDb } from './lib/mongodb';
-import { bodySizeGuard, securityHeaders } from './middleware/security';
-import { globalRateLimiter } from './middleware/rateLimiting';
+import './config/passport.js';
+import authRoutes from './routes/auth.js';
+import todoRoutes from './routes/todos.js';
+import reportRoutes from './routes/reports.js';
+import noticeRoutes from './routes/notices.js';
+import aiRoutes from './routes/ai.js';
+import userRoutes from './routes/users.js';
+import faqRoutes from './routes/faqs.js';
+import timerRoutes from './routes/timer.js';
+import scheduleRoutes from './routes/schedule.js';
+import friendsRoutes from './routes/friends.js';
+import messagesRoutes from './routes/messages.js';
+import usernameRoutes from './routes/username.js';
+import backupRoutes from './routes/backup.js';
+import newsRoutes from './routes/news.js';
+import healthRoutes from './routes/health.js';
+import { getMongoDb, closeMongoDb } from './lib/mongodb.js';
+import { bodySizeGuard, securityHeaders } from './middleware/security.js';
+import { globalRateLimiter } from './middleware/rateLimiting.js';
 
 // Initialize database before starting server
 async function startServer() {

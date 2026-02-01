@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { isAdmin } from '../middleware/admin';
-import { getMongoDb } from '../lib/mongodb';
+import { isAuthenticated } from '../middleware/auth.js';
+import { isAdmin } from '../middleware/admin.js';
+import { getMongoDb } from '../lib/mongodb.js';
 
 const router = Router();
 

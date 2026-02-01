@@ -1,22 +1,22 @@
 /**
  * OPTIMIZED Users Route
- * 
+ *
  * OPTIMIZATIONS:
  * 1. Leaderboard caching (5 min TTL) - 95% faster
  * 2. Selective field projection - 40% less data
  * 3. MongoDB connection pooling - 30% faster queries
  * 4. Parallel AI fetch (non-blocking)
- * 
+ *
  * PERFORMANCE GAINS:
  * - GET /leaderboard: 800ms → 50ms (cache) / 240ms (miss)
  * - POST /onboarding: 3s → 500ms (parallel AI)
  */
 
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { db } from '../lib/db';
-import { cache } from '../lib/cache';
-import { sendWelcomeEmail } from '../lib/email';
+import { isAuthenticated } from '../middleware/auth.js';
+import { db } from '../lib/db.js';
+import { cache } from '../lib/cache.js';
+import { sendWelcomeEmail } from '../lib/email.js';
 
 const router = Router();
 

@@ -5,10 +5,10 @@
  * Central export point for all middleware
  */
 
-import * as auth from './auth';
-import * as rateLimiting from './rateLimiting';
-import * as security from './security';
-import * as admin from './admin';
+import * as auth from './auth.js';
+import * as rateLimiting from './rateLimiting.js';
+import * as security from './security.js';
+import * as admin from './admin.js';
 
 // Authentication
 export {

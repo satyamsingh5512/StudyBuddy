@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { db } from '../lib/db';
-import { getMongoDb, toObjectId } from '../lib/mongodb';
+import { isAuthenticated } from '../middleware/auth.js';
+import { db } from '../lib/db.js';
+import { getMongoDb, toObjectId } from '../lib/mongodb.js';
 
 const router = Router();
 

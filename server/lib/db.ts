@@ -3,7 +3,7 @@
  * Replaces Prisma with MongoDB native driver
  */
 
-import { getMongoDb, generateId, toObjectId, ObjectId } from './mongodb';
+import { getMongoDb, generateId, toObjectId, ObjectId } from './mongodb.js';
 
 export interface User {
   _id?: ObjectId;

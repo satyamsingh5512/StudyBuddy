@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { groq } from '../lib/groqClient';
-import { newsRateLimiter } from '../middleware/rateLimiting';
+import { isAuthenticated } from '../middleware/auth.js';
+import { groq } from '../lib/groqClient.js';
+import { newsRateLimiter } from '../middleware/rateLimiting.js';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/:examType', async (req, res) => {
   try {
     const { examType } = req.params;
     const validExams = ['JEE', 'NEET', 'GATE', 'UPSC', 'CAT', 'NDA', 'CLAT'];
-    
+
     if (!validExams.includes(examType.toUpperCase())) {
       return res.status(400).json({ error: 'Invalid exam type' });
     }
@@ -69,13 +69,13 @@ Make it realistic and helpful for current ${examType.toUpperCase()} aspirants.`;
 
     const response = completion.choices[0]?.message?.content || '';
     const jsonMatch = response.match(/\[[\s\S]*\]/);
-    
+
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Failed to parse news response' });
     }
 
     const news = JSON.parse(jsonMatch[0]);
-    
+
     // Cache the result
     newsCache.set(examType.toUpperCase(), {
       data: news,
@@ -85,9 +85,9 @@ Make it realistic and helpful for current ${examType.toUpperCase()} aspirants.`;
     res.json({ news, cached: false });
   } catch (error: any) {
     console.error('News generation error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch news',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -132,7 +132,7 @@ Include: Registration dates, exam dates, result dates, counseling dates.`;
 
     const response = completion.choices[0]?.message?.content || '';
     const jsonMatch = response.match(/\{[\s\S]*\}/);
-    
+
     if (!jsonMatch) {
       return res.status(500).json({ error: 'Failed to parse dates response' });
     }
@@ -141,9 +141,9 @@ Include: Registration dates, exam dates, result dates, counseling dates.`;
     res.json(dates);
   } catch (error: any) {
     console.error('Dates fetch error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch important dates',
-      details: error.message 
+      details: error.message
     });
   }
 });

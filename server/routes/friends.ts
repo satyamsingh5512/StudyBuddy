@@ -3,11 +3,11 @@
  */
 
 import { Router } from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { friendRequestRateLimiter } from '../middleware/rateLimiting';
-import { db } from '../lib/db';
-import { cache } from '../lib/cache';
-import { ObjectId } from '../lib/mongodb';
+import { isAuthenticated } from '../middleware/auth.js';
+import { friendRequestRateLimiter } from '../middleware/rateLimiting.js';
+import { db } from '../lib/db.js';
+import { cache } from '../lib/cache.js';
+import { ObjectId } from '../lib/mongodb.js';
 
 const router = Router();
 

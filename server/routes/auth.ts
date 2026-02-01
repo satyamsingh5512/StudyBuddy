@@ -2,10 +2,10 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import passport from 'passport';
 import bcrypt from 'bcryptjs';
-import { isGoogleAuthConfigured } from '../config/passport';
-import { db } from '../lib/db';
-import { sendOTPEmail, sendPasswordResetEmail } from '../lib/email';
-import { isTempEmail, getTempEmailError } from '../lib/emailValidator';
+import { isGoogleAuthConfigured } from '../config/passport.js';
+import { db } from '../lib/db.js';
+import { sendOTPEmail, sendPasswordResetEmail } from '../lib/email.js';
+import { isTempEmail, getTempEmailError } from '../lib/emailValidator.js';
 
 const router = Router();
 

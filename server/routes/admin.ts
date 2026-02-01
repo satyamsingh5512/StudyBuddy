@@ -1,9 +1,9 @@
 import express from 'express';
-import { isAuthenticated } from '../middleware/auth';
-import { isAdmin } from '../middleware/admin';
-import { db } from '../lib/db';
-import { sendDailyStatsEmail } from '../lib/email';
-import { isTempEmail } from '../lib/emailValidator';
+import { isAuthenticated } from '../middleware/auth.js';
+import { isAdmin } from '../middleware/admin.js';
+import { db } from '../lib/db.js';
+import { sendDailyStatsEmail } from '../lib/email.js';
+import { isTempEmail } from '../lib/emailValidator.js';
 
 const router = express.Router();
 

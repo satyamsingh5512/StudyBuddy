@@ -1,7 +1,7 @@
 /**
  * Advanced Rate Limiting Middleware
  * File: server/middleware/rateLimiting.ts
- * 
+ *
  * Provides tiered rate limiting for different endpoint types:
  * - Strict limits for auth endpoints (prevent brute force)
  * - Moderate limits for AI endpoints (prevent abuse)
@@ -11,7 +11,7 @@
 
 
 import { Request, Response, NextFunction } from 'express';
-import { getClientIP } from './security';
+import { getClientIP } from './security.js';
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -56,9 +56,9 @@ const createRateLimiter = (config: RateLimitConfig) => {
     try {
       const key = `ratelimit:${keyGenerator(req)}`;
       const now = Date.now();
-      
+
       let record = store.get(key);
-      
+
       // Initialize or reset if window expired
       if (!record || now > record.resetTime) {
         record = {
@@ -67,23 +67,23 @@ const createRateLimiter = (config: RateLimitConfig) => {
         };
         store.set(key, record);
       }
-      
+
       // Increment hit count
       record.hits += 1;
-      
+
       // Set rate limit headers
       const remaining = Math.max(0, maxRequests - record.hits);
       const resetTime = Math.ceil(record.resetTime / 1000);
-      
+
       res.setHeader('X-RateLimit-Limit', maxRequests.toString());
       res.setHeader('X-RateLimit-Remaining', remaining.toString());
       res.setHeader('X-RateLimit-Reset', resetTime.toString());
-      
+
       // Check if limit exceeded
       if (record.hits > maxRequests) {
         const retryAfter = Math.ceil((record.resetTime - now) / 1000);
         res.setHeader('Retry-After', retryAfter.toString());
-        
+
         return res.status(429).json({
           error: message,
           retryAfter,
@@ -91,7 +91,7 @@ const createRateLimiter = (config: RateLimitConfig) => {
           windowMs: Math.ceil(windowMs / 1000),
         });
       }
-      
+
       next();
     } catch (error) {
       // If rate limiter fails, log error but don't block request
@@ -231,11 +231,11 @@ export const getRateLimitStatus = (userId: string, type: string = 'api'): {
 } | null => {
   const key = `ratelimit:${type}:${userId}`;
   const record = store.get(key);
-  
+
   if (!record) {
     return null;
   }
-  
+
   const limits: Record<string, number> = {
     auth: 5,
     ai: 10,
@@ -247,9 +247,9 @@ export const getRateLimitStatus = (userId: string, type: string = 'api'): {
     report: 20,
     global: 200,
   };
-  
+
   const limit = limits[type] || 100;
-  
+
   return {
     remaining: Math.max(0, limit - record.hits),
     resetTime: record.resetTime,

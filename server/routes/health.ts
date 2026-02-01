@@ -1,11 +1,11 @@
 /**
  * Health Check Endpoints
- * 
+ *
  * Monitor system health
  */
 
 import { Router } from 'express';
-import { checkMongoHealth } from '../lib/mongodb';
+import { checkMongoHealth } from '../lib/mongodb.js';
 
 const router = Router();
 
