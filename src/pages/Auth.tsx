@@ -62,8 +62,8 @@ export default function Auth() {
 
             console.log('📧 Resend OTP response:', data); // Debug log
 
-            toast({ 
-                title: 'Code Resent', 
+            toast({
+                title: 'Code Resent',
                 description: 'Please check your email for the new code.',
                 duration: 5000
             });
@@ -90,7 +90,7 @@ export default function Auth() {
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
-                
+
                 const res = await fetch(`${API_URL}/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -106,8 +106,8 @@ export default function Auth() {
 
                 console.log('📧 Signup response:', data); // Debug log
 
-                toast({ 
-                    title: 'Account Created', 
+                toast({
+                    title: 'Account Created',
                     description: data.message || 'Please check your email for the verification code.',
                     duration: 5000
                 });
@@ -119,7 +119,7 @@ export default function Auth() {
                 if (otp.length !== 6) {
                     throw new Error('Please enter a valid 6-digit code');
                 }
-                
+
                 const res = await fetch(`${API_URL}/auth/verify-otp`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -132,7 +132,7 @@ export default function Auth() {
                 soundManager.playLogin();
                 toast({ title: 'Success!', description: data.message || 'Email verified. You are now logged in.' });
                 setTimeout(() => {
-                  window.location.href = '/';
+                  window.location.href = '/dashboard';
                 }, 500);
 
             } else if (authType === 'signin') {
@@ -146,8 +146,8 @@ export default function Auth() {
                 if (!res.ok) {
                     if (data.code === 'EMAIL_NOT_VERIFIED') {
                         console.log('📧 Login response (unverified):', data); // Debug log
-                        toast({ 
-                            title: 'Email Not Verified', 
+                        toast({
+                            title: 'Email Not Verified',
                             description: 'A new verification code has been sent to your email.',
                             duration: 5000
                         });
@@ -159,7 +159,7 @@ export default function Auth() {
                 soundManager.playLogin();
                 toast({ title: 'Welcome back!', description: 'Login successful' });
                 setTimeout(() => {
-                  window.location.href = '/';
+                  window.location.href = '/dashboard';
                 }, 500);
 
             } else if (authType === 'forgot-password') {
@@ -174,8 +174,8 @@ export default function Auth() {
 
                 console.log('📧 Forgot password response:', data); // Debug log
 
-                toast({ 
-                    title: 'Code Sent', 
+                toast({
+                    title: 'Code Sent',
                     description: data.message || 'Check your email for the password reset code.',
                     duration: 5000
                 });
@@ -193,7 +193,7 @@ export default function Auth() {
                 if (password !== confirmPassword) {
                     throw new Error('Passwords do not match');
                 }
-                
+
                 const res = await fetch(`${API_URL}/auth/reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
