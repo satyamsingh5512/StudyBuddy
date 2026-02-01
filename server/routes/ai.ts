@@ -227,7 +227,7 @@ Example for NEET 2025: {"examDate": "2025-05-05", "source": "NTA", "session": "N
 // Buddy Chat - Conversational AI assistant
 router.post('/buddy-chat', async (req: any, res: any) => {
   try {
-    const { message, examGoal, model = 'groq' } = req.body;
+    const { message, examGoal } = req.body;
     const userId = req.user.id;
 
     if (!message) {
@@ -235,13 +235,11 @@ router.post('/buddy-chat', async (req: any, res: any) => {
     }
 
     // Check if selected model is configured
-    if (model === 'groq' && !process.env.GROQ_API_KEY) {
+    if (!process.env.GROQ_API_KEY) {
       return res.status(503).json({ error: 'Groq AI service not configured' });
     }
 
-    if (model === 'gemini' && !process.env.GEMINI_API_KEY) {
-      return res.status(503).json({ error: 'Gemini AI service not configured' });
-    }
+
 
     // Get user context
     const user = await db.user.findUnique({ where: { id: userId } });
@@ -262,13 +260,11 @@ router.post('/buddy-chat', async (req: any, res: any) => {
     // Determine if user is asking for task creation
     const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
 
-    if (model === 'gemini') {
-      // Use Gemini
-      try {
-        const { chatWithGemini } = await import('../lib/geminiClient.js');
+    // Use Groq (default)
+    const { groq } = await import('../lib/groqClient.js');
 
-        if (isTaskRequest) {
-          const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
+    if (isTaskRequest) {
+      const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
 The user has ${daysUntilExam || 'many'} days until their exam.
 Recent topics: ${recentTopics.join(', ') || 'None yet'}
 
@@ -284,107 +280,55 @@ TASKS:
 
 Each task should have: title, subject, difficulty (easy/medium/hard), questionsTarget (5-50)`;
 
-          const fullResponse = await chatWithGemini(message, systemPrompt);
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.7,
+        max_tokens: 1024,
+      });
 
-          // Extract tasks if present
-          const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
-          if (tasksMatch) {
-            try {
-              tasks = JSON.parse(tasksMatch[1]);
-              response = fullResponse.split('TASKS:')[0].trim();
-            } catch {
-              response = fullResponse;
-            }
-          } else {
-            response = fullResponse;
-          }
-        } else {
-          const systemPrompt = `You are Buddy, a friendly and encouraging AI study assistant for ${examGoal || 'exam'} preparation.
-Be conversational, supportive, and helpful. Keep responses concise (2-3 sentences).
-The user has ${daysUntilExam || 'many'} days until their exam.
-Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
+      const fullResponse = completion.choices[0]?.message?.content || '';
 
-          response = await chatWithGemini(message, systemPrompt);
-        }
-      } catch (geminiError: any) {
-        console.error('Gemini error:', geminiError);
-        return res.status(503).json({
-          error: 'Gemini AI service error',
-          details: 'Please try using Groq model or contact administrator',
-          provider: 'gemini'
-        });
-      }
-    } else {
-      // Use Groq (default)
-      const { groq } = await import('../lib/groqClient.js');
-
-      if (isTaskRequest) {
-        const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
-The user has ${daysUntilExam || 'many'} days until their exam.
-Recent topics: ${recentTopics.join(', ') || 'None yet'}
-
-When the user asks for tasks, respond with:
-1. A friendly message acknowledging their request
-2. A JSON array of 3-5 tasks
-
-Format your response as:
-[Friendly message]
-
-TASKS:
-[JSON array here]
-
-Each task should have: title, subject, difficulty (easy/medium/hard), questionsTarget (5-50)`;
-
-        const completion = await groq.chat.completions.create({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message },
-          ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.7,
-          max_tokens: 1024,
-        });
-
-        const fullResponse = completion.choices[0]?.message?.content || '';
-
-        // Extract tasks if present
-        const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
-        if (tasksMatch) {
-          try {
-            tasks = JSON.parse(tasksMatch[1]);
-            response = fullResponse.split('TASKS:')[0].trim();
-          } catch {
-            response = fullResponse;
-          }
-        } else {
+      // Extract tasks if present
+      const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
+      if (tasksMatch) {
+        try {
+          tasks = JSON.parse(tasksMatch[1]);
+          response = fullResponse.split('TASKS:')[0].trim();
+        } catch {
           response = fullResponse;
         }
       } else {
-        const systemPrompt = `You are Buddy, a friendly and encouraging AI study assistant for ${examGoal || 'exam'} preparation.
+        response = fullResponse;
+      }
+    } else {
+      const systemPrompt = `You are Buddy, a friendly and encouraging AI study assistant for ${examGoal || 'exam'} preparation.
 Be conversational, supportive, and helpful. Keep responses concise (2-3 sentences).
 The user has ${daysUntilExam || 'many'} days until their exam.
 Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
 
-        const completion = await groq.chat.completions.create({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message },
-          ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.8,
-          max_tokens: 512,
-        });
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.8,
+        max_tokens: 512,
+      });
 
-        response =
-          completion.choices[0]?.message?.content ||
-          'I can help you create study tasks! Just ask me.';
-      }
+      response =
+        completion.choices[0]?.message?.content ||
+        'I can help you create study tasks! Just ask me.';
     }
 
     res.json({
       response,
       tasks: tasks.length > 0 ? tasks : undefined,
-      provider: model,
+      provider: 'groq',
     });
   } catch (error: any) {
     console.error('Buddy chat error:', error);

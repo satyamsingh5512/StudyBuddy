@@ -23,7 +23,6 @@ interface Message {
 export default function BuddyChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<'groq' | 'gemini'>('groq');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -68,7 +67,6 @@ export default function BuddyChat() {
         body: JSON.stringify({
           message: input,
           examGoal: user?.examGoal || 'exam',
-          model: selectedModel,
         }),
       });
 
@@ -90,13 +88,10 @@ export default function BuddyChat() {
         // Handle specific error cases
         if (response.status === 503) {
           toast({
-            title: `${selectedModel === 'groq' ? 'Groq' : 'Gemini'} Not Available`,
-            description: errorData.details || 'This AI model is not configured. Please try the other model.',
+            title: 'AI Service Unavailable',
+            description: errorData.details || 'The AI service is currently unavailable. Please try again later.',
             variant: 'destructive',
           });
-
-          // Auto-switch to the other model
-          setSelectedModel(selectedModel === 'groq' ? 'gemini' : 'groq');
         } else {
           throw new Error(errorData.error || 'Failed to get response');
         }
@@ -249,24 +244,13 @@ export default function BuddyChat() {
                 <div>
                   <h3 className="font-bold text-base leading-none">Buddy AI</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {selectedModel === 'groq' ? 'Groq Llama 3.3' : 'Google Gemini'}
+                    Powered by Groq Llama 3.3
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <select
-                  value={selectedModel}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    setSelectedModel(e.target.value as 'groq' | 'gemini');
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-8 px-2 text-xs rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-foreground cursor-pointer transition-colors"
-                >
-                  <option value="groq">Groq</option>
-                  <option value="gemini">Gemini</option>
-                </select>
+
                 <Button
                   variant="ghost"
                   size="icon"
