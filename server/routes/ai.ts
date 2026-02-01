@@ -259,28 +259,26 @@ router.post('/buddy-chat', async (req: any, res: any) => {
     let response: string;
     let tasks: any[] = [];
 
-    // Determine if user is asking for task creation
-    const isTaskRequest = /create|generate|make|add|suggest|give me|plan/i.test(message);
-
-    // Use Groq (default)
-    const { getGroqClient } = await import('../lib/groqClient.js');
-
-    if (isTaskRequest) {
-      const systemPrompt = `You are Buddy, a friendly AI study assistant for ${examGoal || 'exam'} preparation.
+    // Unified System Prompt
+    const systemPrompt = `You are Buddy, a smart and friendly AI study assistant for ${examGoal || 'exam'} preparation.
 The user has ${daysUntilExam || 'many'} days until their exam.
 Recent topics: ${recentTopics.join(', ') || 'None yet'}
 
-When the user asks for tasks, respond with:
-1. A friendly message acknowledging their request
-2. A JSON array of 3-5 tasks
+Your Goal: Provide a helpful, conversational response.
+- IF the user asks for a study plan, tasks, or specific practice, GENERATE TASKS.
+- IF the user just wants to chat, explain a concept, or needs motivation, JUST CHAT.
 
-Format your response as:
-[Friendly message]
+Response Format:
+1. Start with a friendly, markdown-formatted conversational response.
+2. IF generating tasks, append a JSON block at the very end labeled "TASKS_JSON:".
 
-TASKS:
-[JSON array here]
+Example with tasks:
+"Here is a plan for you..."
+TASKS_JSON:
+[{"title": "...", "subject": "...", "difficulty": "medium", "questionsTarget": 10}]`;
 
-Each task should have: title, subject, difficulty (easy/medium/hard), questionsTarget (5-50)`;
+    // Use Groq (default)
+    const { getGroqClient } = await import('../lib/groqClient.js');
 
       const groq = getGroqClient();
       const completion = await groq.chat.completions.create({
@@ -295,39 +293,22 @@ Each task should have: title, subject, difficulty (easy/medium/hard), questionsT
 
       const fullResponse = completion.choices[0]?.message?.content || '';
 
-      // Extract tasks if present
-      const tasksMatch = fullResponse.match(/TASKS:\s*(\[[\s\S]*\])/);
-      if (tasksMatch) {
+      // Parse output for optional tasks
+      const parts = fullResponse.split('TASKS_JSON:');
+      if (parts.length > 1) {
+        response = parts[0].trim();
+        const jsonPart = parts[1].trim();
         try {
-          tasks = JSON.parse(tasksMatch[1]);
-          response = fullResponse.split('TASKS:')[0].trim();
-        } catch {
-          response = fullResponse;
+          const jsonMatch = jsonPart.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            tasks = JSON.parse(jsonMatch[0]);
+          }
+        } catch (e) {
+          console.error('Failed to parse tasks JSON:', e);
         }
       } else {
         response = fullResponse;
       }
-    } else {
-      const systemPrompt = `You are Buddy, a friendly and encouraging AI study assistant for ${examGoal || 'exam'} preparation.
-Be conversational, supportive, and helpful. Keep responses concise (2-3 sentences).
-The user has ${daysUntilExam || 'many'} days until their exam.
-Recent topics they studied: ${recentTopics.join(', ') || 'None yet'}`;
-
-      const groq = getGroqClient();
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.8,
-        max_tokens: 512,
-      });
-
-      response =
-        completion.choices[0]?.message?.content ||
-        'I can help you create study tasks! Just ask me.';
-    }
 
     res.json({
       response,
