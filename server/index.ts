@@ -11,7 +11,7 @@ import passport from 'passport';
 import { createServer } from 'http';
 import MongoStore from 'connect-mongo';
 
-import './config/passport.js';
+import './config/passport-config.js';
 import authRoutes from './routes/auth.js';
 import todoRoutes from './routes/todos.js';
 import reportRoutes from './routes/reports.js';
