@@ -91,7 +91,7 @@ router.post('/', async (req, res) => {
     res.json(todo);
   } catch (error) {
     console.error('Todo creation error:', error);
-    res.status(500).json({ error: 'Failed to create todo' });
+    res.status(500).json({ error: 'Failed to create todo', details: error.message });
   }
 });
 

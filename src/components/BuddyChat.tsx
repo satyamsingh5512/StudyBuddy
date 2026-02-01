@@ -123,12 +123,13 @@ export default function BuddyChat() {
           description: `"${task.title}" has been added to your tasks.`,
         });
       } else {
-        throw new Error('Failed to add task');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to add task');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to add task. Please try again.',
+        description: error.message || 'Failed to add task. Please try again.',
         variant: 'destructive',
       });
     }

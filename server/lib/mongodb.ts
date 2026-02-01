@@ -1,6 +1,6 @@
 /**
  * MongoDB Connection Singleton - PRIMARY DATABASE
- * 
+ *
  * OPTIMIZATION: Single connection pool reused across all requests
  */
 
@@ -9,6 +9,7 @@ import { MongoClient, Db, ObjectId } from 'mongodb';
 let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
 let isConnecting = false;
+let connectPromise: Promise<Db | null> | null = null;
 
 /**
  * Get MongoDB database instance
@@ -21,10 +22,8 @@ export async function getMongoDb(): Promise<Db | null> {
   }
 
   // Prevent multiple simultaneous connection attempts
-  if (isConnecting) {
-    // Wait for connection to complete
-    await new Promise((resolve) => { setTimeout(resolve, 100); });
-    return getMongoDb();
+  if (connectPromise) {
+    return connectPromise;
   }
 
   const MONGODB_URL = process.env.MONGODB_URI;
@@ -34,46 +33,51 @@ export async function getMongoDb(): Promise<Db | null> {
     return null;
   }
 
-  try {
-    isConnecting = true;
-    console.log('🔄 Connecting to MongoDB...');
+  isConnecting = true;
+  console.log('🔄 Connecting to MongoDB...');
 
-    // Workaround for Node.js TLS issues with MongoDB Atlas
-    mongoClient = new MongoClient(MONGODB_URL, {
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      maxIdleTimeMS: 60000,
-      serverSelectionTimeoutMS: 10000,
-      // TLS configuration for compatibility
-      tls: true,
-      tlsAllowInvalidCertificates: true, // Temporary workaround
-      tlsAllowInvalidHostnames: true,
-    });
+  connectPromise = (async () => {
+    try {
+      // Workaround for Node.js TLS issues with MongoDB Atlas
+      mongoClient = new MongoClient(MONGODB_URL, {
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        maxIdleTimeMS: 60000,
+        serverSelectionTimeoutMS: 10000,
+        // TLS configuration for compatibility
+        tls: true,
+        tlsAllowInvalidCertificates: true, // Temporary workaround
+        tlsAllowInvalidHostnames: true,
+      });
 
-    await mongoClient.connect();
-    mongoDb = mongoClient.db();
+      await mongoClient.connect();
+      mongoDb = mongoClient.db();
 
-    console.log('✅ MongoDB connected');
+      console.log('✅ MongoDB connected');
 
-    // Create indexes for fast queries
-    await createMongoIndexes(mongoDb);
+      // Create indexes for fast queries
+      createMongoIndexes(mongoDb).catch(console.error);
 
-    return mongoDb;
-  } catch (error: any) {
-    console.error('❌ MongoDB connection failed:', error.message);
-    if (error.message.includes('authentication failed')) {
-      console.error('   → Check your MongoDB username and password');
-      console.error('   → Verify credentials in MongoDB Atlas');
-    } else if (error.message.includes('ENOTFOUND')) {
-      console.error('   → Check your MongoDB cluster URL');
-      console.error('   → Verify network connectivity');
-    } else if (error.message.includes('IP')) {
-      console.error('   → Add your IP address to MongoDB Atlas whitelist');
+      return mongoDb;
+    } catch (error: any) {
+      console.error('❌ MongoDB connection failed:', error.message);
+      if (error.message.includes('authentication failed')) {
+        console.error('   → Check your MongoDB username and password');
+        console.error('   → Verify credentials in MongoDB Atlas');
+      } else if (error.message.includes('ENOTFOUND')) {
+        console.error('   → Check your MongoDB cluster URL');
+        console.error('   → Verify network connectivity');
+      } else if (error.message.includes('IP')) {
+        console.error('   → Add your IP address to MongoDB Atlas whitelist');
+      }
+      return null;
+    } finally {
+      isConnecting = false;
+      connectPromise = null;
     }
-    return null;
-  } finally {
-    isConnecting = false;
-  }
+  })();
+
+  return connectPromise;
 }
 
 /**
