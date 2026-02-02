@@ -81,7 +81,13 @@ function App() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           window.clearTimeout(timeoutId);
-          setUser(data);
+          // Ensure user data is clean
+          const cleanUser = data ? {
+            ...data,
+            totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : 0,
+            streak: typeof data.streak === 'number' ? data.streak : 0,
+          } : null;
+          setUser(cleanUser);
           // Play login sound when user successfully authenticates
           if (data && !soundPlayed) {
             window.setTimeout(() => soundManager.playLogin(), 100);
