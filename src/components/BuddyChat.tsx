@@ -78,7 +78,13 @@ export default function BuddyChat() {
           role: 'assistant',
           content: data.response,
           timestamp: new Date(),
-          tasks: data.tasks,
+          tasks: data.tasks ? data.tasks.filter((task: any) => 
+            task && 
+            typeof task === 'object' && 
+            typeof task.title === 'string' && 
+            typeof task.subject === 'string' && 
+            typeof task.difficulty === 'string'
+          ) : undefined,
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
