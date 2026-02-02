@@ -24,7 +24,14 @@ export default function Leaderboard() {
     const res = await apiFetch('/users/leaderboard');
     if (res.ok) {
       const data = await res.json();
-      setUsers(data);
+      // Ensure user data is clean
+      const cleanData = data.map((user: any) => ({
+        ...user,
+        totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+        totalStudyMinutes: typeof user.totalStudyMinutes === 'number' ? user.totalStudyMinutes : 0,
+        streak: typeof user.streak === 'number' ? user.streak : 0,
+      }));
+      setUsers(cleanData);
     }
     setLoading(false);
   };
