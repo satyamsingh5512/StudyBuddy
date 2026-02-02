@@ -301,7 +301,21 @@ TASKS_JSON:
         try {
           const jsonMatch = jsonPart.match(/\[[\s\S]*\]/);
           if (jsonMatch) {
-            tasks = JSON.parse(jsonMatch[0]);
+            const parsedTasks = JSON.parse(jsonMatch[0]);
+            // Ensure tasks are properly formatted objects with required fields
+            tasks = parsedTasks.filter((task: any) => 
+              task && 
+              typeof task === 'object' && 
+              typeof task.title === 'string' && 
+              typeof task.subject === 'string' && 
+              typeof task.difficulty === 'string' &&
+              typeof task.questionsTarget === 'number'
+            ).map((task: any) => ({
+              title: task.title,
+              subject: task.subject,
+              difficulty: task.difficulty,
+              questionsTarget: task.questionsTarget,
+            }));
           }
         } catch (e) {
           console.error('Failed to parse tasks JSON:', e);
