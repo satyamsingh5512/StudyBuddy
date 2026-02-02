@@ -7,6 +7,11 @@
  * 3. Selective field projection (30% less data transfer)
  * 4. Connection pooling (reused connections)
  *
+ * FEATURES:
+ * - Day-wise task scheduling (like Todoist)
+ * - Overdue task detection with reschedule option
+ * - Points adjustment for timely completion
+ *
  * PERFORMANCE GAINS:
  * - GET /todos: 800ms → 80ms (cache hit) / 400ms (cache miss)
  * - POST /todos: 200ms → 50ms (optimized writes)
@@ -17,16 +22,38 @@ import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
 import { db } from '../lib/db.js'; // MongoDB abstraction
 import { cache } from '../lib/cache.js'; // Cache layer
+import { toObjectId } from '../lib/mongodb.js';
 
 const router = Router();
+
+// Helper to get start of day in UTC
+const getStartOfDay = (date: Date = new Date()): Date => {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
+
+// Helper to check if a date is before today
+const isOverdue = (scheduledDate: Date): boolean => {
+  const today = getStartOfDay();
+  const scheduled = getStartOfDay(new Date(scheduledDate));
+  return scheduled < today;
+};
+
+// Points configuration
+const POINTS = {
+  ON_TIME_COMPLETION: 2,      // Completing task on scheduled day
+  LATE_COMPLETION: 1,         // Completing overdue task
+  RESCHEDULE_PENALTY: 0,      // No penalty for rescheduling (optional: set -1 for penalty)
+  EARLY_COMPLETION_BONUS: 1,  // Bonus for completing before scheduled day
+};
 
 router.use(isAuthenticated);
 
 /**
  * GET /todos
  * OPTIMIZATION: Cache + selective fields
- * BEFORE: 800ms (full query every time)
- * AFTER: 80ms (cache hit) / 400ms (cache miss)
+ * Enhanced with day-wise scheduling info and overdue status
  */
 router.get('/', async (req, res) => {
   try {
@@ -43,7 +70,7 @@ router.get('/', async (req, res) => {
     // Cache miss - fetch from database
     const todos = await db.todo.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { scheduledDate: 'asc' },
       // OPTIMIZATION: Only select needed fields (30% less data)
       select: {
         id: true,
@@ -52,15 +79,31 @@ router.get('/', async (req, res) => {
         difficulty: true,
         questionsTarget: true,
         completed: true,
-        scheduledTime: true,
+        scheduledDate: true,
+        rescheduledCount: true,
+        originalScheduledDate: true,
         createdAt: true,
       },
     });
 
+    // Add isOverdue flag and handle missing scheduledDate (for legacy todos)
+    const todosWithStatus = todos.map((todo: any) => {
+      // If no scheduledDate, use createdAt as fallback (treat as "scheduled" for that day)
+      const effectiveScheduledDate = todo.scheduledDate || todo.createdAt;
+      // Ensure rescheduledCount is always a number (not an increment object)
+      const rescheduleCount = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 0;
+      return {
+        ...todo,
+        scheduledDate: effectiveScheduledDate,
+        rescheduledCount: rescheduleCount,
+        isOverdue: !todo.completed && effectiveScheduledDate && isOverdue(effectiveScheduledDate),
+      };
+    });
+
     // Cache for 2 minutes (todos change frequently)
-    cache.set(cacheKey, todos, 120);
+    cache.set(cacheKey, todosWithStatus, 120);
     res.setHeader('X-Cache', 'MISS');
-    res.json(todos);
+    res.json(todosWithStatus);
   } catch (error) {
     console.error('Todos fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch todos' });
@@ -69,26 +112,36 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /todos
- * Create a new todo
+ * Create a new todo with scheduled date (defaults to today)
  */
 router.post('/', async (req, res) => {
   try {
     const userId = (req.user as any).id;
+    const { scheduledDate, ...rest } = req.body;
+
+    // Default to today if no scheduledDate provided
+    const scheduled = scheduledDate ? new Date(scheduledDate) : getStartOfDay();
 
     // Create todo in MongoDB
     const todo = await db.todo.create({
       data: {
-        ...req.body,
+        ...rest,
         userId,
         completed: false,
         questionsCompleted: 0,
+        scheduledDate: scheduled,
+        rescheduledCount: 0,
       },
     });
 
     // Invalidate cache
     cache.delete(`todos:${userId}`);
 
-    res.json(todo);
+    // Return with isOverdue flag
+    res.json({
+      ...todo,
+      isOverdue: false,
+    });
   } catch (error) {
     console.error('Todo creation error:', error);
     res.status(500).json({ error: 'Failed to create todo', details: error.message });
@@ -96,8 +149,66 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * POST /todos/reschedule-all-overdue
+ * Reschedule all overdue tasks to today or a specific date
+ * NOTE: This route MUST be defined before /:id routes to avoid conflicts
+ */
+router.post('/reschedule-all-overdue', async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+    const { targetDate } = req.body;
+    
+    const scheduleTo = targetDate ? getStartOfDay(new Date(targetDate)) : getStartOfDay();
+    const today = getStartOfDay();
+
+    if (scheduleTo < today) {
+      return res.status(400).json({ error: 'Cannot schedule tasks in the past' });
+    }
+
+    // Find all overdue, incomplete todos for this user
+    const allTodos = await db.todo.findMany({
+      where: { userId, completed: false },
+    });
+
+    // Filter to only overdue ones
+    const overdueTodos = allTodos.filter((todo: any) => {
+      if (!todo.scheduledDate) return false;
+      return isOverdue(todo.scheduledDate);
+    });
+
+    if (overdueTodos.length === 0) {
+      return res.json({ message: 'No overdue tasks to reschedule', count: 0 });
+    }
+
+    // Update all overdue todos at once
+    const overdueIds = overdueTodos.map(todo => toObjectId(todo.id));
+    const result = await db.todo.updateMany({
+      where: { _id: { $in: overdueIds } },
+      data: {
+        scheduledDate: scheduleTo,
+        rescheduledCount: { increment: 1 },
+      },
+    });
+
+    const updatedCount = result.count;
+
+    // Invalidate cache
+    cache.delete(`todos:${userId}`);
+
+    res.json({
+      success: true,
+      message: `${updatedCount} task${updatedCount > 1 ? 's' : ''} rescheduled`,
+      count: updatedCount,
+    });
+  } catch (error) {
+    console.error('Bulk reschedule error:', error);
+    res.status(500).json({ error: 'Failed to reschedule tasks' });
+  }
+});
+
+/**
  * PATCH /todos/:id
- * Update a todo
+ * Update a todo (including completion and rescheduling)
  */
 router.patch('/:id', async (req, res) => {
   try {
@@ -118,11 +229,24 @@ router.patch('/:id', async (req, res) => {
       data: req.body,
     });
 
-    // Award point if completing task
+    // Award points based on completion timing
     if (req.body.completed && !existingTodo.completed) {
+      let pointsToAward = POINTS.ON_TIME_COMPLETION; // Default: on-time completion
+      
+      const today = getStartOfDay();
+      const scheduledDate = existingTodo.scheduledDate ? getStartOfDay(new Date(existingTodo.scheduledDate)) : today;
+      
+      if (scheduledDate < today) {
+        // Completing an overdue task - less points
+        pointsToAward = POINTS.LATE_COMPLETION;
+      } else if (scheduledDate > today) {
+        // Completing early - bonus points!
+        pointsToAward = POINTS.ON_TIME_COMPLETION + POINTS.EARLY_COMPLETION_BONUS;
+      }
+
       await db.user.update({
         where: { id: userId },
-        data: { totalPoints: { increment: 1 } },
+        data: { totalPoints: { increment: pointsToAward } },
       });
       cache.invalidatePattern(`user:${userId}`);
     }
@@ -130,10 +254,145 @@ router.patch('/:id', async (req, res) => {
     // Invalidate caches
     cache.delete(`todos:${userId}`);
 
-    res.json(updatedTodo);
+    // Ensure rescheduledCount is always a number (not an increment object)
+    const safeRescheduledCount = typeof updatedTodo.rescheduledCount === 'number' ? updatedTodo.rescheduledCount : 0;
+
+    // Return with isOverdue flag
+    res.json({
+      ...updatedTodo,
+      rescheduledCount: safeRescheduledCount,
+      isOverdue: !updatedTodo.completed && updatedTodo.scheduledDate && isOverdue(updatedTodo.scheduledDate),
+      pointsAwarded: req.body.completed && !existingTodo.completed ? true : false,
+    });
   } catch (error) {
     console.error('Todo update error:', error);
     res.status(500).json({ error: 'Failed to update todo' });
+  }
+});
+
+/**
+ * PATCH /todos/:id/reschedule
+ * Reschedule an overdue or future task to a new date
+ */
+router.patch('/:id/reschedule', async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+    const { newDate } = req.body;
+
+    if (!newDate) {
+      return res.status(400).json({ error: 'New date is required' });
+    }
+
+    const existingTodo = await db.todo.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existingTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    if (existingTodo.completed) {
+      return res.status(400).json({ error: 'Cannot reschedule a completed task' });
+    }
+
+    const newScheduledDate = getStartOfDay(new Date(newDate));
+    const today = getStartOfDay();
+
+    if (newScheduledDate < today) {
+      return res.status(400).json({ error: 'Cannot schedule a task in the past' });
+    }
+
+    // Update the todo with new scheduled date
+    const currentRescheduledCount = typeof existingTodo.rescheduledCount === 'number' ? existingTodo.rescheduledCount : 0;
+    const updatedTodo = await db.todo.update({
+      where: { id: req.params.id },
+      data: {
+        scheduledDate: newScheduledDate,
+        rescheduledCount: currentRescheduledCount + 1,
+        // Store original date if this is the first reschedule
+        ...(currentRescheduledCount === 0 && {
+          originalScheduledDate: existingTodo.scheduledDate,
+        }),
+      },
+    });
+
+    // Optional: Apply reschedule penalty (currently 0)
+    if (POINTS.RESCHEDULE_PENALTY !== 0) {
+      await db.user.update({
+        where: { id: userId },
+        data: { totalPoints: { increment: POINTS.RESCHEDULE_PENALTY } },
+      });
+      cache.invalidatePattern(`user:${userId}`);
+    }
+
+    // Invalidate cache
+    cache.delete(`todos:${userId}`);
+
+    // Ensure rescheduledCount is always a number (not an increment object)
+    const safeRescheduledCount = typeof updatedTodo.rescheduledCount === 'number' ? updatedTodo.rescheduledCount : 0;
+
+    res.json({
+      ...updatedTodo,
+      rescheduledCount: safeRescheduledCount,
+      isOverdue: false,
+      message: 'Task rescheduled successfully',
+    });
+  } catch (error) {
+    console.error('Todo reschedule error:', error);
+    res.status(500).json({ error: 'Failed to reschedule todo' });
+  }
+});
+
+/**
+ * POST /todos/:id/reschedule-to-today
+ * Quick action: Reschedule an overdue task to today
+ */
+router.post('/:id/reschedule-to-today', async (req, res) => {
+  try {
+    const userId = (req.user as any).id;
+
+    const existingTodo = await db.todo.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existingTodo) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+
+    if (existingTodo.completed) {
+      return res.status(400).json({ error: 'Cannot reschedule a completed task' });
+    }
+
+    const today = getStartOfDay();
+
+    // Update the todo
+    const currentRescheduledCount = typeof existingTodo.rescheduledCount === 'number' ? existingTodo.rescheduledCount : 0;
+    const updatedTodo = await db.todo.update({
+      where: { id: req.params.id },
+      data: {
+        scheduledDate: today,
+        rescheduledCount: currentRescheduledCount + 1,
+        ...(currentRescheduledCount === 0 && {
+          originalScheduledDate: existingTodo.scheduledDate,
+        }),
+      },
+    });
+
+    // Invalidate cache
+    cache.delete(`todos:${userId}`);
+
+    // Ensure rescheduledCount is always a number (not an increment object)
+    const safeRescheduledCount = typeof updatedTodo.rescheduledCount === 'number' ? updatedTodo.rescheduledCount : 0;
+
+    res.json({
+      ...updatedTodo,
+      rescheduledCount: safeRescheduledCount,
+      isOverdue: false,
+      message: 'Task rescheduled to today',
+    });
+  } catch (error) {
+    console.error('Todo reschedule error:', error);
+    res.status(500).json({ error: 'Failed to reschedule todo' });
   }
 });
 
