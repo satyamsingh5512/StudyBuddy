@@ -29,6 +29,8 @@ interface Lap {
 export default function StudyTimer() {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   // OPTIMIZATION: Lazy state initialization - only reads localStorage once
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     if (typeof window === 'undefined') return 50;
@@ -139,7 +141,19 @@ export default function StudyTimer() {
     }
   };
 
-  const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
+  const toggleExpanded = () => {
+    if (isExpanded) {
+      // Start closing animation
+      setIsClosing(true);
+      // Wait for animation to complete before collapsing
+      setTimeout(() => {
+        setIsExpanded(false);
+        setIsClosing(false);
+      }, 500); // Match the animation duration
+    } else {
+      setIsExpanded(true);
+    }
+  };
 
   const handleOpenSettings = () => {
     setTempDuration(pomodoroDuration);
@@ -165,198 +179,257 @@ export default function StudyTimer() {
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-3 sm:p-4 md:pt-6">
-        {/* Header - Fully Responsive */}
-        <div className="flex flex-col xs:flex-row xs:items-start sm:items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm sm:text-base truncate">Study Timer</h3>
-            <p className="text-xs text-muted-foreground">
-              Pomodoro: <span className="font-medium">{pomodoroDuration}min</span> focus
-            </p>
-          </div>
+    <>
+      {/* Compact Round Button */}
+      {!isExpanded && (
+        <div className="relative group/button">
+          <Button
+            onClick={toggleExpanded}
+            className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-600 via-blue-500 to-purple-600 hover:from-blue-700 hover:via-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-2xl transition-all duration-700 hover:scale-125 hover:-rotate-180 hover:shadow-blue-500/50 relative overflow-hidden"
+            title="Open Pomodoro Timer"
+          >
+            {/* Animated gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+            <Clock className="h-5 w-5 transition-all duration-700 group-hover/button:scale-125 group-hover/button:rotate-12 relative z-10" />
+          </Button>
+          {/* Active indicator with advanced animation */}
+          {studying && (
+            <>
+              <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 animate-bounce shadow-lg shadow-green-500/50 z-20"></div>
+              {/* Pulsating ring effect */}
+              <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500/30 rounded-full animate-ping"></div>
+              <div className="absolute -top-2 -right-2 h-6 w-6 bg-green-500/20 rounded-full animate-pulse"></div>
+            </>
+          )}
+        </div>
+      )}
 
-          {/* Controls - Always Horizontal */}
-          <div className="flex gap-1.5 sm:gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowFullscreen(true)}
-              title="Fullscreen Focus Mode"
-              className="h-8 w-8 p-0 shrink-0"
-            >
-              <Maximize className="h-3.5 w-3.5" />
-            </Button>
-
-            <Dialog open={showSettings} onOpenChange={setShowSettings}>
-              <DialogTrigger asChild>
+      {/* Expanded Timer Card with Advanced Animations */}
+      {isExpanded && (
+        <Card className={`group relative overflow-hidden shadow-2xl border-2 border-blue-200/50 dark:border-blue-500/30 min-w-[280px] bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30 dark:from-blue-950/20 dark:via-gray-900/50 dark:to-blue-950/10 w-full transition-all duration-700 ease-out ${
+          isClosing 
+            ? 'animate-out fade-out slide-out-to-bottom-8 scale-90 opacity-0 rotate-3' 
+            : 'animate-in fade-in slide-in-from-bottom-8 scale-100 opacity-100 rotate-0'
+        }`}>
+          {/* Multiple decorative animated orbs */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400/30 to-purple-600/20 rounded-full -translate-y-10 translate-x-10 group-hover:scale-150 transition-all duration-1000 ease-out blur-xl animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-green-400/20 to-blue-500/20 rounded-full translate-y-8 -translate-x-8 group-hover:scale-125 transition-all duration-700 ease-out blur-lg animate-pulse" style={{ animationDelay: '500ms' }}></div>
+          <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-500/10 rounded-full -translate-x-16 -translate-y-16 group-hover:rotate-180 transition-all duration-1000 ease-out blur-2xl"></div>
+          
+          <CardContent className="p-4 sm:p-6 relative backdrop-blur-sm">
+            <div className="relative z-10">
+              {/* Header with close button - Animated entrance */}
+              <div className={`flex items-center justify-between mb-4 transition-all duration-300 ease-out ${
+                isClosing 
+                  ? 'animate-out slide-out-to-left duration-300' 
+                  : 'animate-in slide-in-from-left duration-500 delay-100 ease-out'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/10 rounded-lg transition-all duration-500 ease-out hover:scale-110 hover:rotate-6 hover:shadow-lg hover:shadow-blue-500/25 ${
+                    isClosing 
+                      ? 'animate-out zoom-out rotate-180 duration-400' 
+                      : 'animate-in zoom-in rotate-0 duration-600 delay-200 ease-out'
+                  } ${studying ? 'animate-pulse' : ''}`}>
+                    <Clock className={`h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400 transition-all duration-700 ${studying ? 'animate-spin' : ''}`} style={studying ? { animationDuration: '3s' } : {}} />
+                  </div>
+                  <div className={`transition-all duration-300 ease-out ${
+                    isClosing 
+                      ? 'animate-out slide-out-to-right duration-300' 
+                      : 'animate-in slide-in-from-right duration-500 delay-300 ease-out'
+                  }`}>
+                    <h3 className="font-medium text-sm sm:text-base">Pomodoro Timer</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {pomodoroDuration}min focus sessions
+                    </p>
+                  </div>
+                </div>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={handleOpenSettings}
-                  className="h-8 w-8 p-0 shrink-0"
+                  onClick={toggleExpanded}
+                  className={`h-8 w-8 p-0 hover:bg-gradient-to-br hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 transition-all duration-500 hover:scale-125 hover:rotate-180 hover:shadow-lg hover:shadow-blue-500/20 ${
+                    isClosing 
+                      ? 'animate-out zoom-out rotate-180 duration-400 delay-100' 
+                      : 'animate-in zoom-in rotate-0 duration-600 delay-400 ease-out'
+                  }`}
+                  title="Minimize Timer"
                 >
-                  <Settings className="h-3.5 w-3.5" />
+                  <svg className="h-4 w-4 transition-transform duration-300 hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="w-[90vw] max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Timer Settings</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="duration">Duration (minutes)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      min="1"
-                      max="120"
-                      value={tempDuration}
-                      onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          saveDuration();
-                        }
-                      }}
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Set focus duration (1-120 minutes)
-                    </p>
-                  </div>
-                  <Button onClick={saveDuration} className="w-full">
-                    Save Duration
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              </div>
 
-            <Button
-              size="sm"
-              onClick={toggleStudying}
-              variant={studying ? 'default' : 'outline'}
-              className={`h-8 w-8 p-0 shrink-0 ${studying ? 'bg-green-600 hover:bg-green-700' : ''}`}
-            >
-              {studying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Timer Display - Ultra Responsive */}
-        {studyTime > 0 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            {/* Circular Progress - Responsive Size */}
-            <div className="flex items-center justify-center py-2">
-              <div className="relative">
-                <svg
-                  className="w-16 h-16 xs:w-18 xs:h-18 sm:w-20 sm:h-20 transform -rotate-90"
-                  viewBox="0 0 80 80"
-                >
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="transparent"
-                    className="text-muted/20"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="transparent"
-                    strokeDasharray={2 * Math.PI * 36}
-                    strokeDashoffset={2 * Math.PI * 36 - (progress / 100) * 2 * Math.PI * 36}
-                    className="text-primary transition-all duration-1000"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs xs:text-sm font-mono font-bold">
-                    {Math.floor(progress)}%
+              {/* Timer Display with Advanced Animation */}
+              <div className={`text-center mb-4 transition-all duration-500 ease-out ${
+                isClosing 
+                  ? 'animate-out slide-out-to-bottom duration-400 delay-200' 
+                  : 'animate-in slide-in-from-bottom duration-700 delay-500 ease-out'
+              }`}>
+                <div className={`relative inline-block text-3xl sm:text-4xl font-mono font-bold mb-2 transition-all duration-500 ease-out group/timer ${
+                  isClosing 
+                    ? 'animate-out zoom-out rotate-12 duration-400 delay-300' 
+                    : 'animate-in zoom-in rotate-0 duration-800 delay-600 ease-out'
+                }`}>
+                  {/* Glowing background for active timer */}
+                  {studying && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-blue-500/20 to-purple-500/20 rounded-lg blur-xl animate-pulse -z-10 scale-150"></div>
+                  )}
+                  <span className={`bg-gradient-to-r from-blue-700 via-purple-600 to-blue-700 dark:from-blue-300 dark:via-purple-400 dark:to-blue-300 bg-clip-text text-transparent transition-all duration-700 hover:scale-110 inline-block ${
+                    studying ? 'animate-pulse' : ''
+                  }`} style={studying ? { animationDuration: '2s' } : {}}>
+                    {studying ? formatTime(studyTime) : (studyTime > 0 ? formatTime(studyTime) : `${pomodoroDuration}:00`)}
                   </span>
                 </div>
+                <p className={`text-sm text-blue-600/80 dark:text-blue-400/80 font-medium transition-all duration-300 ease-out ${
+                  isClosing 
+                    ? 'animate-out fade-out duration-300 delay-400' 
+                    : 'animate-in fade-in duration-500 delay-700 ease-out'
+                }`}>
+                  {studying ? 'Studying now' : (studyTime > 0 ? 'Paused' : 'Ready to start')}
+                </p>
               </div>
-            </div>
 
-            {/* Time Display - Responsive Typography */}
-            <div className="text-center">
-              <div className="font-mono text-lg xs:text-xl sm:text-2xl font-bold">
-                {formatTime(studyTime)}
-              </div>
-            </div>
-
-            {/* Action Buttons - Fully Responsive Grid */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={addLap}
-                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
-              >
-                <Clock className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:mr-1" />
-                <span className="hidden xs:inline ml-1 sm:ml-0">Lap</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={clearTimer}
-                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
-              >
-                <RotateCcw className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:mr-1" />
-                <span className="hidden xs:inline ml-1 sm:ml-0">Clear</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={stopAndSave}
-                className="h-8 xs:h-9 sm:h-10 text-xs xs:text-sm bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 px-1 xs:px-2 sm:px-3"
-              >
-                Save
-              </Button>
-            </div>
-
-            {/* Laps Display - Responsive */}
-            {laps.length > 0 && (
-              <div className="space-y-1 sm:space-y-2 animate-in slide-in-from-top duration-300">
-                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Laps</h4>
-                <div className="max-h-24 xs:max-h-28 sm:max-h-32 overflow-y-auto space-y-1">
-                  {laps.map((lap, index) => (
+              {/* Progress Bar with Advanced Animation */}
+              {studyTime > 0 && (
+                <div className={`mb-4 transition-all duration-500 ease-out ${
+                  isClosing 
+                    ? 'animate-out slide-out-to-left duration-400 delay-500' 
+                    : 'animate-in slide-in-from-left duration-600 delay-800 ease-out'
+                }`}>
+                  <div className="relative w-full bg-gradient-to-r from-blue-100 via-purple-100 to-blue-100 dark:from-blue-900/30 dark:via-purple-900/30 dark:to-blue-900/30 rounded-full h-3 overflow-hidden shadow-inner">
+                    {/* Animated shimmer effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" style={{ animationDuration: '3s' }}></div>
                     <div
-                      key={lap.id}
-                      className="flex items-center justify-between text-xs xs:text-sm bg-muted/50 rounded px-2 xs:px-3 py-1 xs:py-1.5 animate-in fade-in slide-in-from-top duration-200"
-                      style={{ animationDelay: `${index * 50}ms` }}
+                      className={`relative bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 h-3 rounded-full transition-all duration-1000 ease-out shadow-lg shadow-blue-500/50 ${
+                        isClosing 
+                          ? 'animate-out slide-out-to-left duration-400 delay-600' 
+                          : 'animate-in slide-in-from-left duration-800 delay-900 ease-out'
+                      } ${studying ? 'animate-pulse' : ''}`}
+                      style={{ 
+                        width: `${Math.min((studyTime / POMODORO_DURATION) * 100, 100)}%`,
+                        animationDuration: studying ? '2s' : undefined
+                      }}
                     >
-                      <span className="text-muted-foreground">
-                        Lap {laps.length - index}
-                      </span>
-                      <span className="font-mono font-medium">
-                        {formatTime(lap.time)}
-                      </span>
+                      {/* Progress bar glow effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-transparent to-white/40 animate-pulse"></div>
                     </div>
-                  ))}
+                  </div>
+                  <p className="text-xs text-center mt-1 text-muted-foreground animate-in fade-in duration-500 delay-1000 ease-out">
+                    {Math.round(Math.min((studyTime / POMODORO_DURATION) * 100, 100))}% complete
+                  </p>
                 </div>
+              )}
+
+              {/* Controls */}
+              <div className={`flex flex-wrap gap-2 justify-center transition-all duration-500 ease-out ${
+                isClosing 
+                  ? 'animate-out slide-out-to-bottom duration-400 delay-700' 
+                  : 'animate-in slide-in-from-bottom-4 duration-600 delay-200'
+              }`}>
+                <Button
+                  size="sm"
+                  onClick={toggleStudying}
+                  variant={studying ? 'default' : 'outline'}
+                  className={`flex-1 min-w-[80px] transition-all duration-500 ease-out hover:scale-110 hover:shadow-lg group/btn relative overflow-hidden ${
+                    isClosing 
+                      ? 'animate-out slide-out-to-bottom rotate-6 duration-400 delay-800' 
+                      : 'animate-in slide-in-from-bottom-4 rotate-0 duration-600 delay-300'
+                  } ${studying ? 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/30 animate-pulse' : 'hover:border-blue-500 hover:shadow-blue-500/30'}`}
+                  style={studying ? { animationDuration: '2s' } : {}}
+                >
+                  {studying && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover/btn:animate-pulse"></div>}
+                  {studying ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                  {studying ? 'Pause' : 'Start'}
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowFullscreen(true)}
+                  className={`flex-1 min-w-[80px] transition-all duration-500 ease-out hover:scale-110 hover:shadow-lg hover:border-purple-500 hover:shadow-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-950/20 ${
+                    isClosing 
+                      ? 'animate-out slide-out-to-bottom rotate-6 duration-400 delay-900' 
+                      : 'animate-in slide-in-from-bottom-4 rotate-0 duration-600 delay-400'
+                  }`}
+                >
+                  <Maximize className="h-4 w-4 mr-2" />
+                  Focus
+                </Button>
+
+                <Dialog open={showSettings} onOpenChange={setShowSettings}>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleOpenSettings}
+                      className={`flex-1 min-w-[80px] transition-all duration-500 ease-out hover:scale-110 hover:shadow-lg hover:border-blue-500 hover:shadow-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-950/20 hover:rotate-3 ${
+                        isClosing 
+                          ? 'animate-out slide-out-to-bottom rotate-6 duration-400 delay-1000' 
+                          : 'animate-in slide-in-from-bottom-4 rotate-0 duration-600 delay-500'
+                      }`}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[90vw] max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Timer Settings</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="duration">Duration (minutes)</Label>
+                        <Input
+                          id="duration"
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={tempDuration}
+                          onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              saveDuration();
+                            }
+                          }}
+                          className="mt-1"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Set focus duration (1-120 minutes)
+                        </p>
+                      </div>
+                      <Button onClick={saveDuration} className="w-full">
+                        Save Duration
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {studyTime > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={clearTimer}
+                    className={`flex-1 min-w-[80px] transition-all duration-500 ease-out hover:scale-110 hover:shadow-lg hover:border-red-500 hover:shadow-red-500/30 hover:bg-red-50 dark:hover:bg-red-950/20 hover:-rotate-3 ${
+                      isClosing 
+                        ? 'animate-out slide-out-to-bottom rotate-6 duration-400 delay-1100' 
+                        : 'animate-in slide-in-from-bottom-4 rotate-0 duration-600 delay-600'
+                    }`}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Clear
+                  </Button>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          </CardContent>
 
-        {/* Idle State - Responsive */}
-        {studyTime === 0 && !studying && (
-          <div className="text-center py-4 sm:py-6">
-            <p className="text-xs xs:text-sm text-muted-foreground">
-              Click play to start studying
-            </p>
-          </div>
-        )}
-      </CardContent>
-
-      <FullscreenTimer
-        isOpen={showFullscreen}
-        onClose={() => setShowFullscreen(false)}
-      />
-    </Card>
+          <FullscreenTimer
+            isOpen={showFullscreen}
+            onClose={() => setShowFullscreen(false)}
+          />
+        </Card>
+      )}
+    </>
   );
 }
