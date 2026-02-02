@@ -113,6 +113,9 @@ export interface Todo {
   questionsTarget: number;
   questionsCompleted: number;
   completed: boolean;
+  scheduledDate: Date; // Day-wise scheduling
+  rescheduledCount: number; // How many times task was rescheduled
+  originalScheduledDate?: Date; // Original date if rescheduled
   createdAt: Date;
   updatedAt: Date;
 }
@@ -258,11 +261,26 @@ const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: 
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
-      const updateData = { ...params.data, updatedAt: new Date() };
+      const updateData: any = { updatedAt: new Date() };
+      const incData: any = {};
+
+      // Handle increment operations (Prisma-style { increment: n })
+      for (const [key, value] of Object.entries(params.data)) {
+        if (value && typeof value === 'object' && 'increment' in value) {
+          incData[key] = (value as { increment: number }).increment;
+        } else {
+          updateData[key] = value;
+        }
+      }
+
+      const updateQuery: any = { $set: updateData };
+      if (Object.keys(incData).length > 0) {
+        updateQuery.$inc = incData;
+      }
 
       const result = await mongoDb.collection(collectionName).findOneAndUpdate(
         { _id: toObjectId(params.where.id) },
-        { $set: updateData },
+        updateQuery,
         { returnDocument: 'after' }
       );
 
@@ -274,9 +292,26 @@ const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: 
       const mongoDb = await getMongoDb();
       if (!mongoDb) throw new Error('Database not connected');
 
+      const updateData: any = { updatedAt: new Date() };
+      const incData: any = {};
+
+      // Handle increment operations (Prisma-style { increment: n })
+      for (const [key, value] of Object.entries(params.data)) {
+        if (value && typeof value === 'object' && 'increment' in value) {
+          incData[key] = (value as { increment: number }).increment;
+        } else {
+          updateData[key] = value;
+        }
+      }
+
+      const updateQuery: any = { $set: updateData };
+      if (Object.keys(incData).length > 0) {
+        updateQuery.$inc = incData;
+      }
+
       const result = await mongoDb.collection(collectionName).updateMany(
         params.where,
-        { $set: params.data }
+        updateQuery
       );
       return { count: result.modifiedCount };
     },
