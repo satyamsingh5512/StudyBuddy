@@ -27,7 +27,11 @@ export interface Task {
   questionsTarget: number;
   completed: boolean;
   createdAt: string;
+  scheduledDate: string;
   scheduledTime?: string;
+  isOverdue?: boolean;
+  rescheduledCount: number;
+  originalScheduledDate?: string;
 }
 
 // ============================================
@@ -88,6 +92,25 @@ export const tasksBySubjectAtom = atom((get) => {
   }, {} as Record<string, Task[]>);
 });
 
+// Overdue tasks count
+export const overdueCountAtom = atom((get) => {
+  const tasks = get(allTasksAtom);
+  return tasks.filter((t) => t.isOverdue && !t.completed).length;
+});
+
+// Today's tasks count (not overdue, scheduled for today)
+export const todaysTasksCountAtom = atom((get) => {
+  const tasks = get(allTasksAtom);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return tasks.filter((t) => {
+    if (t.completed || t.isOverdue) return false;
+    const scheduled = new Date(t.scheduledDate);
+    scheduled.setHours(0, 0, 0, 0);
+    return scheduled.getTime() === today.getTime();
+  }).length;
+});
+
 // ============================================
 // Action Atoms (Write Operations)
 // ============================================
@@ -137,11 +160,18 @@ export const toggleTaskAtom = atom(null, (get, set, id: string) => {
 // ============================================
 
 // Create optimistic task (with temp ID)
-export const createOptimisticTask = (data: Omit<Task, 'id' | 'createdAt'>): Task => ({
-  ...data,
-  id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-  createdAt: new Date().toISOString(),
-});
+export const createOptimisticTask = (data: Omit<Task, 'id' | 'createdAt' | 'scheduledDate' | 'rescheduledCount'>): Task => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return {
+    ...data,
+    id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    createdAt: new Date().toISOString(),
+    scheduledDate: today.toISOString(),
+    isOverdue: false,
+    rescheduledCount: 0,
+  };
+};
 
 // Replace temp task with real task
 export const replaceTempTaskAtom = atom(
