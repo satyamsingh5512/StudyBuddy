@@ -36,7 +36,22 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
       const res = await apiFetch(`/timer/analytics?days=${timeRange}`);
       if (res.ok) {
         const data = await res.json();
-        setAnalytics(data);
+        // Ensure analytics data is clean
+        const cleanData = data.map((day: any) => ({
+          ...day,
+          studyHours: typeof day.studyHours === 'number' ? day.studyHours : 0,
+          tasksCompleted: typeof day.tasksCompleted === 'number' ? day.tasksCompleted : 0,
+          understanding: typeof day.understanding === 'number' ? day.understanding : 0,
+          sessions: typeof day.sessions === 'number' ? day.sessions : 0,
+          sessionTypes: day.sessionTypes && typeof day.sessionTypes === 'object' ? 
+            Object.fromEntries(
+              Object.entries(day.sessionTypes).map(([key, value]) => [
+                key, 
+                typeof value === 'number' ? value : 0
+              ])
+            ) : {},
+        }));
+        setAnalytics(cleanData);
       }
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
