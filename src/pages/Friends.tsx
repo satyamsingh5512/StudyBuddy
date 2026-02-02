@@ -83,7 +83,12 @@ export default function Friends() {
       const response = await apiFetch('/friends/list');
       if (response.ok) {
         const data = await response.json();
-        setFriends(data);
+        // Ensure user data is clean
+        const cleanData = data.map((user: any) => ({
+          ...user,
+          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+        }));
+        setFriends(cleanData);
       }
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -98,7 +103,12 @@ export default function Friends() {
       const response = await apiFetch('/friends/requests');
       if (response.ok) {
         const data = await response.json();
-        setRequests(data);
+        // Ensure user data is clean
+        const cleanData = data.map((user: any) => ({
+          ...user,
+          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+        }));
+        setRequests(cleanData);
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
@@ -113,7 +123,12 @@ export default function Friends() {
       const response = await apiFetch('/friends/blocked');
       if (response.ok) {
         const data = await response.json();
-        setBlocked(data);
+        // Ensure user data is clean
+        const cleanData = data.map((user: any) => ({
+          ...user,
+          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+        }));
+        setBlocked(cleanData);
       }
     } catch (error) {
       console.error('Error fetching blocked users:', error);
@@ -137,7 +152,12 @@ export default function Friends() {
 
       if (response.ok) {
         const data = await response.json();
-        setSearchResults(data);
+        // Ensure user data is clean
+        const cleanData = data.map((user: any) => ({
+          ...user,
+          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+        }));
+        setSearchResults(cleanData);
       }
     } catch (error) {
       console.error('Error searching users:', error);
