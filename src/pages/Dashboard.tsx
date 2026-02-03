@@ -63,12 +63,14 @@ const TodoItem = memo(
     onDelete,
     onRescheduleToday,
     onReschedule,
+    isUpdating,
   }: {
     todo: Todo;
     onToggle: (id: string, completed: boolean) => void;
     onDelete: (id: string) => void;
     onRescheduleToday: (id: string) => void;
     onReschedule: (id: string) => void;
+    isUpdating?: boolean;
   }) => {
     const isOverdue = todo.isOverdue && !todo.completed;
 
@@ -121,14 +123,17 @@ const TodoItem = memo(
                   variant="ghost"
                   size="sm"
                   onClick={() => onRescheduleToday(todo.id)}
+                  disabled={isUpdating}
                   className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
                 >
+                  {isUpdating ? <span className="animate-spin mr-1">⏳</span> : null}
                   Do today
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onReschedule(todo.id)}
+                  disabled={isUpdating}
                   className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
                 >
                   Reschedule
@@ -161,6 +166,7 @@ export default function Dashboard() {
     open: false,
     todoId: null,
   });
+  const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const { toast } = useToast();
 
@@ -298,18 +304,38 @@ export default function Dashboard() {
 
   const rescheduleToToday = useCallback(
     async (id: string) => {
-      const res = await apiFetch(`/todos/${id}/reschedule-to-today`, {
-        method: 'POST',
-      });
+      setUpdatingTodoId(id);
+      try {
+        const res = await apiFetch(`/todos/${id}/reschedule-to-today`, {
+          method: 'POST',
+        });
 
-      if (res.ok) {
-        fetchTodos();
-        toast({ title: 'Task rescheduled to today', description: 'Complete it to earn points!' });
-      } else {
-        toast({ title: 'Failed to reschedule', variant: 'destructive' });
+        if (res.ok) {
+          // Local update instead of full refetch
+          setTodos(prev => prev.map(t => {
+            if (t.id === id) {
+              return {
+                ...t,
+                scheduledDate: new Date().toISOString(),
+                isOverdue: false,
+                // Assuming rescheduling increments count, though backend handles logical logic
+                rescheduledCount: (t.rescheduledCount || 0) + 1
+              };
+            }
+            return t;
+          }));
+
+          toast({ title: 'Task rescheduled to today', description: 'Complete it to earn points!' });
+        } else {
+          toast({ title: 'Failed to reschedule', variant: 'destructive' });
+        }
+      } catch (error) {
+        toast({ title: 'Error rescheduling task', variant: 'destructive' });
+      } finally {
+        setUpdatingTodoId(null);
       }
     },
-    [fetchTodos, toast]
+    [toast]
   );
 
   const rescheduleAllOverdue = useCallback(
@@ -628,6 +654,7 @@ export default function Dashboard() {
                             onDelete={deleteTodo}
                             onRescheduleToday={rescheduleToToday}
                             onReschedule={openRescheduleModal}
+                            isUpdating={updatingTodoId === todo.id}
                           />
                         ))}
                     </div>
@@ -644,6 +671,7 @@ export default function Dashboard() {
                         onDelete={deleteTodo}
                         onRescheduleToday={rescheduleToToday}
                         onReschedule={openRescheduleModal}
+                        isUpdating={updatingTodoId === todo.id}
                       />
                     ))}
                   {todos.length === 0 && (
