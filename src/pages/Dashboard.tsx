@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
-import StudyTimer from '@/components/StudyTimer';
+
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
@@ -32,23 +32,23 @@ interface Todo {
 // Helper to format date nicely
 const formatScheduledDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return 'No date';
-  
+
   const date = new Date(dateStr);
-  
+
   // Check for invalid date
   if (isNaN(date.getTime())) return 'No date';
-  
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   today.setHours(0, 0, 0, 0);
   tomorrow.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
-  
+
   if (date.getTime() === today.getTime()) return 'Today';
   if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-  
+
   const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return `${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`;
   if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
@@ -71,7 +71,7 @@ const TodoItem = memo(
     onReschedule: (id: string) => void;
   }) => {
     const isOverdue = todo.isOverdue && !todo.completed;
-    
+
     return (
       <div className={`flex items-start gap-3 p-4 rounded-xl border group hover:shadow-sm transition-all duration-200 bg-card hover:border-primary/20 ${
         isOverdue ? 'opacity-70 border-rose-300/50 dark:border-rose-500/30 bg-rose-50/30 dark:bg-rose-950/10' : ''
@@ -90,15 +90,15 @@ const TodoItem = memo(
               {todo.subject} · {todo.difficulty}
             </p>
             <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
-              isOverdue 
-                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400' 
+              isOverdue
+                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
                 : 'bg-muted text-muted-foreground'
             }`}>
               <Calendar className="h-3 w-3" />
               {formatScheduledDate(todo.scheduledDate)}
             </span>
             {(() => {
-              const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 
+              const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount :
                            (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
               return count > 0 && (
                 <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -108,7 +108,7 @@ const TodoItem = memo(
               );
             })()}
           </div>
-          
+
           {/* Overdue task actions */}
           {isOverdue && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30">
@@ -323,9 +323,9 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         fetchTodos();
-        toast({ 
-          title: 'All overdue tasks rescheduled!', 
-          description: `${data.count} task${data.count > 1 ? 's' : ''} moved to today` 
+        toast({
+          title: 'All overdue tasks rescheduled!',
+          description: `${data.count} task${data.count > 1 ? 's' : ''} moved to today`
         });
       } else {
         toast({ title: 'Failed to reschedule tasks', variant: 'destructive' });
@@ -535,10 +535,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Study Timer - Compact button that expands */}
-        <div className="flex justify-center xl:justify-start">
-          <StudyTimer />
-        </div>
+
       </div>
 
       {/* Admin Panel - Only visible to admin users */}
@@ -635,7 +632,7 @@ export default function Dashboard() {
                         ))}
                     </div>
                   )}
-                  
+
                   {/* Regular tasks (today and future) */}
                   {todos
                     .filter((todo) => !todo.isOverdue || todo.completed)

@@ -144,11 +144,14 @@ export default function StudyTimer() {
   };
 
   return (
-    <div className="relative">
+    <div className="fixed bottom-6 right-6 z-50">
       <AnimatePresence mode="wait">
         {!isExpanded ? (
           <motion.div
             key="collapsed-button"
+            drag
+            dragMomentum={false}
+            whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
@@ -157,7 +160,7 @@ export default function StudyTimer() {
               stiffness: 400,
               damping: 25
             }}
-            className="relative group/button"
+            className="relative group/button cursor-grab active:cursor-grabbing"
           >
             <Button
               onClick={toggleExpanded}
@@ -180,6 +183,9 @@ export default function StudyTimer() {
         ) : (
           <motion.div
             key="expanded-card"
+            drag
+            dragMomentum={false}
+            whileDrag={{ cursor: 'grabbing' }}
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -189,6 +195,7 @@ export default function StudyTimer() {
               damping: 30,
               mass: 1
             }}
+            className="cursor-grab active:cursor-grabbing"
           >
             <Card className="shadow-2xl border-blue-200/50 dark:border-blue-500/30 w-[320px] bg-gradient-to-br from-white/95 via-blue-50/95 to-white/95 dark:from-slate-900/95 dark:via-blue-950/90 dark:to-slate-900/95 backdrop-blur-xl overflow-hidden">
               {/* Decorative background elements */}

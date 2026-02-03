@@ -33,6 +33,7 @@ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import BuddyChat from './BuddyChat';
+import StudyTimer from './StudyTimer';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
@@ -267,6 +268,9 @@ export default function Layout() {
 
         {/* Buddy Chat Widget */}
         <BuddyChat />
+
+        {/* Floating Study Timer */}
+        <StudyTimer />
       </div>
     </UnifiedPageWrapper>
   );
