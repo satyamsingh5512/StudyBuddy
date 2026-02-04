@@ -94,11 +94,13 @@ router.post('/signup', async (req, res) => {
 
     console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
     console.log('📧 OTP for', newUser.email, ':', otp);
-    console.log('⚠️  Email service not working - Use OTP above for testing');
 
     // Try to send email but don't block on it
-    sendOTPEmail(email, otp, name).catch(err => {
-      console.error('⚠️  Email send failed:', err.message);
+    sendOTPEmail(email, otp, name).then(() => {
+      console.log('✅ Verification email sent successfully to:', email);
+    }).catch(err => {
+      console.error('❌ Failed to send verification email to:', email);
+      console.error('❌ Email error:', err);
     });
 
     res.json({
@@ -212,9 +214,12 @@ router.post('/resend-otp', async (req, res) => {
     });
 
     // Send verification email with timeout
-    console.log(`📧 OTP for ${email}:`, otp);
-    sendOTPEmail(email, otp, user.name).catch(err => {
-      console.error('⚠️  Email send failed:', err.message);
+    console.log(`📧 Resending OTP for ${email}:`, otp);
+    sendOTPEmail(email, otp, user.name).then(() => {
+      console.log('✅ Verification email resent successfully to:', email);
+    }).catch(err => {
+      console.error('❌ Failed to resend verification email to:', email);
+      console.error('❌ Email error:', err);
     });
 
     res.json({
@@ -258,9 +263,12 @@ router.post('/login', async (req, res) => {
       });
 
       // Try to send OTP
-      console.log(`📧 OTP for ${user.email}:`, otp);
-      sendOTPEmail(user.email, otp, user.name).catch(err => {
-        console.error('⚠️  Email send failed:', err.message);
+      console.log(`📧 Sending OTP to unverified user ${user.email}:`, otp);
+      sendOTPEmail(user.email, otp, user.name).then(() => {
+        console.log('✅ Verification email sent successfully to:', user.email);
+      }).catch(err => {
+        console.error('❌ Failed to send verification email to:', user.email);
+        console.error('❌ Email error:', err);
       });
 
       return res.status(403).json({
