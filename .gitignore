@@ -47,20 +47,13 @@ logs/
 .agents/
 .gemini/
 .github/skills/
-.kiro/
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Documentation (keep important docs)
-*.md
-!README.md
-!QUICK_DEPLOY.md
-!VERCEL_SETUP.md
-!CONNECTION_TEST.md
-!ERROR_FIXES_APPLIED.md
-!DEPLOYMENT_CHECKLIST.md
+!*.md
 
 # Prisma (not used - MongoDB only)
 prisma/
