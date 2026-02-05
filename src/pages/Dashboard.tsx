@@ -162,6 +162,7 @@ export default function Dashboard() {
     todoId: null,
   });
   const [rescheduleDate, setRescheduleDate] = useState('');
+  const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchTodos = useCallback(async () => {
@@ -305,35 +306,36 @@ export default function Dashboard() {
 
   const rescheduleToToday = useCallback(
     async (id: string) => {
-      const res = await apiFetch(`/todos/${id}/reschedule-to-today`, {
-        method: 'POST',
-      });
+      try {
+        const res = await apiFetch(`/todos/${id}/reschedule-to-today`, {
+          method: 'POST',
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        // Local update instead of full refetch
-        setTodos(prev => prev.map(t => {
-          if (t.id === id) {
-            return {
-              ...t,
-              scheduledDate: new Date().toISOString(),
-              isOverdue: false,
-              // Assuming rescheduling increments count, though backend handles logical logic
-              rescheduledCount: (t.rescheduledCount || 0) + 1
-            };
-          }
-          return t;
-        }));
+        if (res.ok) {
+          const data = await res.json();
+          // Local update instead of full refetch
+          setTodos(prev => prev.map(t => {
+            if (t.id === id) {
+              return {
+                ...t,
+                scheduledDate: new Date().toISOString(),
+                isOverdue: false,
+                // Assuming rescheduling increments count, though backend handles logical logic
+                rescheduledCount: (t.rescheduledCount || 0) + 1
+              };
+            }
+            return t;
+          }));
 
-        const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
-        toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
-      } else {
-        toast({ title: 'Failed to reschedule', variant: 'destructive' });
-      }
-    } catch (error) {
-      toast({ title: 'Error rescheduling task', variant: 'destructive' });
-    } finally {
-      setUpdatingTodoId(null);
+          const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
+          toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
+        } else {
+          toast({ title: 'Failed to reschedule', variant: 'destructive' });
+        }
+      } catch (error) {
+        toast({ title: 'Error rescheduling task', variant: 'destructive' });
+      } finally {
+        setUpdatingTodoId(null);
       }
     },
     [fetchTodos, toast]
