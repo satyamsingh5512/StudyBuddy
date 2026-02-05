@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
-import StudyTimer from '@/components/StudyTimer';
+
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
@@ -566,10 +566,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Study Timer - Compact button that expands */}
-        <div className="flex justify-center xl:justify-start">
-          <StudyTimer />
-        </div>
+
       </div>
 
       {/* Admin Panel - Only visible to admin users */}
