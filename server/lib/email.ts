@@ -13,7 +13,8 @@ export async function sendOTPEmail(email: string, otp: string, name?: string): P
   }
 
   try {
-    await resend.emails.send({
+    console.log(`📧 Attempting to send OTP email to: ${email}`);
+    const result = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
       to: email,
       subject: 'Verify Your Email - StudyBuddy',
@@ -73,8 +74,15 @@ export async function sendOTPEmail(email: string, otp: string, name?: string): P
         </html>
       `,
     });
+    console.log(`✅ OTP email sent successfully to ${email}. Email ID:`, result.data?.id || 'N/A');
   } catch (error: any) {
-    console.error('⚠️  Resend email error:', error.message);
+    console.error('❌ Failed to send OTP email to:', email);
+    console.error('❌ Error details:', {
+      message: error.message,
+      name: error.name,
+      statusCode: error.statusCode,
+      response: error.response?.data || error.response || 'No response data'
+    });
     throw error;
   }
 }
