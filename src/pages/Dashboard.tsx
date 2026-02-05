@@ -274,13 +274,20 @@ export default function Dashboard() {
         fetchTodos();
         if (!completed) {
           soundManager.playSuccess();
-          // Check if task was overdue for different message
-          const todo = todos.find(t => t.id === id);
-          if (todo?.isOverdue) {
-            toast({ title: 'Task completed! +1 point', description: 'Overdue task finished' });
-          } else {
-            toast({ title: 'Great job! +2 points', description: 'Task completed on time!' });
+          const points = data.pointsAwarded || 0;
+          let message = 'Task completed!';
+          let description = 'Well done!';
+          
+          if (points > 0) {
+            message = `Task completed! +${points} point${points === 1 ? '' : 's'}`;
+            if (points === 1) {
+              description = 'Completed on scheduled date!';
+            } else if (points === 0.5) {
+              description = 'Completed after reschedule!';
+            }
           }
+          
+          toast({ title: message, description });
         }
       }
     },
@@ -311,6 +318,7 @@ export default function Dashboard() {
         });
 
         if (res.ok) {
+          const data = await res.json();
           // Local update instead of full refetch
           setTodos(prev => prev.map(t => {
             if (t.id === id) {
@@ -325,7 +333,8 @@ export default function Dashboard() {
             return t;
           }));
 
-          toast({ title: 'Task rescheduled to today', description: 'Complete it to earn points!' });
+          const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
+          toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
         } else {
           toast({ title: 'Failed to reschedule', variant: 'destructive' });
         }
@@ -377,9 +386,11 @@ export default function Dashboard() {
     });
 
     if (res.ok) {
+      const data = await res.json();
       fetchTodos();
       setRescheduleModal({ open: false, todoId: null });
-      toast({ title: 'Task rescheduled', description: `Scheduled for ${new Date(rescheduleDate).toLocaleDateString()}` });
+      const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
+      toast({ title: 'Task rescheduled', description: `Scheduled for ${new Date(rescheduleDate).toLocaleDateString()}${pointsMsg}` });
     } else {
       toast({ title: 'Failed to reschedule', variant: 'destructive' });
     }
@@ -590,7 +601,7 @@ export default function Dashboard() {
       )}
 
       {showAnalytics ? (
-        <AnalyticsDashboard />
+        <AnalyticsDashboard user={user} />
       ) : (
         <Card>
           <CardHeader>

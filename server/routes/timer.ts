@@ -14,80 +14,87 @@ router.post('/session', isAuthenticated, async (req: any, res: any) => {
       return res.status(400).json({ error: 'Invalid session duration' });
     }
 
-    // Immediate response with optimistic update
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) {
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+
+    const userId = req.user.id;
+
+    // Fetch current user data
+    const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentPoints = typeof currentUser.totalPoints === 'number' ? currentUser.totalPoints : 0;
+    const currentMinutes = typeof currentUser.totalStudyMinutes === 'number' ? currentUser.totalStudyMinutes : 0;
+
+    // Create timer session record
+    await db.timerSession.create({
+      data: {
+        userId,
+        duration: minutes,
+        sessionType,
+        startedAt: new Date(Date.now() - minutes * 60 * 1000),
+        completedAt: new Date(),
+      }
+    });
+
+    // Update user stats with calculated values
+    await mongoDb.collection('users').updateOne(
+      { _id: toObjectId(userId) },
+      {
+        $set: {
+          totalStudyMinutes: currentMinutes + minutes,
+          totalPoints: currentPoints + minutes,
+          lastActive: new Date()
+        }
+      }
+    );
+
+    // Create daily report entry or update existing
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+
+    const existingReport = await db.dailyReport.findFirst({
+      where: {
+        userId: userId,
+        date: {
+          $gte: today,
+          $lt: tomorrow,
+        },
+      },
+    });
+
+    if (existingReport) {
+      // Fetch current report to handle non-numeric fields
+      const currentReport = await mongoDb.collection('daily_reports').findOne({ _id: toObjectId(existingReport.id!) });
+      const currentStudyHours = typeof currentReport?.studyHours === 'number' ? currentReport.studyHours : 0;
+      
+      await mongoDb.collection('daily_reports').updateOne(
+        { _id: toObjectId(existingReport.id!) },
+        { $set: { studyHours: currentStudyHours + minutes / 60 } }
+      );
+    } else {
+      await db.dailyReport.create({
+        data: {
+          userId: userId,
+          date: today,
+          tasksPlanned: 0,
+          tasksCompleted: 0,
+          studyHours: minutes / 60,
+          understanding: 5,
+          completionPct: 0,
+        },
+      });
+    }
+
     res.json({
       success: true,
       points: minutes,
       message: `+${minutes} points earned!`
-    });
-
-    // Background processing
-    setImmediate(async () => {
-      try {
-        const mongoDb = await getMongoDb();
-        if (!mongoDb) return;
-
-        const userId = req.user.id;
-
-        // Create timer session record
-        await db.timerSession.create({
-          data: {
-            userId,
-            duration: minutes,
-            sessionType,
-            startedAt: new Date(Date.now() - minutes * 60 * 1000),
-            completedAt: new Date(),
-          }
-        });
-
-        // Update user stats (using atomic increment)
-        await mongoDb.collection('users').updateOne(
-          { _id: toObjectId(userId) },
-          {
-            $inc: {
-              totalStudyMinutes: minutes,
-              totalPoints: minutes
-            },
-            $set: { lastActive: new Date() }
-          }
-        );
-
-        // Create daily report entry or update existing
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-
-        const existingReport = await db.dailyReport.findFirst({
-          where: {
-            userId: userId,
-            date: {
-              $gte: today,
-              $lt: tomorrow,
-            },
-          },
-        });
-
-        if (existingReport) {
-          await mongoDb.collection('daily_reports').updateOne(
-            { _id: toObjectId(existingReport.id!) },
-            { $inc: { studyHours: minutes / 60 } }
-          );
-        } else {
-          await db.dailyReport.create({
-            data: {
-              userId: userId,
-              date: today,
-              tasksPlanned: 0,
-              tasksCompleted: 0,
-              studyHours: minutes / 60,
-              understanding: 5,
-              completionPct: 0,
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Background session save failed:', error);
-      }
     });
   } catch (error) {
     console.error('Save session error:', error);

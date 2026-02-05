@@ -230,25 +230,48 @@ router.patch('/:id', async (req, res) => {
     });
 
     // Award points based on completion timing
+    let pointsToIncrement = 0;
     if (req.body.completed && !existingTodo.completed) {
-      let pointsToAward = POINTS.ON_TIME_COMPLETION; // Default: on-time completion
+      let pointsToAward = 0.5; // Default: rescheduled completion
       
       const today = getStartOfDay();
       const scheduledDate = existingTodo.scheduledDate ? getStartOfDay(new Date(existingTodo.scheduledDate)) : today;
+      const originalScheduledDate = existingTodo.originalScheduledDate ? getStartOfDay(new Date(existingTodo.originalScheduledDate)) : null;
       
-      if (scheduledDate < today) {
-        // Completing an overdue task - less points
-        pointsToAward = POINTS.LATE_COMPLETION;
-      } else if (scheduledDate > today) {
-        // Completing early - bonus points!
-        pointsToAward = POINTS.ON_TIME_COMPLETION + POINTS.EARLY_COMPLETION_BONUS;
+      // If completed on the scheduled date (whether original or rescheduled)
+      if (scheduledDate.getTime() === today.getTime()) {
+        // Check if this was completed on the original scheduled date (no reschedule)
+        if (!originalScheduledDate || originalScheduledDate.getTime() === today.getTime()) {
+          pointsToAward = 1; // Completed on original scheduled date
+        } else {
+          pointsToAward = 0.5; // Completed on rescheduled date
+        }
+      }
+      // For tasks completed on other days, keep minimal points
+      else if (scheduledDate < today) {
+        pointsToAward = 0.5; // Overdue completion
       }
 
-      await db.user.update({
-        where: { id: userId },
-        data: { totalPoints: { increment: pointsToAward } },
-      });
-      cache.invalidatePattern(`user:${userId}`);
+      // Update user points (award 1 point for rescheduled completion, but track as 0.5 for display)
+      pointsToIncrement = pointsToAward === 0.5 ? 1 : Math.round(pointsToAward);
+      if (pointsToIncrement > 0) {
+        const { getMongoDb } = await import('../lib/mongodb.js');
+        const mongoDb = await getMongoDb();
+        if (mongoDb) {
+          const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+          const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
+          
+          await mongoDb.collection('users').updateOne(
+            { _id: toObjectId(userId) },
+            {
+              $set: {
+                totalPoints: currentPoints + pointsToIncrement,
+                lastActive: new Date()
+              }
+            }
+          );
+        }
+      }
     }
 
     // Invalidate caches
@@ -262,7 +285,7 @@ router.patch('/:id', async (req, res) => {
       ...updatedTodo,
       rescheduledCount: safeRescheduledCount,
       isOverdue: !updatedTodo.completed && updatedTodo.scheduledDate && isOverdue(updatedTodo.scheduledDate),
-      pointsAwarded: req.body.completed && !existingTodo.completed ? true : false,
+      pointsAwarded: req.body.completed && !existingTodo.completed ? pointsToAward : 0,
     });
   } catch (error) {
     console.error('Todo update error:', error);
@@ -316,12 +339,46 @@ router.patch('/:id/reschedule', async (req, res) => {
       },
     });
 
+    // Credit half points for rescheduling (consistency maintenance)
+    const pointsToCredit = Math.floor(POINTS.ON_TIME_COMPLETION / 2); // Half of on-time points
+
+    // Update user points
+    const { getMongoDb } = await import('../lib/mongodb.js');
+    const mongoDb = await getMongoDb();
+    if (mongoDb) {
+      const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+      const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
+      
+      await mongoDb.collection('users').updateOne(
+        { _id: toObjectId(userId) },
+        {
+          $set: {
+            totalPoints: currentPoints + pointsToCredit,
+            lastActive: new Date()
+          }
+        }
+      );
+    }
+
     // Optional: Apply reschedule penalty (currently 0)
     if (POINTS.RESCHEDULE_PENALTY !== 0) {
-      await db.user.update({
-        where: { id: userId },
-        data: { totalPoints: { increment: POINTS.RESCHEDULE_PENALTY } },
-      });
+      // Use safe update method
+      const { getMongoDb } = await import('../lib/mongodb.js');
+      const mongoDb = await getMongoDb();
+      if (mongoDb) {
+        const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+        const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
+        
+        await mongoDb.collection('users').updateOne(
+          { _id: toObjectId(userId) },
+          {
+            $set: {
+              totalPoints: currentPoints + POINTS.RESCHEDULE_PENALTY,
+              lastActive: new Date()
+            }
+          }
+        );
+      }
       cache.invalidatePattern(`user:${userId}`);
     }
 
@@ -336,6 +393,7 @@ router.patch('/:id/reschedule', async (req, res) => {
       rescheduledCount: safeRescheduledCount,
       isOverdue: false,
       message: 'Task rescheduled successfully',
+      pointsCredited: pointsToCredit,
     });
   } catch (error) {
     console.error('Todo reschedule error:', error);
@@ -378,6 +436,27 @@ router.post('/:id/reschedule-to-today', async (req, res) => {
       },
     });
 
+    // Credit half points for rescheduling (consistency maintenance)
+    const pointsToCredit = Math.floor(POINTS.ON_TIME_COMPLETION / 2); // Half of on-time points
+
+    // Update user points
+    const { getMongoDb } = await import('../lib/mongodb.js');
+    const mongoDb = await getMongoDb();
+    if (mongoDb) {
+      const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+      const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
+      
+      await mongoDb.collection('users').updateOne(
+        { _id: toObjectId(userId) },
+        {
+          $set: {
+            totalPoints: currentPoints + pointsToCredit,
+            lastActive: new Date()
+          }
+        }
+      );
+    }
+
     // Invalidate cache
     cache.delete(`todos:${userId}`);
 
@@ -389,6 +468,7 @@ router.post('/:id/reschedule-to-today', async (req, res) => {
       rescheduledCount: safeRescheduledCount,
       isOverdue: false,
       message: 'Task rescheduled to today',
+      pointsCredited: pointsToCredit,
     });
   } catch (error) {
     console.error('Todo reschedule error:', error);

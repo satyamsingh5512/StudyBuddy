@@ -115,6 +115,19 @@ export default function StudyTimer() {
     toast({ title: 'Timer cleared', description: 'All progress reset' });
   };
 
+  const stopTimer = async () => {
+    if (studyTime > 0) {
+      const minutes = Math.floor(studyTime / 60);
+      if (minutes > 0) {
+        await saveSession(minutes);
+      }
+    }
+    setStudying(false);
+    setStudyTime(0);
+    setLaps([]);
+    soundManager.playClick();
+  };
+
   const toggleExpanded = () => {
     soundManager.playClick();
     setIsExpanded(!isExpanded);
@@ -290,6 +303,16 @@ export default function StudyTimer() {
                     {studying ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                     {studying ? 'Pause' : 'Start'}
                   </Button>
+
+                  {(studying || studyTime > 0) && (
+                    <Button
+                      onClick={stopTimer}
+                      variant="outline"
+                      className="font-medium shadow-md transition-all hover:scale-105 active:scale-95 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/20"
+                    >
+                      Stop
+                    </Button>
+                  )}
 
                   <Button
                     size="icon"

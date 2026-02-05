@@ -11,6 +11,7 @@ export interface User {
   examGoal: string;
   examDate: string;
   totalPoints: number;
+  totalStudyMinutes: number;
   streak: number;
 }
 

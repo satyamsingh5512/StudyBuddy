@@ -23,9 +23,10 @@ interface AnalyticsData {
 
 interface AnalyticsDashboardProps {
   className?: string;
+  user?: { totalStudyMinutes: number };
 }
 
-export default function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ className, user }: AnalyticsDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState(7);
@@ -132,7 +133,7 @@ export default function AnalyticsDashboard({ className }: AnalyticsDashboardProp
               <Clock className="h-5 w-5 text-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Study Time</p>
-                <p className="text-2xl font-bold">{formatTime(Math.round(totalStudyHours * 3600))}</p>
+                <p className="text-2xl font-bold">{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
               </div>
             </div>
           </CardContent>
