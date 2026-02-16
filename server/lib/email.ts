@@ -4,7 +4,16 @@
  */
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize the Resend client to ensure env vars are loaded
+// (fixes race condition where module loads before dotenv/config runs)
+let _resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+}
 
 export async function sendOTPEmail(email: string, otp: string, name?: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
@@ -14,7 +23,7 @@ export async function sendOTPEmail(email: string, otp: string, name?: string): P
 
   try {
     console.log(`📧 Attempting to send OTP email to: ${email}`);
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
       to: email,
       subject: 'Verify Your Email - StudyBuddy',
@@ -94,7 +103,7 @@ export async function sendPasswordResetEmail(email: string, otp: string, name?: 
   }
 
   try {
-    await resend.emails.send({
+    await getResendClient().emails.send({
       from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
       to: email,
       subject: 'Reset Your Password - StudyBuddy',
@@ -198,7 +207,7 @@ export async function sendDailyStatsEmail(
   const scheduleCompletionRate = stats.totalSchedules > 0 ? Math.round((stats.completedSchedules / stats.totalSchedules) * 100) : 0;
 
   try {
-    await resend.emails.send({
+    await getResendClient().emails.send({
       from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
       to: email,
       subject: 'Your Daily Study Summary - StudyBuddy',
@@ -340,7 +349,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
   }
 
   try {
-    await resend.emails.send({
+    await getResendClient().emails.send({
       from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
       to: email,
       subject: `🎉 Welcome aboard, ${name}! - StudyBuddy`,
