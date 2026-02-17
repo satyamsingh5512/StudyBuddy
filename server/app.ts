@@ -105,6 +105,10 @@ const sessionStore = MongoStore.create({
   },
 });
 
+// Detect if running on HTTPS (production or HTTPS-configured dev)
+const isHTTPS = process.env.NODE_ENV === 'production' ||
+  process.env.CLIENT_URL?.startsWith('https');
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -114,10 +118,10 @@ app.use(
     store: sessionStore,
     name: 'studybuddy.sid',
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHTTPS,
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: isHTTPS ? 'none' : 'lax',
       path: '/',
       domain: undefined,
     },

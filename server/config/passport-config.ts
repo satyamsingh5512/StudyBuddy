@@ -62,34 +62,35 @@ if (isGoogleAuthConfigured) {
       }
     )
   );
-
-  passport.serializeUser((user: any, done) => {
-    console.log('🔐 Serializing user:', user.id);
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      console.log('🔓 Deserializing user:', id);
-      const user = await db.user.findUnique({ where: { id } });
-      if (!user) {
-        console.log('⚠️  User not found during deserialization:', id);
-        return done(null, false);
-      }
-      console.log('✅ User deserialized:', user.email);
-      done(null, user);
-    } catch (error) {
-      console.error('❌ Deserialization error:', error);
-      done(error);
-    }
-  });
 } else {
   console.warn(
     '\n⚠️  WARNING: Google OAuth is not configured!\n' +
     '   Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file.\n' +
     '   See AUTH_SETUP.md for instructions.\n' +
-    '   The server will start but authentication will not work.\n'
+    '   The server will start but Google authentication will not work.\n'
   );
 }
+
+// Always register serializers — needed for ALL session-based auth (Google + email/password)
+passport.serializeUser((user: any, done) => {
+  console.log('🔐 Serializing user:', user.id);
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    console.log('🔓 Deserializing user:', id);
+    const user = await db.user.findUnique({ where: { id } });
+    if (!user) {
+      console.log('⚠️  User not found during deserialization:', id);
+      return done(null, false);
+    }
+    console.log('✅ User deserialized:', user.email);
+    done(null, user);
+  } catch (error) {
+    console.error('❌ Deserialization error:', error);
+    done(error);
+  }
+});
 
 export { isGoogleAuthConfigured };
