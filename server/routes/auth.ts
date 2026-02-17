@@ -25,9 +25,28 @@ router.get('/google/callback', (req, res) => {
     return res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
   }
   passport.authenticate('google', { failureRedirect: '/auth' })(req, res, () => {
-    // Redirect to dashboard after successful Google login
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    res.redirect(`${clientUrl}/dashboard`);
+    const user = req.user as any;
+
+    // Explicitly save session before redirecting to prevent race condition
+    // Without this, the redirect can happen before the session is persisted to MongoDB,
+    // causing /auth/me to return 401 when the frontend loads
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Session save error after Google OAuth:', err);
+        return res.redirect(`${clientUrl}/auth?error=session_failed`);
+      }
+
+      console.log('✅ Google OAuth login successful:', user?.email);
+      console.log('   Session saved, onboardingDone:', user?.onboardingDone);
+
+      // Redirect based on onboarding status
+      if (user && !user.onboardingDone) {
+        res.redirect(`${clientUrl}/onboarding`);
+      } else {
+        res.redirect(`${clientUrl}/dashboard`);
+      }
+    });
   });
 });
 
