@@ -78,11 +78,11 @@ export default function BuddyChat() {
           role: 'assistant',
           content: data.response,
           timestamp: new Date(),
-          tasks: data.tasks ? data.tasks.filter((task: any) => 
-            task && 
-            typeof task === 'object' && 
-            typeof task.title === 'string' && 
-            typeof task.subject === 'string' && 
+          tasks: data.tasks ? data.tasks.filter((task: any) =>
+            task &&
+            typeof task === 'object' &&
+            typeof task.title === 'string' &&
+            typeof task.subject === 'string' &&
             typeof task.difficulty === 'string'
           ) : undefined,
         };
@@ -172,7 +172,7 @@ export default function BuddyChat() {
               mass: 1
             }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-primary to-purple-600 text-white shadow-xl flex items-center justify-center group border border-white/20"
+            className="fixed bottom-24 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-tr from-primary to-purple-600 text-white shadow-xl flex items-center justify-center group border border-white/20"
             aria-label="Open Buddy Chat"
           >
             <motion.div
@@ -234,7 +234,7 @@ export default function BuddyChat() {
               damping: 25,
               mass: 0.8
             }}
-            className={`fixed z-50 bottom-6 right-6 md:right-8 bg-background/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden max-w-[calc(100vw-3rem)]`}
+            className={`fixed z-50 bottom-24 right-6 md:right-8 bg-background/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 flex flex-col overflow-hidden max-w-[calc(100vw-3rem)]`}
           >
             {/* Header */}
             <div
