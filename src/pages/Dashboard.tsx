@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Clock } from 'lucide-react';
+import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Clock, Pencil, Check, X as XIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
@@ -71,14 +72,54 @@ const TodoItem = memo(
     onDelete,
     onRescheduleToday,
     onReschedule,
+    onEdit,
   }: {
     todo: Todo;
     onToggle: (id: string, completed: boolean) => void;
     onDelete: (id: string) => void;
     onRescheduleToday: (id: string) => void;
     onReschedule: (id: string) => void;
+    onEdit: (id: string, updates: Partial<Todo>) => void;
   }) => {
     const isOverdue = todo.isOverdue && !todo.completed;
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(todo.title);
+    const [editSubject, setEditSubject] = useState(todo.subject);
+    const [editDifficulty, setEditDifficulty] = useState(todo.difficulty);
+    const [editCompleted, setEditCompleted] = useState(todo.completed);
+
+    const handleStartEdit = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setEditTitle(todo.title);
+      setEditSubject(todo.subject);
+      setEditDifficulty(todo.difficulty);
+      setEditCompleted(todo.completed);
+      setIsEditing(true);
+    };
+
+    const handleSave = () => {
+      if (!editTitle.trim()) return;
+      onEdit(todo.id, {
+        title: editTitle.trim(),
+        subject: editSubject.trim() || 'General',
+        difficulty: editDifficulty,
+        completed: editCompleted,
+      });
+      setIsEditing(false);
+    };
+
+    const handleCancel = () => {
+      setIsEditing(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
 
     return (
       <motion.div
@@ -87,96 +128,237 @@ const TodoItem = memo(
         initial="initial"
         animate="animate"
         exit="exit"
-        className={`flex items-start gap-3 p-4 rounded-xl border group hover:shadow-sm transition-colors duration-200 bg-card hover:border-primary/20 ${isOverdue ? 'opacity-70 border-rose-300/50 dark:border-rose-500/30 bg-rose-50/30 dark:bg-rose-950/10' : ''
-          } ${todo.completed ? 'opacity-50' : ''}`}
+        className={`rounded-xl border group transition-colors duration-200 bg-card overflow-hidden ${isEditing ? 'border-primary/40 shadow-md ring-1 ring-primary/20' : 'hover:shadow-sm hover:border-primary/20'} ${isOverdue && !isEditing ? 'opacity-70 border-rose-300/50 dark:border-rose-500/30 bg-rose-50/30 dark:bg-rose-950/10' : ''
+          } ${todo.completed && !isEditing ? 'opacity-50' : ''}`}
       >
-        <motion.div
-          whileTap={{ scale: 0.85 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-        >
-          <Checkbox
-            checked={todo.completed}
-            onCheckedChange={() => onToggle(todo.id, todo.completed)}
-            className="mt-0.5"
-          />
-        </motion.div>
-        <div className="flex-1 min-w-0">
-          <motion.p
-            animate={{ opacity: todo.completed ? 0.5 : 1 }}
-            transition={{ duration: 0.3 }}
-            className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
-          >
-            {todo.title}
-          </motion.p>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <p className="text-xs text-muted-foreground">
-              {todo.subject} · {todo.difficulty}
-            </p>
-            <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${isOverdue
-                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
-                : 'bg-muted text-muted-foreground'
-              }`}>
-              <Calendar className="h-3 w-3" />
-              {formatScheduledDate(todo.scheduledDate)}
-            </span>
-            {(() => {
-              const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount :
-                (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
-              return count > 0 && (
-                <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                  <RotateCcw className="h-3 w-3" />
-                  {count}x
-                </span>
-              );
-            })()}
-          </div>
-
-          {/* Overdue task actions */}
-          <AnimatePresence>
-            {isOverdue && (
+        <AnimatePresence mode="wait">
+          {isEditing ? (
+            <motion.div
+              key="edit-mode"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              className="p-4 space-y-3"
+            >
+              {/* Edit Title */}
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
               >
-                <AlertCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-                <span className="text-xs text-rose-600 dark:text-rose-400">
-                  This task is overdue
-                </span>
-                <div className="flex gap-1 ml-auto">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRescheduleToday(todo.id)}
-                    className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                  >
-                    Do today
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onReschedule(todo.id)}
-                    className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                  >
-                    Reschedule
-                  </Button>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Task title"
+                  className="text-sm"
+                  autoFocus
+                />
+              </motion.div>
+
+              {/* Edit Subject & Difficulty */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="flex gap-3"
+              >
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Subject</label>
+                  <Input
+                    value={editSubject}
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Subject"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="w-32">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Difficulty</label>
+                  <Select value={editDifficulty} onValueChange={setEditDifficulty}>
+                    <SelectTrigger className="text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">Easy</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="hard">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        <motion.button
-          type="button"
-          onClick={() => onDelete(todo.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/10 rounded-lg"
-          title="Delete task"
-          whileHover={{ scale: 1.15 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </motion.button>
+
+              {/* Status Toggle */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="flex items-center gap-2"
+              >
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <motion.button
+                  type="button"
+                  onClick={() => setEditCompleted(!editCompleted)}
+                  whileTap={{ scale: 0.92 }}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 border ${editCompleted
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                      : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                    }`}
+                >
+                  <motion.span
+                    key={editCompleted ? 'done' : 'pending'}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    {editCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                    {editCompleted ? 'Done' : 'Pending'}
+                  </motion.span>
+                </motion.button>
+              </motion.div>
+
+              {/* Save / Cancel */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex gap-2 justify-end pt-1"
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancel}
+                  className="h-8 px-3 text-xs"
+                >
+                  <XIcon className="h-3.5 w-3.5 mr-1" />
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!editTitle.trim()}
+                  className="h-8 px-3 text-xs"
+                >
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                  Save
+                </Button>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="view-mode"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-start gap-3 p-4"
+            >
+              <motion.div
+                whileTap={{ scale: 0.85 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+              >
+                <Checkbox
+                  checked={todo.completed}
+                  onCheckedChange={() => onToggle(todo.id, todo.completed)}
+                  className="mt-0.5"
+                />
+              </motion.div>
+              <div className="flex-1 min-w-0">
+                <motion.p
+                  animate={{ opacity: todo.completed ? 0.5 : 1 }}
+                  transition={{ duration: 0.3 }}
+                  className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
+                >
+                  {todo.title}
+                </motion.p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-xs text-muted-foreground">
+                    {todo.subject} · {todo.difficulty}
+                  </p>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${isOverdue
+                    ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
+                    : 'bg-muted text-muted-foreground'
+                    }`}>
+                    <Calendar className="h-3 w-3" />
+                    {formatScheduledDate(todo.scheduledDate)}
+                  </span>
+                  {(() => {
+                    const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount :
+                      (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
+                    return count > 0 && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                        <RotateCcw className="h-3 w-3" />
+                        {count}x
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Overdue task actions */}
+                <AnimatePresence>
+                  {isOverdue && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30"
+                    >
+                      <AlertCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
+                      <span className="text-xs text-rose-600 dark:text-rose-400">
+                        This task is overdue
+                      </span>
+                      <div className="flex gap-1 ml-auto">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onRescheduleToday(todo.id)}
+                          className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                        >
+                          Do today
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onReschedule(todo.id)}
+                          className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                        >
+                          Reschedule
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="flex items-center gap-1">
+                <motion.button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-primary/10 rounded-lg"
+                  title="Edit task"
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Pencil className="h-4 w-4 text-primary" />
+                </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={() => onDelete(todo.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/10 rounded-lg"
+                  title="Delete task"
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -450,6 +632,38 @@ export default function Dashboard() {
     },
     [fetchTodos, toast]
   );
+  const editTodo = useCallback(
+    async (id: string, updates: Partial<Todo>) => {
+      // Optimistic update
+      const previousTodos = todos;
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      );
+      soundManager.playClick();
+
+      try {
+        const res = await apiFetch(`/todos/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+
+        if (res.ok) {
+          fetchTodos(); // silent background sync
+          toast({ title: 'Task updated' });
+        } else {
+          // Revert on failure
+          setTodos(previousTodos);
+          toast({ title: 'Failed to update task', variant: 'destructive' });
+        }
+      } catch {
+        setTodos(previousTodos);
+        toast({ title: 'Failed to update task', variant: 'destructive' });
+      }
+    },
+    [todos, fetchTodos, toast]
+  );
+
   const openRescheduleModal = useCallback((id: string) => {
     // Set default date to tomorrow
     const tomorrow = new Date();
@@ -757,6 +971,7 @@ export default function Dashboard() {
                                 onDelete={deleteTodo}
                                 onRescheduleToday={rescheduleToToday}
                                 onReschedule={openRescheduleModal}
+                                onEdit={editTodo}
                               />
                             ))}
                         </AnimatePresence>
@@ -776,6 +991,7 @@ export default function Dashboard() {
                           onDelete={deleteTodo}
                           onRescheduleToday={rescheduleToToday}
                           onReschedule={openRescheduleModal}
+                          onEdit={editTodo}
                         />
                       ))}
                   </AnimatePresence>
