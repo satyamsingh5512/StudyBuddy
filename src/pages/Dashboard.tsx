@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,27 +33,34 @@ interface Todo {
 // Helper to format date nicely
 const formatScheduledDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return 'No date';
-  
+
   const date = new Date(dateStr);
-  
+
   // Check for invalid date
   if (isNaN(date.getTime())) return 'No date';
-  
+
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   today.setHours(0, 0, 0, 0);
   tomorrow.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
-  
+
   if (date.getTime() === today.getTime()) return 'Today';
   if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-  
+
   const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return `${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} overdue`;
   if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+// Animation variants for todo items
+const todoItemVariants = {
+  initial: { opacity: 0, y: 20, scale: 0.95 },
+  animate: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 350, damping: 25 } },
+  exit: { opacity: 0, x: -30, scale: 0.95, transition: { duration: 0.2, ease: 'easeInOut' } },
 };
 
 // Memoized TodoItem component to prevent unnecessary re-renders
@@ -71,35 +79,49 @@ const TodoItem = memo(
     onReschedule: (id: string) => void;
   }) => {
     const isOverdue = todo.isOverdue && !todo.completed;
-    
+
     return (
-      <div className={`flex items-start gap-3 p-4 rounded-xl border group hover:shadow-sm transition-all duration-200 bg-card hover:border-primary/20 ${
-        isOverdue ? 'opacity-70 border-rose-300/50 dark:border-rose-500/30 bg-rose-50/30 dark:bg-rose-950/10' : ''
-      } ${todo.completed ? 'opacity-50' : ''}`}>
-        <Checkbox
-          checked={todo.completed}
-          onCheckedChange={() => onToggle(todo.id, todo.completed)}
-          className="mt-0.5"
-        />
+      <motion.div
+        layout
+        variants={todoItemVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className={`flex items-start gap-3 p-4 rounded-xl border group hover:shadow-sm transition-colors duration-200 bg-card hover:border-primary/20 ${isOverdue ? 'opacity-70 border-rose-300/50 dark:border-rose-500/30 bg-rose-50/30 dark:bg-rose-950/10' : ''
+          } ${todo.completed ? 'opacity-50' : ''}`}
+      >
+        <motion.div
+          whileTap={{ scale: 0.85 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        >
+          <Checkbox
+            checked={todo.completed}
+            onCheckedChange={() => onToggle(todo.id, todo.completed)}
+            className="mt-0.5"
+          />
+        </motion.div>
         <div className="flex-1 min-w-0">
-          <p className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
+          <motion.p
+            animate={{ opacity: todo.completed ? 0.5 : 1 }}
+            transition={{ duration: 0.3 }}
+            className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
+          >
             {todo.title}
-          </p>
+          </motion.p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <p className="text-xs text-muted-foreground">
               {todo.subject} · {todo.difficulty}
             </p>
-            <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
-              isOverdue 
-                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400' 
+            <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${isOverdue
+                ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
                 : 'bg-muted text-muted-foreground'
-            }`}>
+              }`}>
               <Calendar className="h-3 w-3" />
               {formatScheduledDate(todo.scheduledDate)}
             </span>
             {(() => {
-              const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 
-                           (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
+              const count = typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount :
+                (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
               return count > 0 && (
                 <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                   <RotateCcw className="h-3 w-3" />
@@ -108,44 +130,54 @@ const TodoItem = memo(
               );
             })()}
           </div>
-          
+
           {/* Overdue task actions */}
-          {isOverdue && (
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30">
-              <AlertCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-              <span className="text-xs text-rose-600 dark:text-rose-400">
-                This task is overdue
-              </span>
-              <div className="flex gap-1 ml-auto">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRescheduleToday(todo.id)}
-                  className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                >
-                  Do today
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onReschedule(todo.id)}
-                  className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                >
-                  Reschedule
-                </Button>
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {isOverdue && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30"
+              >
+                <AlertCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
+                <span className="text-xs text-rose-600 dark:text-rose-400">
+                  This task is overdue
+                </span>
+                <div className="flex gap-1 ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRescheduleToday(todo.id)}
+                    className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                  >
+                    Do today
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onReschedule(todo.id)}
+                    className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
+                  >
+                    Reschedule
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        <button
+        <motion.button
           type="button"
           onClick={() => onDelete(todo.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/10 rounded-lg"
           title="Delete task"
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
         >
           <Trash2 className="h-4 w-4 text-destructive" />
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
     );
   }
 );
@@ -155,7 +187,7 @@ export default function Dashboard() {
   const [user] = useAtom(userAtom);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ open: boolean; todoId: string | null }>({
     open: false,
@@ -163,21 +195,27 @@ export default function Dashboard() {
   });
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
+  const hasFetchedOnce = useRef(false);
   const { toast } = useToast();
 
+  // Silent background fetch — only shows skeleton on first load
   const fetchTodos = useCallback(async () => {
-    setLoading(true);
+    if (!hasFetchedOnce.current) {
+      setInitialLoading(true);
+    }
     const res = await apiFetch('/todos');
     if (res.ok) {
       const data = await res.json();
-      // Ensure rescheduledCount is always a number
       const processedData = data.map((todo: any) => ({
         ...todo,
         rescheduledCount: typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 0,
       }));
       setTodos(processedData);
     }
-    setLoading(false);
+    if (!hasFetchedOnce.current) {
+      hasFetchedOnce.current = true;
+      setInitialLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -258,50 +296,86 @@ export default function Dashboard() {
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
-      const res = await apiFetch(`/todos/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !completed }),
-      });
+      // Optimistic update — instantly flip in UI
+      setTodos(prev => prev.map(t =>
+        t.id === id ? { ...t, completed: !completed, isOverdue: !completed ? false : t.isOverdue } : t
+      ));
 
-      if (res.ok) {
-        const data = await res.json();
-        fetchTodos();
-        if (!completed) {
-          soundManager.playSuccess();
-          const points = data.pointsAwarded || 0;
-          let message = 'Task completed!';
-          let description = 'Well done!';
-          
-          if (points > 0) {
-            message = `Task completed! +${points} point${points === 1 ? '' : 's'}`;
-            if (points === 1) {
-              description = 'Completed on scheduled date!';
-            } else if (points === 0.5) {
-              description = 'Completed after reschedule!';
+      if (!completed) {
+        soundManager.playSuccess();
+      }
+
+      try {
+        const res = await apiFetch(`/todos/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: !completed }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Silently sync server state
+          fetchTodos();
+          if (!completed) {
+            const points = data.pointsAwarded || 0;
+            let message = 'Task completed!';
+            let description = 'Well done!';
+
+            if (points > 0) {
+              message = `Task completed! +${points} point${points === 1 ? '' : 's'}`;
+              if (points === 1) {
+                description = 'Completed on scheduled date!';
+              } else if (points === 0.5) {
+                description = 'Completed after reschedule!';
+              }
             }
+
+            toast({ title: message, description });
           }
-          
-          toast({ title: message, description });
+        } else {
+          // Revert on failure
+          setTodos(prev => prev.map(t =>
+            t.id === id ? { ...t, completed, isOverdue: t.isOverdue } : t
+          ));
+          toast({ title: 'Failed to update task', variant: 'destructive' });
         }
+      } catch {
+        // Revert on error
+        setTodos(prev => prev.map(t =>
+          t.id === id ? { ...t, completed, isOverdue: t.isOverdue } : t
+        ));
+        toast({ title: 'Failed to update task', variant: 'destructive' });
       }
     },
-    [fetchTodos, toast, todos]
+    [fetchTodos, toast]
   );
 
   const deleteTodo = useCallback(
     async (id: string) => {
-      const res = await apiFetch(`/todos/${id}`, {
-        method: 'DELETE',
-      });
+      // Optimistic update — remove from list immediately (AnimatePresence will animate out)
+      const previousTodos = todos;
+      setTodos(prev => prev.filter(t => t.id !== id));
+      soundManager.playDelete();
 
-      if (res.ok) {
-        soundManager.playDelete();
-        fetchTodos();
-        toast({ title: 'Task deleted' });
+      try {
+        const res = await apiFetch(`/todos/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (res.ok) {
+          toast({ title: 'Task deleted' });
+        } else {
+          // Revert on failure
+          setTodos(previousTodos);
+          toast({ title: 'Failed to delete task', variant: 'destructive' });
+        }
+      } catch {
+        // Revert on error
+        setTodos(previousTodos);
+        toast({ title: 'Failed to delete task', variant: 'destructive' });
       }
     },
-    [fetchTodos, toast]
+    [todos, toast]
   );
 
   const rescheduleToToday = useCallback(
@@ -343,20 +417,34 @@ export default function Dashboard() {
 
   const rescheduleAllOverdue = useCallback(
     async () => {
-      const res = await apiFetch('/todos/reschedule-all-overdue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+      const todayISO = new Date().toISOString();
+      // Optimistic: move all overdue tasks to today
+      setTodos(prev => prev.map(t =>
+        t.isOverdue && !t.completed
+          ? { ...t, scheduledDate: todayISO, isOverdue: false, rescheduledCount: (t.rescheduledCount || 0) + 1 }
+          : t
+      ));
 
-      if (res.ok) {
-        const data = await res.json();
-        fetchTodos();
-        toast({ 
-          title: 'All overdue tasks rescheduled!', 
-          description: `${data.count} task${data.count > 1 ? 's' : ''} moved to today` 
+      try {
+        const res = await apiFetch('/todos/reschedule-all-overdue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
         });
-      } else {
+
+        if (res.ok) {
+          const data = await res.json();
+          fetchTodos(); // silent background sync
+          toast({
+            title: 'All overdue tasks rescheduled!',
+            description: `${data.count} task${data.count > 1 ? 's' : ''} moved to today`
+          });
+        } else {
+          fetchTodos(); // revert via refetch
+          toast({ title: 'Failed to reschedule tasks', variant: 'destructive' });
+        }
+      } catch {
+        fetchTodos();
         toast({ title: 'Failed to reschedule tasks', variant: 'destructive' });
       }
     },
@@ -627,61 +715,82 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-2">
-              {loading ? (
+              {initialLoading ? (
                 <SkeletonList count={3} />
               ) : (
                 <>
                   {/* Show overdue tasks first with a separator */}
-                  {overdueCount > 0 && (
-                    <div className="pb-2 mb-2 border-b border-rose-200/50 dark:border-rose-800/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          Overdue - Take action to reschedule or complete
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={rescheduleAllOverdue}
-                          className="h-7 px-2 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Reschedule all to today
-                        </Button>
-                      </div>
-                      {todos
-                        .filter((todo) => todo.isOverdue && !todo.completed)
-                        .map((todo) => (
-                          <TodoItem
-                            key={todo.id}
-                            todo={todo}
-                            onToggle={toggleTodo}
-                            onDelete={deleteTodo}
-                            onRescheduleToday={rescheduleToToday}
-                            onReschedule={openRescheduleModal}
-                          />
-                        ))}
-                    </div>
-                  )}
-                  
+                  <AnimatePresence mode="popLayout">
+                    {overdueCount > 0 && (
+                      <motion.div
+                        key="overdue-section"
+                        layout
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                        className="pb-2 mb-2 border-b border-rose-200/50 dark:border-rose-800/30"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            Overdue - Take action to reschedule or complete
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={rescheduleAllOverdue}
+                            className="h-7 px-2 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Reschedule all to today
+                          </Button>
+                        </div>
+                        <AnimatePresence mode="popLayout">
+                          {todos
+                            .filter((todo) => todo.isOverdue && !todo.completed)
+                            .map((todo) => (
+                              <TodoItem
+                                key={todo.id}
+                                todo={todo}
+                                onToggle={toggleTodo}
+                                onDelete={deleteTodo}
+                                onRescheduleToday={rescheduleToToday}
+                                onReschedule={openRescheduleModal}
+                              />
+                            ))}
+                        </AnimatePresence>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Regular tasks (today and future) */}
-                  {todos
-                    .filter((todo) => !todo.isOverdue || todo.completed)
-                    .map((todo) => (
-                      <TodoItem
-                        key={todo.id}
-                        todo={todo}
-                        onToggle={toggleTodo}
-                        onDelete={deleteTodo}
-                        onRescheduleToday={rescheduleToToday}
-                        onReschedule={openRescheduleModal}
-                      />
-                    ))}
-                  {todos.length === 0 && (
-                    <p className="text-center text-sm text-muted-foreground py-8">
-                      No tasks yet. Add one for today!
-                    </p>
-                  )}
+                  <AnimatePresence mode="popLayout">
+                    {todos
+                      .filter((todo) => !todo.isOverdue || todo.completed)
+                      .map((todo) => (
+                        <TodoItem
+                          key={todo.id}
+                          todo={todo}
+                          onToggle={toggleTodo}
+                          onDelete={deleteTodo}
+                          onRescheduleToday={rescheduleToToday}
+                          onReschedule={openRescheduleModal}
+                        />
+                      ))}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {todos.length === 0 && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="text-center text-sm text-muted-foreground py-8"
+                      >
+                        No tasks yet. Add one for today!
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
                 </>
               )}
             </div>
@@ -690,40 +799,55 @@ export default function Dashboard() {
       )}
 
       {/* Reschedule Modal */}
-      {rescheduleModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Reschedule Task
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Choose a new date for this task. Tasks completed on their scheduled day earn more points!
-              </p>
-              <Input
-                type="date"
-                value={rescheduleDate}
-                onChange={(e) => setRescheduleDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setRescheduleModal({ open: false, todoId: null })}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleReschedule}>
-                  Reschedule
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <AnimatePresence>
+        {rescheduleModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+            >
+              <Card className="w-full max-w-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Reschedule Task
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Choose a new date for this task. Tasks completed on their scheduled day earn more points!
+                  </p>
+                  <Input
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setRescheduleModal({ open: false, todoId: null })}
+                    >
+                      Cancel
+                    </Button>
+                    <Button onClick={handleReschedule}>
+                      Reschedule
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
