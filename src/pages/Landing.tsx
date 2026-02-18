@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Play, Users, TrendingUp, Calendar, Target } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Play, Users, TrendingUp, Calendar, Target, Smartphone, Mail, CheckCircle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAtomValue } from 'jotai';
 import { Button } from '@/components/ui/button';
 import { userAtom } from '@/store/atoms';
 import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+import { apiFetch } from '@/config/api';
 
 export default function Landing() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const user = useAtomValue(userAtom);
+
+    // Waitlist state
+    const [waitlistEmail, setWaitlistEmail] = useState('');
+    const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [waitlistMessage, setWaitlistMessage] = useState('');
 
     const handleGetStarted = () => {
         if (isLoading) return;
@@ -22,6 +28,33 @@ export default function Landing() {
         }
         setIsLoading(true);
         navigate('/auth');
+    };
+
+    const handleWaitlistSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!waitlistEmail.trim() || waitlistStatus === 'loading') return;
+
+        setWaitlistStatus('loading');
+        try {
+            const res = await apiFetch('/waitlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: waitlistEmail.trim() }),
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setWaitlistStatus('success');
+                setWaitlistMessage(data.message || 'You\'re on the waitlist!');
+                setWaitlistEmail('');
+            } else {
+                setWaitlistStatus('error');
+                setWaitlistMessage(data.error || 'Something went wrong. Please try again.');
+            }
+        } catch {
+            setWaitlistStatus('error');
+            setWaitlistMessage('Failed to connect. Please try again later.');
+        }
     };
 
     return (
@@ -188,6 +221,122 @@ export default function Landing() {
                         </div>
                     </div>
 
+                    {/* Android App Download & Waitlist Section */}
+                    <div className="mt-32 max-w-4xl mx-auto">
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.6 }}
+                            className="relative overflow-hidden rounded-3xl border border-border/50"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.08) 50%, rgba(16,185,129,0.06) 100%)',
+                            }}
+                        >
+                            {/* Decorative gradient blobs */}
+                            <div className="absolute -top-20 -right-20 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                            <div className="relative z-10 p-8 md:p-12">
+                                <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                                    {/* Left: Phone Icon + Info */}
+                                    <div className="flex-shrink-0 text-center md:text-left">
+                                        <motion.div
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            whileInView={{ scale: 1, opacity: 1 }}
+                                            viewport={{ once: true }}
+                                            transition={{ duration: 0.5, delay: 0.2 }}
+                                            className="w-24 h-24 mx-auto md:mx-0 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/25 mb-4"
+                                        >
+                                            <Smartphone className="w-12 h-12 text-white" />
+                                        </motion.div>
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Coming Soon</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Content */}
+                                    <div className="flex-1 text-center md:text-left">
+                                        <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                                            StudyBuddy for Android
+                                        </h2>
+                                        <p className="text-muted-foreground text-base mb-6 max-w-md">
+                                            Study on the go! Get the full power of StudyBuddy right in your pocket.
+                                            Join the waitlist to be the first to know when it's available.
+                                        </p>
+
+                                        {/* Waitlist Form */}
+                                        <AnimatePresence mode="wait">
+                                            {waitlistStatus === 'success' ? (
+                                                <motion.div
+                                                    key="success"
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"
+                                                >
+                                                    <CheckCircle className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+                                                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                                        {waitlistMessage}
+                                                    </p>
+                                                </motion.div>
+                                            ) : (
+                                                <motion.form
+                                                    key="form"
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    onSubmit={handleWaitlistSubmit}
+                                                    className="flex flex-col sm:flex-row gap-3"
+                                                >
+                                                    <div className="relative flex-1">
+                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                        <input
+                                                            type="email"
+                                                            placeholder="Enter your email"
+                                                            value={waitlistEmail}
+                                                            onChange={(e) => {
+                                                                setWaitlistEmail(e.target.value);
+                                                                if (waitlistStatus === 'error') setWaitlistStatus('idle');
+                                                            }}
+                                                            required
+                                                            className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-background/80 backdrop-blur-sm border border-border/60 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all placeholder:text-muted-foreground/60"
+                                                        />
+                                                    </div>
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={waitlistStatus === 'loading' || !waitlistEmail.trim()}
+                                                        className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3.5 text-sm font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-xl hover:shadow-indigo-500/30 disabled:opacity-50"
+                                                    >
+                                                        {waitlistStatus === 'loading' ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                        ) : null}
+                                                        Join Waitlist
+                                                    </Button>
+                                                </motion.form>
+                                            )}
+                                        </AnimatePresence>
+
+                                        {/* Error message */}
+                                        <AnimatePresence>
+                                            {waitlistStatus === 'error' && (
+                                                <motion.p
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="text-sm text-red-500 mt-2"
+                                                >
+                                                    {waitlistMessage}
+                                                </motion.p>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+
                 </div>
             </main>
 
@@ -213,3 +362,4 @@ export default function Landing() {
         </UnifiedPageWrapper>
     );
 }
+

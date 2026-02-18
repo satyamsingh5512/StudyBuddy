@@ -122,223 +122,230 @@ export interface Todo {
 
 // Helper to create generic model wrappers
 const createModel = <T extends { id?: string; _id?: ObjectId }>(collectionName: string) => ({
-    async findUnique(params: { where: any; select?: Record<string, boolean>; include?: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
+  async findUnique(params: { where: any; select?: Record<string, boolean>; include?: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-      const { where, select } = params;
-      const filter: any = { ...where };
+    const { where, select } = params;
+    const filter: any = { ...where };
 
-      // Map id to _id if present
-      if (filter.id) {
-        try {
-          filter._id = toObjectId(filter.id);
-        } catch (error) {
-          console.error('❌ Invalid ObjectId:', filter.id);
-          return null;
-        }
-        delete filter.id;
-      }
-
-      const options: any = {};
-      if (select) {
-        options.projection = {};
-        for (const key in select) {
-          if (select[key]) options.projection[key] = 1;
-        }
-        if (options.projection.id) {
-          options.projection._id = 1;
-          delete options.projection.id;
-        }
-      }
-
-      const doc = await mongoDb.collection(collectionName).findOne(filter, options);
-      if (!doc) return null;
-
-      return { ...doc, id: doc._id.toString() } as T;
-    },
-
-    async findFirst(params: { where: any; orderBy?: any; select?: Record<string, boolean> }) {
-      // Handle params being just "where" or "{ where }"
-      const actualParams = params.where ? params : { where: params };
-
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      const filter: any = { ...actualParams.where };
-      if (filter.id) {
+    // Map id to _id if present
+    if (filter.id) {
+      try {
         filter._id = toObjectId(filter.id);
-        delete filter.id;
+      } catch (error) {
+        console.error('❌ Invalid ObjectId:', filter.id);
+        return null;
       }
+      delete filter.id;
+    }
 
-      const options: any = {};
-      if (actualParams.select) {
-        options.projection = {};
-        for (const key in actualParams.select) {
-          if (actualParams.select[key]) options.projection[key] = 1;
-        }
-        if (options.projection.id) {
-          options.projection._id = 1;
-          delete options.projection.id;
-        }
+    const options: any = {};
+    if (select) {
+      options.projection = {};
+      for (const key in select) {
+        if (select[key]) options.projection[key] = 1;
       }
+      if (options.projection.id) {
+        options.projection._id = 1;
+        delete options.projection.id;
+      }
+    }
 
-      // Handle sorting if needed (findFirst usually implies order)
+    const doc = await mongoDb.collection(collectionName).findOne(filter, options);
+    if (!doc) return null;
+
+    return { ...doc, id: doc._id.toString() } as T;
+  },
+
+  async findFirst(params: { where: any; orderBy?: any; select?: Record<string, boolean> }) {
+    // Handle params being just "where" or "{ where }"
+    const actualParams = params.where ? params : { where: params };
+
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
+
+    const filter: any = { ...actualParams.where };
+    if (filter.id) {
+      filter._id = toObjectId(filter.id);
+      delete filter.id;
+    }
+
+    const options: any = {};
+    if (actualParams.select) {
+      options.projection = {};
+      for (const key in actualParams.select) {
+        if (actualParams.select[key]) options.projection[key] = 1;
+      }
+      if (options.projection.id) {
+        options.projection._id = 1;
+        delete options.projection.id;
+      }
+    }
+
+    // Handle sorting if needed (findFirst usually implies order)
+    const sort: any = {};
+    if (actualParams.orderBy) {
+      for (const [key, value] of Object.entries(actualParams.orderBy)) {
+        sort[key] = value === 'asc' ? 1 : -1;
+      }
+    }
+
+    const doc = await mongoDb.collection(collectionName).findOne(filter, { ...options, sort });
+    if (!doc) return null;
+
+    return { ...doc, id: doc._id.toString() } as T;
+  },
+
+  async findMany(params?: { where?: any; orderBy?: any; take?: number; skip?: number; select?: Record<string, boolean>; include?: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
+
+    const filter: any = { ...params?.where };
+    if (filter.id) {
+      filter._id = toObjectId(filter.id);
+      delete filter.id;
+    }
+
+    let query = mongoDb.collection(collectionName).find(filter);
+
+    if (params?.orderBy) {
       const sort: any = {};
-      if (actualParams.orderBy) {
-        for (const [key, value] of Object.entries(actualParams.orderBy)) {
+      // Handle array of order bys
+      const orders = Array.isArray(params.orderBy) ? params.orderBy : [params.orderBy];
+      for (const order of orders) {
+        for (const [key, value] of Object.entries(order || {})) {
           sort[key] = value === 'asc' ? 1 : -1;
         }
       }
+      query = query.sort(sort);
+    }
 
-      const doc = await mongoDb.collection(collectionName).findOne(filter, { ...options, sort });
-      if (!doc) return null;
+    if (params?.skip) query = query.skip(params.skip);
+    if (params?.take) query = query.limit(params.take);
 
-      return { ...doc, id: doc._id.toString() } as T;
-    },
-
-    async findMany(params?: { where?: any; orderBy?: any; take?: number; skip?: number; select?: Record<string, boolean>; include?: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      const filter: any = { ...params?.where };
-      if (filter.id) {
-        filter._id = toObjectId(filter.id);
-        delete filter.id;
+    if (params?.select) {
+      const projection: any = {};
+      for (const key in params.select) {
+        if (params.select[key]) projection[key] = 1;
       }
-
-      let query = mongoDb.collection(collectionName).find(filter);
-
-      if (params?.orderBy) {
-        const sort: any = {};
-        // Handle array of order bys
-        const orders = Array.isArray(params.orderBy) ? params.orderBy : [params.orderBy];
-        for (const order of orders) {
-          for (const [key, value] of Object.entries(order || {})) {
-            sort[key] = value === 'asc' ? 1 : -1;
-          }
-        }
-        query = query.sort(sort);
+      if (projection.id) {
+        projection._id = 1;
+        delete projection.id;
       }
+      query = query.project(projection);
+    }
 
-      if (params?.skip) query = query.skip(params.skip);
-      if (params?.take) query = query.limit(params.take);
+    const docs = await query.toArray();
+    return docs.map(d => ({ ...d, id: d._id.toString() })) as T[];
+  },
 
-      if (params?.select) {
-        const projection: any = {};
-        for (const key in params.select) {
-          if (params.select[key]) projection[key] = 1;
-        }
-        if (projection.id) {
-          projection._id = 1;
-          delete projection.id;
-        }
-        query = query.project(projection);
+  async create(params: { data: any; include?: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
+
+    const data = {
+      ...params.data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Clean up undefined
+    Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+
+    const result = await mongoDb.collection(collectionName).insertOne(data);
+    return { ...data, id: result.insertedId.toString(), _id: result.insertedId } as T;
+  },
+
+  async update(params: { where: { id: string }; data: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
+
+    const updateData: any = { updatedAt: new Date() };
+    const incData: any = {};
+
+    // Handle increment operations (Prisma-style { increment: n })
+    for (const [key, value] of Object.entries(params.data)) {
+      if (value && typeof value === 'object' && 'increment' in value) {
+        incData[key] = (value as { increment: number }).increment;
+      } else {
+        updateData[key] = value;
       }
+    }
 
-      const docs = await query.toArray();
-      return docs.map(d => ({ ...d, id: d._id.toString() })) as T[];
-    },
+    const updateQuery: any = { $set: updateData };
+    if (Object.keys(incData).length > 0) {
+      updateQuery.$inc = incData;
+    }
 
-    async create(params: { data: any; include?: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
+    const result = await mongoDb.collection(collectionName).findOneAndUpdate(
+      { _id: toObjectId(params.where.id) },
+      updateQuery,
+      { returnDocument: 'after' }
+    );
 
-      const data = {
-        ...params.data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    if (!result) throw new Error(`${collectionName} not found`);
+    return { ...result, id: result._id.toString() } as T;
+  },
 
-      // Clean up undefined
-      Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+  async updateMany(params: { where: any; data: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-      const result = await mongoDb.collection(collectionName).insertOne(data);
-      return { ...data, id: result.insertedId.toString(), _id: result.insertedId } as T;
-    },
+    const updateData: any = { updatedAt: new Date() };
+    const incData: any = {};
 
-    async update(params: { where: { id: string }; data: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      const updateData: any = { updatedAt: new Date() };
-      const incData: any = {};
-
-      // Handle increment operations (Prisma-style { increment: n })
-      for (const [key, value] of Object.entries(params.data)) {
-        if (value && typeof value === 'object' && 'increment' in value) {
-          incData[key] = (value as { increment: number }).increment;
-        } else {
-          updateData[key] = value;
-        }
+    // Handle increment operations (Prisma-style { increment: n })
+    for (const [key, value] of Object.entries(params.data)) {
+      if (value && typeof value === 'object' && 'increment' in value) {
+        incData[key] = (value as { increment: number }).increment;
+      } else {
+        updateData[key] = value;
       }
+    }
 
-      const updateQuery: any = { $set: updateData };
-      if (Object.keys(incData).length > 0) {
-        updateQuery.$inc = incData;
-      }
+    const updateQuery: any = { $set: updateData };
+    if (Object.keys(incData).length > 0) {
+      updateQuery.$inc = incData;
+    }
 
-      const result = await mongoDb.collection(collectionName).findOneAndUpdate(
-        { _id: toObjectId(params.where.id) },
-        updateQuery,
-        { returnDocument: 'after' }
-      );
+    const result = await mongoDb.collection(collectionName).updateMany(
+      params.where,
+      updateQuery
+    );
+    return { count: result.modifiedCount };
+  },
 
-      if (!result) throw new Error(`${collectionName} not found`);
-      return { ...result, id: result._id.toString() } as T;
-    },
+  async delete(params: { where: { id: string } }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-    async updateMany(params: { where: any; data: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
+    await mongoDb.collection(collectionName).deleteOne({ _id: toObjectId(params.where.id) });
+    return { id: params.where.id, success: true };
+  },
 
-      const updateData: any = { updatedAt: new Date() };
-      const incData: any = {};
+  async deleteMany(params?: { where: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-      // Handle increment operations (Prisma-style { increment: n })
-      for (const [key, value] of Object.entries(params.data)) {
-        if (value && typeof value === 'object' && 'increment' in value) {
-          incData[key] = (value as { increment: number }).increment;
-        } else {
-          updateData[key] = value;
-        }
-      }
+    const result = await mongoDb.collection(collectionName).deleteMany(params?.where || {});
+    return { count: result.deletedCount };
+  },
 
-      const updateQuery: any = { $set: updateData };
-      if (Object.keys(incData).length > 0) {
-        updateQuery.$inc = incData;
-      }
+  async count(params?: { where: any }) {
+    const mongoDb = await getMongoDb();
+    if (!mongoDb) throw new Error('Database not connected');
 
-      const result = await mongoDb.collection(collectionName).updateMany(
-        params.where,
-        updateQuery
-      );
-      return { count: result.modifiedCount };
-    },
+    return mongoDb.collection(collectionName).countDocuments(params?.where || {});
+  },
+});
 
-    async delete(params: { where: { id: string } }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      await mongoDb.collection(collectionName).deleteOne({ _id: toObjectId(params.where.id) });
-      return { id: params.where.id, success: true };
-    },
-
-    async deleteMany(params?: { where: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      const result = await mongoDb.collection(collectionName).deleteMany(params?.where || {});
-      return { count: result.deletedCount };
-    },
-
-    async count(params?: { where: any }) {
-      const mongoDb = await getMongoDb();
-      if (!mongoDb) throw new Error('Database not connected');
-
-      return mongoDb.collection(collectionName).countDocuments(params?.where || {});
-    },
-  });
+export interface Waitlist {
+  id?: string;
+  _id?: ObjectId;
+  email: string;
+  createdAt: Date;
+}
 
 export const db = {
   user: createModel<User>('users'),
@@ -352,6 +359,7 @@ export const db = {
   friendship: createModel<Friendship>('friendships'),
   block: createModel<Block>('blocks'),
   directMessage: createModel<DirectMessage>('direct_messages'),
+  waitlist: createModel<Waitlist>('waitlist'),
 };
 
 export { generateId, toObjectId, ObjectId };

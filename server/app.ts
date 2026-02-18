@@ -27,6 +27,7 @@ import backupRoutes from './routes/backup.js';
 import newsRoutes from './routes/news.js';
 import healthRoutes from './routes/health.js';
 import adminRoutes from './routes/admin.js';
+import waitlistRoutes from './routes/waitlist.js';
 import { bodySizeGuard, securityHeaders } from './middleware/security.js';
 import { globalRateLimiter } from './middleware/rateLimiting.js';
 
@@ -159,6 +160,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/waitlist', waitlistRoutes);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

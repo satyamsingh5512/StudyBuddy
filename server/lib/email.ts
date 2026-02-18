@@ -420,3 +420,83 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
     // Don't throw - welcome email failure shouldn't block onboarding
   }
 }
+
+export async function sendWaitlistConfirmationEmail(email: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`⚠️  Resend API key not configured - Skipping waitlist email for ${email}`);
+    return;
+  }
+
+  try {
+    await getResendClient().emails.send({
+      from: process.env.EMAIL_FROM || 'StudyBuddy <onboarding@resend.dev>',
+      to: email,
+      subject: '📱 You\'re on the Waitlist! - StudyBuddy Android App',
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Waitlist Confirmation</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center; border-radius: 12px 12px 0 0;">
+                        <h1 style="margin: 0 0 8px; color: #ffffff; font-size: 28px; font-weight: 700;">📱 StudyBuddy</h1>
+                        <p style="margin: 0; color: #e0e7ff; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">ANDROID APP WAITLIST</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 32px 40px 20px; text-align: center;">
+                        <h2 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: 600;">You're on the list! 🎉</h2>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 0 40px 30px;">
+                        <p style="margin: 0 0 20px; color: #4b5563; font-size: 16px; line-height: 1.6; text-align: center;">
+                          Thank you for your interest in the <strong>StudyBuddy Android App!</strong>
+                        </p>
+                        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0;">
+                          <p style="margin: 0; color: #166534; font-size: 16px; font-weight: 500; line-height: 1.6;">
+                            ✅ Your email <strong>${email}</strong> has been added to our waitlist.
+                          </p>
+                        </div>
+                        <p style="margin: 20px 0 0; color: #4b5563; font-size: 15px; line-height: 1.6; text-align: center;">
+                          We'll notify you as soon as the app is ready for download. In the meantime, you can use the <strong>web version</strong> to get started with your studies!
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px 40px 30px; text-align: center;">
+                        <a href="${process.env.CLIENT_URL || 'https://sbd.satym.in'}" style="display: inline-block; background-color: #6366f1; color: #ffffff; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px; text-decoration: none;">
+                          Try Web Version →
+                        </a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 20px 40px 40px; border-top: 1px solid #e5e7eb;">
+                        <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.5; text-align: center;">
+                          © ${new Date().getFullYear()} StudyBuddy. All rights reserved.<br>
+                          AI-Powered Study Companion
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+    });
+    console.log(`📧 Waitlist confirmation email sent to ${email}`);
+  } catch (error: any) {
+    console.error('⚠️  Waitlist email error:', error.message);
+    throw error;
+  }
+}
