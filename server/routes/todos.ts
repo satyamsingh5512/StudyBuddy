@@ -144,7 +144,7 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Todo creation error:', error);
-    res.status(500).json({ error: 'Failed to create todo', details: error.message });
+    res.status(500).json({ error: 'Failed to create todo', details: (error as any).message });
   }
 });
 
@@ -157,7 +157,7 @@ router.post('/reschedule-all-overdue', async (req, res) => {
   try {
     const userId = (req.user as any).id;
     const { targetDate } = req.body;
-    
+
     const scheduleTo = targetDate ? getStartOfDay(new Date(targetDate)) : getStartOfDay();
     const today = getStartOfDay();
 
@@ -181,7 +181,7 @@ router.post('/reschedule-all-overdue', async (req, res) => {
     }
 
     // Update all overdue todos at once
-    const overdueIds = overdueTodos.map(todo => toObjectId(todo.id));
+    const overdueIds = overdueTodos.map(todo => toObjectId(todo.id!));
     const result = await db.todo.updateMany({
       where: { _id: { $in: overdueIds } },
       data: {
@@ -231,13 +231,15 @@ router.patch('/:id', async (req, res) => {
 
     // Award points based on completion timing
     let pointsToIncrement = 0;
+    let pointsToAward = 0; // Initialize outside to be available for response
+
     if (req.body.completed && !existingTodo.completed) {
-      let pointsToAward = 0.5; // Default: rescheduled completion
-      
+      pointsToAward = 0.5; // Default: rescheduled completion
+
       const today = getStartOfDay();
       const scheduledDate = existingTodo.scheduledDate ? getStartOfDay(new Date(existingTodo.scheduledDate)) : today;
       const originalScheduledDate = existingTodo.originalScheduledDate ? getStartOfDay(new Date(existingTodo.originalScheduledDate)) : null;
-      
+
       // If completed on the scheduled date (whether original or rescheduled)
       if (scheduledDate.getTime() === today.getTime()) {
         // Check if this was completed on the original scheduled date (no reschedule)
@@ -260,7 +262,7 @@ router.patch('/:id', async (req, res) => {
         if (mongoDb) {
           const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
           const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
-          
+
           await mongoDb.collection('users').updateOne(
             { _id: toObjectId(userId) },
             {
@@ -348,7 +350,7 @@ router.patch('/:id/reschedule', async (req, res) => {
     if (mongoDb) {
       const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
       const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
-      
+
       await mongoDb.collection('users').updateOne(
         { _id: toObjectId(userId) },
         {
@@ -368,7 +370,7 @@ router.patch('/:id/reschedule', async (req, res) => {
       if (mongoDb) {
         const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
         const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
-        
+
         await mongoDb.collection('users').updateOne(
           { _id: toObjectId(userId) },
           {
@@ -445,7 +447,7 @@ router.post('/:id/reschedule-to-today', async (req, res) => {
     if (mongoDb) {
       const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
       const currentPoints = typeof currentUser?.totalPoints === 'number' ? currentUser.totalPoints : 0;
-      
+
       await mongoDb.collection('users').updateOne(
         { _id: toObjectId(userId) },
         {
