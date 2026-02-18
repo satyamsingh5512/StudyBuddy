@@ -1,24 +1,91 @@
-// API configuration
-// For Capacitor native app: use full production URL (no local server on device)
-// For production on Vercel: API routes are at /api on the same domain
-// For development: use /api (Vite proxy to local server)
+/**
+ * API Configuration
+ *
+ * Web (Vercel): API is at https://api.satym.in (separate Render service)
+ * Native (Capacitor): API is at https://api.satym.in
+ * Development: API is at /api (Vite proxy) or override with VITE_API_URL
+ *
+ * JWT tokens are stored in HttpOnly cookies (web) — credentials: 'include' handles them.
+ * The apiFetch wrapper automatically retries with a token refresh on 401.
+ */
+
 const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
-export const API_URL = import.meta.env.VITE_API_URL || (isNativeApp ? 'https://sbd.satym.in/api' : '/api');
+
+// In development, /api is proxied by Vite to localhost:3001
+// In production/native, use the Render-hosted API
+const DEFAULT_API_URL = import.meta.env.DEV && !isNativeApp
+  ? '/api'
+  : 'https://api.satym.in';
+
+export const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
 
-// Helper fetch function that automatically uses the API URL
-export const apiFetch = (path: string, options?: RequestInit) =>
-  fetch(`${API_URL}${path}`, {
+/**
+ * Attempt to refresh the access token using the refresh token cookie
+ * Returns true if refresh was successful
+ */
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  // Prevent concurrent refresh attempts
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+/**
+ * Fetch wrapper that automatically handles JWT token refresh on 401
+ * If a request returns 401 with TOKEN_EXPIRED, it attempts a refresh and retries once
+ */
+export const apiFetch = async (path: string, options?: RequestInit): Promise<Response> => {
+  const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
     ...options,
   });
 
+  // If access token expired, try refreshing
+  if (response.status === 401) {
+    const data = await response.clone().json().catch(() => ({}));
+    if (data.code === 'TOKEN_EXPIRED') {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        // Retry the original request with fresh access token
+        return fetch(`${API_URL}${path}`, {
+          credentials: 'include',
+          ...options,
+        });
+      }
+    }
+  }
+
+  return response;
+};
+
 // Helper fetch function that automatically parses JSON responses
 export const apiFetchJSON = async <T = any>(path: string, options?: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_URL}${path}`, {
-    credentials: 'include',
+  const response = await apiFetch(path, {
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,

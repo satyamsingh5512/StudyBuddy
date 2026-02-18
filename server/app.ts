@@ -1,14 +1,14 @@
 /**
  * Express App Configuration (Vercel-compatible)
  * Separated from server/index.ts for Vercel serverless deployment
+ *
+ * JWT-based authentication (no sessions)
  */
 
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
-import session from 'express-session';
-import passport from 'passport';
-import MongoStore from 'connect-mongo';
+import cookieParser from 'cookie-parser';
 
 import './config/passport-config.js';
 import authRoutes from './routes/auth.js';
@@ -33,7 +33,7 @@ import { globalRateLimiter } from './middleware/rateLimiting.js';
 
 const app = express();
 
-// Trust proxy for Vercel
+// Trust proxy for Vercel / Render
 app.set('trust proxy', 1);
 
 // CORS configuration
@@ -43,8 +43,7 @@ const allowedOrigins = [
   'http://localhost',
   'https://localhost',
   'capacitor://localhost',
-  'https://sbd.satym.site',
-  'https://studybuddyone.vercel.app',
+  'https://sbd.satym.in',
   process.env.CLIENT_URL,
   ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
 ].filter(Boolean);
@@ -67,6 +66,9 @@ app.use(
 app.use(securityHeaders);
 app.use(bodySizeGuard(2 * 1024 * 1024));
 
+// Cookie parser (for JWT cookies)
+app.use(cookieParser());
+
 // Compression
 app.use(compression({
   filter: (req: any, res: any) => {
@@ -80,7 +82,7 @@ app.use(compression({
 
 app.use(express.json({ limit: '1mb' }));
 
-// Health check endpoints
+// Health check endpoints (before rate limiting)
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -97,51 +99,6 @@ app.get('/api/health', (_req, res) => {
 
 // Global rate limiting
 app.use(globalRateLimiter);
-
-// Session configuration
-const sessionStore = MongoStore.create({
-  mongoUrl: process.env.MONGODB_URI,
-  ttl: 30 * 24 * 60 * 60,
-  touchAfter: 24 * 3600,
-  autoRemove: 'native',
-  crypto: {
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-  },
-});
-
-// Detect if running on HTTPS (production or HTTPS-configured dev)
-const isHTTPS = process.env.NODE_ENV === 'production' ||
-  process.env.CLIENT_URL?.startsWith('https');
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    store: sessionStore,
-    name: 'studybuddy.sid',
-    cookie: {
-      secure: isHTTPS,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      sameSite: isHTTPS ? 'none' : 'lax',
-      path: '/',
-      domain: undefined,
-    },
-  })
-);
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Touch session middleware
-app.use((req, _res, next) => {
-  if (req.isAuthenticated() && req.session) {
-    req.session.touch();
-  }
-  next();
-});
 
 // Routes
 app.use('/api/auth', authRoutes);
