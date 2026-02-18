@@ -132,7 +132,7 @@ export default function Auth() {
                 soundManager.playLogin();
                 toast({ title: 'Success!', description: data.message || 'Email verified. You are now logged in.' });
                 setTimeout(() => {
-                  window.location.href = '/dashboard';
+                    window.location.href = '/dashboard';
                 }, 500);
 
             } else if (authType === 'signin') {
@@ -159,7 +159,7 @@ export default function Auth() {
                 soundManager.playLogin();
                 toast({ title: 'Welcome back!', description: 'Login successful' });
                 setTimeout(() => {
-                  window.location.href = '/dashboard';
+                    window.location.href = '/dashboard';
                 }, 500);
 
             } else if (authType === 'forgot-password') {
@@ -218,7 +218,8 @@ export default function Auth() {
 
     const handleGoogleLogin = () => {
         soundManager.playClick();
-        window.location.href = `/api/auth/google`;
+        const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+        window.location.href = isNative ? 'https://sbd.satym.in/api/auth/google' : `/api/auth/google`;
     };
 
     const handleAuthTypeSwitch = () => {
@@ -329,8 +330,8 @@ export default function Auth() {
                                                     onClick={handleResendOtp}
                                                     disabled={resendCooldown > 0 || isLoading}
                                                     className={`text-sm font-medium transition-colors ${resendCooldown > 0
-                                                            ? 'text-muted-foreground cursor-not-allowed'
-                                                            : 'text-primary hover:underline'
+                                                        ? 'text-muted-foreground cursor-not-allowed'
+                                                        : 'text-primary hover:underline'
                                                         }`}
                                                 >
                                                     {resendCooldown > 0

@@ -9,7 +9,9 @@ export const wakeupServer = async (): Promise<boolean> => {
   if (isAwake) return true;
 
   try {
-    const response = await fetch('/api/health', {
+    const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+    const healthUrl = isNative ? 'https://sbd.satym.in/api/health' : '/api/health';
+    const response = await fetch(healthUrl, {
       method: 'GET',
     });
 

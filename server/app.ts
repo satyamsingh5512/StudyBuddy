@@ -39,6 +39,9 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost',
   'https://sbd.satym.site',
   'https://studybuddyone.vercel.app',
   process.env.CLIENT_URL,

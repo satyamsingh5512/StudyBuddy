@@ -1,7 +1,9 @@
 // API configuration
+// For Capacitor native app: use full production URL (no local server on device)
 // For production on Vercel: API routes are at /api on the same domain
 // For development: use /api (Vite proxy to local server)
-export const API_URL = import.meta.env.VITE_API_URL || '/api';
+const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+export const API_URL = import.meta.env.VITE_API_URL || (isNativeApp ? 'https://sbd.satym.in/api' : '/api');
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
