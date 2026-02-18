@@ -55,7 +55,7 @@ async function startServer() {
   const httpServer = createServer(app);
 
   // CORS configuration
-  const allowedOrigins = [
+  const rawAllowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost',
@@ -64,16 +64,24 @@ async function startServer() {
     'https://sbd.satym.in',
     process.env.CLIENT_URL,
     ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
+
+  // Normalize origins (remove trailing slashes)
+  const allowedOrigins = rawAllowedOrigins.map(o => o.replace(/\/$/, ''));
+
+  console.log('🌐 Allowed CORS Origins:', allowedOrigins);
 
   app.use(
     cors({
       origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
+
+        if (allowedOrigins.includes(origin) || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          console.error(`❌ CORS blocked request from origin: ${origin}`);
+          callback(new Error(`Not allowed by CORS: ${origin}`));
         }
       },
       credentials: true,
