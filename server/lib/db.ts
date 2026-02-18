@@ -32,6 +32,7 @@ export interface User {
   streak: number;
   lastActive: Date;
   showProfile: boolean;
+  refreshTokenHash: string | null;
   createdAt: Date;
 }
 
@@ -347,6 +348,15 @@ export interface Waitlist {
   createdAt: Date;
 }
 
+export interface RefreshToken {
+  id?: string;
+  _id?: ObjectId;
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
 export const db = {
   user: createModel<User>('users'),
   session: createModel('sessions'),
@@ -360,6 +370,7 @@ export const db = {
   block: createModel<Block>('blocks'),
   directMessage: createModel<DirectMessage>('direct_messages'),
   waitlist: createModel<Waitlist>('waitlist'),
+  refreshToken: createModel<RefreshToken>('refresh_tokens'),
 };
 
 export { generateId, toObjectId, ObjectId };
