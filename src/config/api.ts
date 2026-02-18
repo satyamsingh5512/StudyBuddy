@@ -12,10 +12,10 @@
 const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
 
 // In development, /api is proxied by Vite to localhost:3001
-// In production/native, use the Render-hosted API
+// In production/native, use the Render-hosted API with /api prefix
 const DEFAULT_API_URL = import.meta.env.DEV && !isNativeApp
   ? '/api'
-  : 'https://api.satym.in';
+  : 'https://studybuddy-api-s1bx.onrender.com/api';
 
 export const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 
