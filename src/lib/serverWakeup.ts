@@ -1,7 +1,9 @@
 /**
  * Server wakeup utility
- * Simplified for Vercel deployment (no cold starts like Render)
+ * Handles Render free-tier cold starts (can take ~30s)
  */
+
+import { API_URL } from '../config/api';
 
 let isAwake = false;
 
@@ -9,9 +11,7 @@ export const wakeupServer = async (): Promise<boolean> => {
   if (isAwake) return true;
 
   try {
-    const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
-    const healthUrl = isNative ? 'https://sbd.satym.in/api/health' : '/api/health';
-    const response = await fetch(healthUrl, {
+    const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
     });
 
@@ -20,10 +20,10 @@ export const wakeupServer = async (): Promise<boolean> => {
       return true;
     }
   } catch (error) {
-    console.warn('Health check failed:', error);
+    console.warn('Health check failed (server may be cold starting):', error);
   }
 
-  // Even if health check fails, continue (Vercel functions start fast)
+  // Still mark as awake — subsequent requests will handle retries
   isAwake = true;
   return true;
 };

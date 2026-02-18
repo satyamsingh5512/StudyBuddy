@@ -218,8 +218,10 @@ export default function Auth() {
 
     const handleGoogleLogin = () => {
         soundManager.playClick();
+        const isDev = import.meta.env.DEV;
         const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-        window.location.href = isNative ? 'https://sbd.satym.in/api/auth/google' : `/api/auth/google`;
+        const apiBase = isDev && !isNative ? '' : 'https://api.satym.in';
+        window.location.href = `${apiBase}/api/auth/google`;
     };
 
     const handleAuthTypeSwitch = () => {
