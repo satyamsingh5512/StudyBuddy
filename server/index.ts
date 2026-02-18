@@ -3,10 +3,9 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
-import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import { createServer } from 'http';
-import MongoStore from 'connect-mongo';
 
 import './config/passport-config.js';
 import authRoutes from './routes/auth.js';
@@ -27,6 +26,7 @@ import healthRoutes from './routes/health.js';
 import { getMongoDb, closeMongoDb } from './lib/mongodb.js';
 import { bodySizeGuard, securityHeaders } from './middleware/security.js';
 import { globalRateLimiter } from './middleware/rateLimiting.js';
+import { startKeepAlive } from './lib/keepAlive.js';
 
 // Initialize database before starting server
 async function startServer() {
@@ -54,23 +54,22 @@ async function startServer() {
 
   const httpServer = createServer(app);
 
-  // CORS configuration - support multiple origins
+  // CORS configuration
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
-    'https://sbd.satym.site',
-    'https://studybuddyone.vercel.app',
+    'http://localhost',
+    'https://localhost',
+    'capacitor://localhost',
+    'https://sbd.satym.in',
     process.env.CLIENT_URL,
-    // Support comma-separated additional origins from env
     ...(process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || []),
   ].filter(Boolean);
 
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
-
         if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -83,9 +82,12 @@ async function startServer() {
 
   // Security middleware
   app.use(securityHeaders);
-  app.use(bodySizeGuard(2 * 1024 * 1024)); // 2MB limit before parsing
+  app.use(bodySizeGuard(2 * 1024 * 1024));
 
-  // OPTIMIZATION: Compression middleware (40% smaller responses)
+  // Cookie parser (for JWT cookies)
+  app.use(cookieParser());
+
+  // Compression
   app.use(compression({
     filter: (req: any, res: any) => {
       if (req.headers['x-no-compression']) {
@@ -93,7 +95,7 @@ async function startServer() {
       }
       return compression.filter(req, res);
     },
-    level: 6, // Balance between speed and compression
+    level: 6,
   }));
 
   app.use(express.json({ limit: '1mb' }));
@@ -116,91 +118,29 @@ async function startServer() {
   // Global rate limiting (after health checks)
   app.use(globalRateLimiter);
 
-  // Session configuration with MongoDB store
-  const sessionStore = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    ttl: 30 * 24 * 60 * 60, // 30 days in seconds
-    touchAfter: 24 * 3600, // Update session once per day (24 hours)
-    autoRemove: 'native', // Let MongoDB handle expired session removal
-    crypto: {
-      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-    },
-  });
-
-  // Log session store events for debugging
-  sessionStore.on('create', (sessionId) => {
-    console.log('📝 Session created:', sessionId);
-  });
-
-  sessionStore.on('touch', (sessionId) => {
-    console.log('👆 Session touched:', sessionId);
-  });
-
-  sessionStore.on('destroy', (sessionId) => {
-    console.log('🗑️  Session destroyed:', sessionId);
-  });
-
-  sessionStore.on('error', (error: any) => {
-    // Ignore duplicate key errors - these happen transiently and recover automatically
-    if (error?.code === 11000 || error?.message?.includes('duplicate key')) {
-      console.warn('⚠️  Session store duplicate key (auto-recovering):', error.keyValue);
-      return;
-    }
-    console.error('❌ Session store error:', error);
-  });
-
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-      resave: false, // Don't save session if unmodified
-      saveUninitialized: false, // Don't create session until something stored
-      rolling: true, // Reset cookie maxAge on every response
-      store: sessionStore,
-      name: 'studybuddy.sid', // Custom session cookie name
-      cookie: {
-        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-        httpOnly: true, // Prevent XSS attacks
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // CSRF protection
-        path: '/', // Cookie available for all paths
-        domain: undefined, // Let browser determine domain
-      },
-    })
-  );
-
+  // Passport initialization (needed for Google OAuth strategy only, no sessions)
   app.use(passport.initialize());
-  app.use(passport.session());
 
-  // Middleware to ensure session is saved on every request
-  app.use((req, _res, next) => {
-    if (req.isAuthenticated() && req.session) {
-      // Touch the session to keep it alive
-      req.session.touch();
-    }
-    next();
-  });
-
-  // Debug middleware - log all requests with session info
+  // Debug middleware
   if (process.env.NODE_ENV === 'development') {
     app.use((req, res, next) => {
       if (req.path.startsWith('/api/')) {
         console.log(`\n📨 ${req.method} ${req.path}`);
-        console.log(`   Session ID: ${req.sessionID}`);
-        console.log(`   Authenticated: ${req.isAuthenticated()}`);
-        console.log(`   User: ${req.user ? (req.user as any).email : 'none'}`);
-        if (req.session.cookie) {
-          console.log(`   Cookie expires: ${new Date(Date.now() + (req.session.cookie.maxAge || 0)).toISOString()}`);
-        }
+        console.log(`   Auth header: ${req.headers.authorization ? 'Bearer ...' : 'none'}`);
+        console.log(`   Cookie token: ${req.cookies?.access_token ? 'present' : 'none'}`);
       }
       next();
     });
   }
 
   // Detailed health check (authenticated only)
-  app.get('/api/health/detailed', (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  app.get('/api/health/detailed', async (req, res) => {
+    // Quick JWT check for detailed health
+    const { verifyAccessToken } = await import('./lib/jwt.js');
+    const token = req.headers.authorization?.slice(7) || req.cookies?.access_token;
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const payload = await verifyAccessToken(token);
+    if (!payload) return res.status(401).json({ error: 'Invalid token' });
 
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
@@ -235,34 +175,21 @@ async function startServer() {
   app.use('/api/news', newsRoutes);
   app.use('/api/health', healthRoutes);
 
-  // Global error handler (must be after all routes)
+  // Global error handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // Suppress duplicate key errors from session store (handled elsewhere)
-    if (err?.code === 11000 || err?.message?.includes('duplicate key')) {
-      console.warn('⚠️  Global handler: Session duplicate key (auto-recovering)');
-      // Don't send response for these - they're handled by session middleware
-      if (!res.headersSent) {
-        return next();
-      }
-      return;
-    }
-
     console.error('Global error handler:', err);
 
-    // Prevent ERR_HTTP_HEADERS_SENT - check if response already started
     if (res.headersSent) {
       console.warn('⚠️  Headers already sent, skipping error response');
       return next(err);
     }
 
-    // Ensure CORS headers are set even on error
     const { origin } = req.headers;
     if (origin && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
 
-    // Send error response
     res.status(err.status || 500).json({
       error: err.message || 'Internal server error',
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
@@ -271,7 +198,6 @@ async function startServer() {
 
   const PORT = process.env.PORT || 3001;
 
-  // Add error handling for port conflicts
   httpServer.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EADDRINUSE') {
       console.error(`\n❌ Error: Port ${PORT} is already in use`);
@@ -290,26 +216,25 @@ async function startServer() {
     console.log(`\n✅ Server running on http://localhost:${PORT}`);
     console.log(`📱 Client URL: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
     console.log(`🗄️  Database: ${process.env.MONGODB_URI ? 'MongoDB Connected' : '⚠️  Not configured'}`);
+    console.log(`🔐 Auth: JWT (access + refresh tokens)`);
     console.log(
       `🔐 Google OAuth: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' ? 'Configured' : '⚠️  Not configured'}`
     );
   });
+
+  // Keep-alive ping for Render free tier
+  startKeepAlive();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     console.log(`\n🛑 ${signal} received, shutting down gracefully...`);
 
     try {
-      // Close MongoDB connection
       await closeMongoDb();
-
-      // Close HTTP server
       httpServer.close(() => {
         console.log('✅ Server closed');
         process.exit(0);
       });
-
-      // Force exit after 10 seconds if graceful shutdown fails
       setTimeout(() => {
         console.error('⚠️  Forced shutdown after timeout');
         process.exit(1);
@@ -323,7 +248,6 @@ async function startServer() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     console.error('❌ Uncaught Exception:', error);
     shutdown('UNCAUGHT_EXCEPTION');
