@@ -78,6 +78,15 @@ export default function Layout() {
             <h1 className="font-semibold text-sm">StudyBuddy</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              title="Sign out"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -101,7 +110,7 @@ export default function Layout() {
         {/* Sidebar - Desktop & Mobile */}
         <aside
           className={`
-          fixed md:static inset-y-0 left-0 z-40 w-64 md:w-56 border-r flex flex-col bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60
+          fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 md:w-56 border-r flex flex-col bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60
           transform transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -138,8 +147,10 @@ export default function Layout() {
                   className="h-10 w-10 rounded-full ring-2 ring-border"
                 />
                 {/* Network Status */}
-                <span className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
-                  }`}></span>
+                <span
+                  className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
+                    }`}
+                ></span>
                 {/* Studying Status */}
                 {studying && (
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
@@ -226,8 +237,10 @@ export default function Layout() {
                         className="h-8 w-8 rounded-full ring-2 ring-transparent group-hover:ring-primary/20 transition-all duration-200"
                       />
                       {/* Network Status */}
-                      <span className={`absolute top-0 right-0 h-2 w-2 rounded-full border border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
-                        }`}></span>
+                      <span
+                        className={`absolute top-0 right-0 h-2 w-2 rounded-full border border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
+                          }`}
+                      ></span>
                       {/* Studying Status */}
                       {studying && (
                         <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-blue-600 border border-background"></span>
@@ -239,16 +252,25 @@ export default function Layout() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings')}
+                    className="cursor-pointer"
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings')}
+                    className="cursor-pointer"
+                  >
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-destructive"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
