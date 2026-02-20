@@ -1,33 +1,26 @@
-/**
- * OPTIMIZED Friends Route (Native MongoDB)
- */
-
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
 import { friendRequestRateLimiter } from '../middleware/rateLimiting.js';
-import { db } from '../lib/db.js';
+import { collections } from '../db/collections.js';
 import { cache } from '../lib/cache.js';
-import { ObjectId } from '../lib/mongodb.js';
+import { ObjectId } from 'mongodb';
 
 const router = Router();
-
 router.use(isAuthenticated);
 
-// GET /search
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
     const { query } = req.query;
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ error: 'Search query is required' });
     }
 
-    // Find users matching query (regex)
-    const users = await db.user.findMany({
-      where: {
+    const users = await (await collections.users).find(
+      {
         $and: [
-          { _id: { $ne: new ObjectId(userId) } },
+          { _id: { $ne: userId } },
           {
             $or: [
               { username: { $regex: query, $options: 'i' } },
@@ -36,57 +29,53 @@ router.get('/search', isAuthenticated, async (req, res) => {
           },
         ],
       },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        avatar: true,
-        avatarType: true,
-        examGoal: true,
-        totalPoints: true,
-        showProfile: true,
-      },
-      take: 20,
-    });
+      {
+        limit: 20,
+        projection: {
+          username: 1,
+          name: 1,
+          avatar: 1,
+          avatarType: 1,
+          examGoal: 1,
+          totalPoints: 1,
+          showProfile: 1,
+        }
+      }
+    ).toArray();
 
-    const userIds = users.map(u => u.id);
+    const formattedUsers = users.map(u => ({ ...u, id: u._id }));
+    const userIds = formattedUsers.map(u => u._id);
 
-    // Batch fetch blocks and friendships
     const [blocks, friendships] = await Promise.all([
-      db.block.findMany({
-        where: {
-          $or: [
-            { blockerId: userId, blockedId: { $in: userIds } },
-            { blockerId: { $in: userIds }, blockedId: userId },
-          ],
-        },
-      }),
-      db.friendship.findMany({
-        where: {
-          $or: [
-            { senderId: userId, receiverId: { $in: userIds } },
-            { senderId: { $in: userIds }, receiverId: userId },
-          ],
-        },
-      }),
+      (await collections.blocks).find({
+        $or: [
+          { blockerId: userId, blockedId: { $in: userIds } },
+          { blockerId: { $in: userIds }, blockedId: userId },
+        ],
+      }).toArray(),
+      (await collections.friendships).find({
+        $or: [
+          { senderId: userId, receiverId: { $in: userIds } },
+          { senderId: { $in: userIds }, receiverId: userId },
+        ],
+      }).toArray(),
     ]);
 
-    // Create lookup maps
     const blockedUserIds = new Set(
-      blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId)
+      blocks.map(b => b.blockerId.toString() === userId.toString() ? b.blockedId.toString() : b.blockerId.toString())
     );
 
     const friendshipMap = new Map(
       friendships.map((f: any) => {
-        const otherUserId = f.senderId === userId ? f.receiverId : f.senderId;
-        return [otherUserId, { status: f.status, isSender: f.senderId === userId }];
+        const otherUserId = f.senderId.toString() === userId.toString() ? f.receiverId.toString() : f.senderId.toString();
+        return [otherUserId, { status: f.status, isSender: f.senderId.toString() === userId.toString() }];
       })
     );
 
-    const usersWithStatus = users
-      .filter(user => !blockedUserIds.has(user.id))
+    const usersWithStatus = formattedUsers
+      .filter(user => !blockedUserIds.has(user._id.toString()))
       .map(user => {
-        const friendship = friendshipMap.get(user.id);
+        const friendship = friendshipMap.get(user._id.toString());
         return {
           ...user,
           friendshipStatus: friendship?.status || null,
@@ -101,105 +90,90 @@ router.get('/search', isAuthenticated, async (req, res) => {
   }
 });
 
-// Send friend request
 router.post('/request', friendRequestRateLimiter, async (req, res) => {
   try {
-    const senderId = (req.user as any).id;
-    const { receiverId } = req.body;
+    const senderId = req.user!._id;
+    const { receiverId: receiverIdString } = req.body;
 
-    if (!receiverId) {
+    if (!receiverIdString) {
       return res.status(400).json({ error: 'Receiver ID is required' });
     }
+    const receiverId = new ObjectId(receiverIdString);
 
-    // Check blocks
-    const isBlocked = await db.block.findFirst({
-      where: {
-        $or: [
-          { blockerId: senderId, blockedId: receiverId },
-          { blockerId: receiverId, blockedId: senderId },
-        ],
-      },
+    const isBlocked = await (await collections.blocks).findOne({
+      $or: [
+        { blockerId: senderId, blockedId: receiverId },
+        { blockerId: receiverId, blockedId: senderId },
+      ],
     });
 
     if (isBlocked) {
       return res.status(403).json({ error: 'Cannot send friend request' });
     }
 
-    // Check existing friendship
-    const existing = await db.friendship.findFirst({
-      where: {
-        $or: [
-          { senderId, receiverId },
-          { senderId: receiverId, receiverId: senderId },
-        ],
-      },
+    const existing = await (await collections.friendships).findOne({
+      $or: [
+        { senderId, receiverId },
+        { senderId: receiverId, receiverId: senderId },
+      ],
     });
 
     if (existing) {
       return res.status(400).json({ error: 'Friend request already exists' });
     }
 
-    const friendship = await db.friendship.create({
-      data: {
-        senderId,
-        receiverId,
-        status: 'PENDING',
-      },
+    const result = await (await collections.friendships).insertOne({
+      senderId,
+      receiverId,
+      status: 'PENDING',
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
-    // Manually populate receiver for response
-    const receiver = await db.user.findUnique({
-      where: { id: receiverId },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        avatar: true,
-      }
-    });
+    const friendship = await (await collections.friendships).findOne({ _id: result.insertedId });
 
-    res.json({ ...friendship, receiver });
+    const receiver = await (await collections.users).findOne(
+      { _id: receiverId },
+      { projection: { username: 1, name: 1, avatar: 1 } }
+    );
+
+    res.json({ ...friendship, id: friendship!._id, receiver });
   } catch (error) {
     console.error('Error sending friend request:', error);
     res.status(500).json({ error: 'Failed to send friend request' });
   }
 });
 
-// Get friend requests
 router.get('/requests', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
 
-    const requests: any[] = await db.friendship.findMany({
-      where: {
-        receiverId: userId,
-        status: 'PENDING',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const requests = await (await collections.friendships).find(
+      { receiverId: userId, status: 'PENDING' },
+      { sort: { createdAt: -1 } }
+    ).toArray();
 
-    // Populate senders
     const senderIds = requests.map(r => r.senderId);
     if (senderIds.length > 0) {
-      // Create simplified map of senders
-      const senders = await db.user.findMany({
-        where: { _id: { $in: senderIds.map(id => new ObjectId(id)) } },
-        select: {
-          id: true,
-          username: true,
-          name: true,
-          avatar: true,
-          avatarType: true,
-          examGoal: true,
-          totalPoints: true,
+      const senders = await (await collections.users).find(
+        { _id: { $in: senderIds } },
+        {
+          projection: {
+            username: 1,
+            name: 1,
+            avatar: 1,
+            avatarType: 1,
+            examGoal: 1,
+            totalPoints: 1,
+          }
         }
-      });
+      ).toArray();
 
-      const senderMap = new Map(senders.map(s => [s.id, s]));
+      const senderMap = new Map(senders.map(s => [s._id.toString(), { ...s, id: s._id }]));
 
-      // Attach senders to requests
-      for (const req of requests) {
-        req.sender = senderMap.get(req.senderId);
+      for (const req of requests as any[]) {
+        req.id = req._id;
+        req.sender = senderMap.get(req.senderId.toString());
       }
     }
 
@@ -210,46 +184,46 @@ router.get('/requests', isAuthenticated, async (req, res) => {
   }
 });
 
-// Accept request
 router.put('/request/:id/accept', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
-    const { id } = req.params;
+    const userId = req.user!._id;
+    const friendshipId = new ObjectId(req.params.id);
 
-    const friendship: any = await db.friendship.findUnique({ where: { id } });
+    const friendship = await (await collections.friendships).findOne({ _id: friendshipId });
 
-    if (!friendship || friendship.receiverId !== userId) {
+    if (!friendship || friendship.receiverId.toString() !== userId.toString()) {
       return res.status(404).json({ error: 'Friend request not found' });
     }
 
-    const updated = await db.friendship.update({
-      where: { id },
-      data: { status: 'ACCEPTED' },
-    });
+    await (await collections.friendships).updateOne(
+      { _id: friendshipId },
+      { $set: { status: 'ACCEPTED', updatedAt: new Date() } }
+    );
 
-    cache.delete(`friends:${userId}`);
-    cache.delete(`friends:${friendship.senderId}`);
+    const updated = await (await collections.friendships).findOne({ _id: friendshipId });
 
-    res.json(updated);
+    cache.delete(`friends:${userId.toString()}`);
+    cache.delete(`friends:${friendship.senderId.toString()}`);
+
+    res.json({ ...updated, id: updated!._id });
   } catch (error) {
     console.error('Error accepting friend request:', error);
     res.status(500).json({ error: 'Failed to accept friend request' });
   }
 });
 
-// Reject request
 router.put('/request/:id/reject', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
-    const { id } = req.params;
+    const userId = req.user!._id;
+    const friendshipId = new ObjectId(req.params.id);
 
-    const friendship: any = await db.friendship.findUnique({ where: { id } });
+    const friendship = await (await collections.friendships).findOne({ _id: friendshipId });
 
-    if (!friendship || friendship.receiverId !== userId) {
+    if (!friendship || friendship.receiverId.toString() !== userId.toString()) {
       return res.status(404).json({ error: 'Friend request not found' });
     }
 
-    await db.friendship.delete({ where: { id } });
+    await (await collections.friendships).deleteOne({ _id: friendshipId });
 
     res.json({ success: true });
   } catch (error) {
@@ -258,11 +232,10 @@ router.put('/request/:id/reject', isAuthenticated, async (req, res) => {
   }
 });
 
-// Get list
 router.get('/list', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
-    const cacheKey = `friends:${userId}`;
+    const userId = req.user!._id;
+    const cacheKey = `friends:${userId.toString()}`;
 
     const cached = cache.get(cacheKey);
     if (cached) {
@@ -270,45 +243,43 @@ router.get('/list', isAuthenticated, async (req, res) => {
       return res.json(cached);
     }
 
-    const friendships: any[] = await db.friendship.findMany({
-      where: {
-        $or: [
-          { senderId: userId, status: 'ACCEPTED' },
-          { receiverId: userId, status: 'ACCEPTED' },
-        ],
-      },
-    });
+    const friendships = await (await collections.friendships).find({
+      $or: [
+        { senderId: userId, status: 'ACCEPTED' },
+        { receiverId: userId, status: 'ACCEPTED' },
+      ],
+    }).toArray();
 
-    // Collect IDs
     const userIds = new Set<string>();
     friendships.forEach(f => {
-      userIds.add(f.senderId === userId ? f.receiverId : f.senderId);
+      userIds.add(f.senderId.toString() === userId.toString() ? f.receiverId.toString() : f.senderId.toString());
     });
 
-    const friendsList = await db.user.findMany({
-      where: { _id: { $in: Array.from(userIds).map(id => new ObjectId(id)) } },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        avatar: true,
-        avatarType: true,
-        examGoal: true,
-        totalPoints: true,
-        lastActive: true,
+    const friendsList = await (await collections.users).find(
+      { _id: { $in: Array.from(userIds).map(id => new ObjectId(id)) } },
+      {
+        projection: {
+          username: 1,
+          name: 1,
+          avatar: 1,
+          avatarType: 1,
+          examGoal: 1,
+          totalPoints: 1,
+          lastActive: 1,
+        }
       }
-    });
+    ).toArray();
 
-    const friendMap = new Map(friendsList.map(u => [u.id, u]));
+    const friendMap = new Map(friendsList.map(u => [u._id.toString(), { ...u, id: u._id }]));
 
     const friends = friendships.map(f => {
-      const friendId = f.senderId === userId ? f.receiverId : f.senderId;
+      const friendId = f.senderId.toString() === userId.toString() ? f.receiverId.toString() : f.senderId.toString();
       const friend = friendMap.get(friendId);
       return {
-        friendshipId: f.id,
+        friendshipId: f._id,
         ...friend,
       };
-    }).filter(f => f.username); // Filter out possibly deleted users
+    }).filter(f => f.username);
 
     cache.set(cacheKey, friends, 120);
     res.setHeader('X-Cache', 'MISS');
@@ -319,26 +290,25 @@ router.get('/list', isAuthenticated, async (req, res) => {
   }
 });
 
-// Unfriend
 router.delete('/:friendshipId', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
-    const { friendshipId } = req.params;
+    const userId = req.user!._id;
+    const friendshipId = new ObjectId(req.params.friendshipId);
 
-    const friendship: any = await db.friendship.findUnique({ where: { id: friendshipId } });
+    const friendship = await (await collections.friendships).findOne({ _id: friendshipId });
 
     if (!friendship) {
       return res.status(404).json({ error: 'Friendship not found' });
     }
 
-    if (friendship.senderId !== userId && friendship.receiverId !== userId) {
+    if (friendship.senderId.toString() !== userId.toString() && friendship.receiverId.toString() !== userId.toString()) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    await db.friendship.delete({ where: { id: friendshipId } });
+    await (await collections.friendships).deleteOne({ _id: friendshipId });
 
-    cache.delete(`friends:${friendship.senderId}`);
-    cache.delete(`friends:${friendship.receiverId}`);
+    cache.delete(`friends:${friendship.senderId.toString()}`);
+    cache.delete(`friends:${friendship.receiverId.toString()}`);
 
     res.json({ success: true });
   } catch (error) {
@@ -347,32 +317,31 @@ router.delete('/:friendshipId', isAuthenticated, async (req, res) => {
   }
 });
 
-// Block
 router.post('/block', isAuthenticated, async (req, res) => {
   try {
-    const blockerId = (req.user as any).id;
-    const { userId, reason } = req.body;
+    const blockerId = req.user!._id;
+    const { userId: userIdString, reason } = req.body;
 
-    if (!userId) {
+    if (!userIdString) {
       return res.status(400).json({ error: 'User ID is required' });
     }
+    const userId = new ObjectId(userIdString);
 
-    await db.friendship.deleteMany({
-      where: {
-        $or: [
-          { senderId: blockerId, receiverId: userId },
-          { senderId: userId, receiverId: blockerId },
-        ],
-      },
+    await (await collections.friendships).deleteMany({
+      $or: [
+        { senderId: blockerId, receiverId: userId },
+        { senderId: userId, receiverId: blockerId },
+      ],
     });
 
-    const block = await db.block.create({
-      data: {
-        blockerId,
-        blockedId: userId,
-        reason,
-      },
+    const result = await (await collections.blocks).insertOne({
+      blockerId,
+      blockedId: userId,
+      reason,
+      createdAt: new Date(),
     });
+
+    const block = await (await collections.blocks).findOne({ _id: result.insertedId });
 
     res.json(block);
   } catch (error) {
@@ -381,37 +350,36 @@ router.post('/block', isAuthenticated, async (req, res) => {
   }
 });
 
-// Get blocked users
 router.get('/blocked', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
 
-    const blocks: any[] = await db.block.findMany({
-      where: { blockerId: userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const blocks = await (await collections.blocks).find(
+      { blockerId: userId },
+      { sort: { createdAt: -1 } }
+    ).toArray();
 
-    // Populate blocked users
     const blockedIds = blocks.map(b => b.blockedId);
     if (blockedIds.length > 0) {
-      const blockedUsers = await db.user.findMany({
-        where: { _id: { $in: blockedIds.map(id => new ObjectId(id)) } },
-        select: {
-          id: true,
-          username: true,
-          name: true,
-          avatar: true,
-          avatarType: true,
-          examGoal: true,
-          totalPoints: true,
+      const blockedUsers = await (await collections.users).find(
+        { _id: { $in: blockedIds } },
+        {
+          projection: {
+            username: 1,
+            name: 1,
+            avatar: 1,
+            avatarType: 1,
+            examGoal: 1,
+            totalPoints: 1,
+          }
         }
-      });
+      ).toArray();
 
-      const userMap = new Map(blockedUsers.map(u => [u.id, u]));
+      const userMap = new Map(blockedUsers.map(u => [u._id.toString(), { ...u, id: u._id }]));
 
-      // Attach blocked users to blocks
-      for (const block of blocks) {
-        block.blocked = userMap.get(block.blockedId);
+      for (const block of blocks as any[]) {
+        block.id = block._id;
+        block.blocked = userMap.get(block.blockedId.toString());
       }
     }
 
@@ -422,17 +390,14 @@ router.get('/blocked', isAuthenticated, async (req, res) => {
   }
 });
 
-// Unblock user
 router.delete('/block/:userId', isAuthenticated, async (req, res) => {
   try {
-    const blockerId = (req.user as any).id;
-    const { userId } = req.params;
+    const blockerId = req.user!._id;
+    const userId = new ObjectId(req.params.userId);
 
-    await db.block.deleteMany({
-      where: {
-        blockerId,
-        blockedId: userId,
-      },
+    await (await collections.blocks).deleteMany({
+      blockerId,
+      blockedId: userId,
     });
 
     res.json({ success: true });
