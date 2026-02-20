@@ -1,22 +1,18 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { db } from '../lib/db.js';
+import { collections } from '../db/collections.js';
+import { ObjectId } from 'mongodb';
 
 const router = Router();
 
-// Health check endpoint
 router.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get schedules for a specific date range
 router.get('/', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
     const { startDate, endDate } = req.query;
-
-    console.log('Fetching schedules for user:', userId);
-    console.log('Date range:', { startDate, endDate });
 
     const where: any = { userId };
 
@@ -26,15 +22,7 @@ router.get('/', isAuthenticated, async (req, res) => {
       if (endDate) where.date.$lte = new Date(endDate as string);
     }
 
-    const schedules = await db.schedule.findMany({
-      where,
-      orderBy: [
-        { date: 'desc' },
-        { startTime: 'asc' },
-      ],
-    });
-
-    console.log('Found schedules:', schedules.length);
+    const schedules = await (await collections.schedules).find(where).sort({ date: -1, startTime: 1 }).toArray();
     res.json(schedules);
   } catch (error) {
     console.error('Error fetching schedules:', error);
@@ -42,29 +30,26 @@ router.get('/', isAuthenticated, async (req, res) => {
   }
 });
 
-// Create a new schedule entry
 router.post('/', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
     const { date, startTime, endTime, title, subject, notes } = req.body;
 
-    console.log('Creating schedule for user:', userId);
-    console.log('Schedule data:', { date, startTime, endTime, title, subject, notes });
+    const scheduleData = {
+      userId,
+      date: new Date(date),
+      startTime,
+      endTime,
+      title: title || '',
+      subject: subject || '',
+      notes: notes || '',
+      completed: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    // Create the schedule entry immediately for better UX
-    const schedule = await db.schedule.create({
-      data: {
-        userId,
-        date: new Date(date),
-        startTime,
-        endTime,
-        title: title || '',
-        subject: subject || '',
-        notes: notes || '',
-      },
-    });
-
-    console.log('Schedule created successfully:', schedule.id);
+    const result = await (await collections.schedules).insertOne(scheduleData);
+    const schedule = await (await collections.schedules).findOne({ _id: result.insertedId });
     res.json(schedule);
   } catch (error) {
     console.error('Error creating schedule:', error);
@@ -72,16 +57,13 @@ router.post('/', isAuthenticated, async (req, res) => {
   }
 });
 
-// Update a schedule entry
 router.put('/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
     const { date, startTime, endTime, title, subject, notes, completed } = req.body;
 
-    console.log('Updating schedule:', id, 'for user:', userId);
-
-    const updateData: any = {};
+    const updateData: any = { updatedAt: new Date() };
     if (date) updateData.date = new Date(date);
     if (startTime) updateData.startTime = startTime;
     if (endTime) updateData.endTime = endTime;
@@ -90,16 +72,15 @@ router.put('/:id', isAuthenticated, async (req, res) => {
     if (notes !== undefined) updateData.notes = notes;
     if (completed !== undefined) updateData.completed = completed;
 
-    const result = await db.schedule.updateMany({
-      where: { id, userId },
-      data: updateData,
-    });
+    const result = await (await collections.schedules).updateOne(
+      { _id: new ObjectId(id), userId },
+      { $set: updateData }
+    );
 
-    if (result.count === 0) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Schedule not found' });
     }
 
-    console.log('Schedule updated successfully');
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating schedule:', error);
@@ -107,17 +88,14 @@ router.put('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// Delete a schedule entry
 router.delete('/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = (req.user as any).id;
+    const userId = req.user!._id;
 
-    const schedule = await db.schedule.deleteMany({
-      where: { id, userId },
-    });
+    const result = await (await collections.schedules).deleteOne({ _id: new ObjectId(id), userId });
 
-    if (schedule.count === 0) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Schedule not found' });
     }
 
