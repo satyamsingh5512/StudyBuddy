@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { usernameTrie } from '../utils/trie.js';
-import { getMongoDb } from '../lib/mongodb.js';
+import { collections } from '../db/collections.js';
+import { getDb } from '../db/client.js';
 
 const router = Router();
 
-// Initialize trie on server start
 let trieInitialized = false;
 
 async function initializeTrie() {
@@ -13,17 +13,16 @@ async function initializeTrie() {
   try {
     console.log('🔄 Initializing username trie...');
 
-    const db = await getMongoDb();
+    const db = await getDb();
     if (!db) {
       console.log('⚠️  MongoDB not connected, skipping trie initialization');
       return;
     }
 
-    const users = await db.collection('users').find(
+    const users = await (await collections.users).find(
       { username: { $exists: true, $ne: null } },
       {
         projection: {
-          _id: 1,
           username: 1,
           name: 1,
           avatar: 1,
@@ -53,14 +52,11 @@ async function initializeTrie() {
     console.log(`✅ Trie initialized with ${users.length} users`);
   } catch (error) {
     console.error('❌ Error initializing trie:', error);
-    // Don't throw - allow server to start even if trie init fails
   }
 }
 
-// Initialize on module load
 initializeTrie();
 
-// Check username availability (instant)
 router.get('/check/:username', async (req, res) => {
   try {
     const { username } = req.params;
@@ -79,7 +75,6 @@ router.get('/check/:username', async (req, res) => {
       });
     }
 
-    // Check if username contains only valid characters
     const validPattern = /^[a-zA-Z0-9_]+$/;
     if (!validPattern.test(username)) {
       return res.json({
@@ -88,11 +83,9 @@ router.get('/check/:username', async (req, res) => {
       });
     }
 
-    // Fast check using trie
     const exists = usernameTrie.exists(username);
 
     if (exists) {
-      // Generate suggestions
       const suggestions = usernameTrie.generateSuggestions(username, 5);
       return res.json({
         available: false,
@@ -111,7 +104,6 @@ router.get('/check/:username', async (req, res) => {
   }
 });
 
-// Fast search users by username prefix
 router.get('/search/fast', async (req, res) => {
   try {
     const { q } = req.query;
@@ -124,16 +116,13 @@ router.get('/search/fast', async (req, res) => {
       return res.json([]);
     }
 
-    // Ensure trie is initialized
     if (!trieInitialized) {
       await initializeTrie();
     }
 
-    // Fast prefix search using trie
     const results = usernameTrie.searchByPrefix(q, 20);
 
-    // Filter out current user if authenticated
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?._id?.toString() || (req as any).session?.userId;
     const filtered = userId
       ? results.filter((user) => user.id !== userId)
       : results;
@@ -145,17 +134,14 @@ router.get('/search/fast', async (req, res) => {
   }
 });
 
-// Update trie when new user is created (called from auth routes)
 export async function addUserToTrie(username: string, userId: string, userData: any) {
   usernameTrie.insert(username, userId, userData);
 }
 
-// Remove user from trie
 export async function removeUserFromTrie(username: string) {
   usernameTrie.remove(username);
 }
 
-// Refresh trie (useful for admin operations)
 router.post('/refresh-trie', async (_req, res) => {
   try {
     trieInitialized = false;
