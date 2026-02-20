@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { db } from '../lib/db.js';
+import { collections } from '../db/collections.js';
 
 const router = Router();
 
@@ -8,12 +8,12 @@ router.use(isAuthenticated);
 
 router.get('/', async (_req, res) => {
   try {
-    const notices = await db.notice.findMany({
-      where: { published: true },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    res.json(notices);
+    const notices = await (await collections.notices).find(
+      { published: true },
+      { sort: { createdAt: -1 }, limit: 50 }
+    ).toArray();
+    const formattedNotices = notices.map(n => ({ ...n, id: n._id }));
+    res.json(formattedNotices);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch notices' });
   }
@@ -21,10 +21,13 @@ router.get('/', async (_req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const notice = await db.notice.create({
-      data: req.body,
+    const result = await (await collections.notices).insertOne({
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
-    res.json(notice);
+    const notice = await (await collections.notices).findOne({ _id: result.insertedId });
+    res.json({ ...notice, id: notice!._id });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create notice' });
   }
