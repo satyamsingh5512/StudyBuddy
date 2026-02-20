@@ -3,61 +3,19 @@ import { Router } from 'express';
 import passport from 'passport';
 import bcrypt from 'bcryptjs';
 import { isGoogleAuthConfigured } from '../config/passport-config.js';
-import { db } from '../lib/db.js';
+import { collections } from '../db/collections.js';
 import { sendOTPEmail, sendPasswordResetEmail } from '../lib/email.js';
 import { isTempEmail, getTempEmailError } from '../lib/emailValidator.js';
-import {
-  generateTokenPair,
-  setTokenCookies,
-  clearTokenCookies,
-  verifyRefreshToken,
-  hashToken,
-  verifyAccessToken,
-} from '../lib/jwt.js';
+import { ObjectId } from 'mongodb';
 
 const router = Router();
 
-/**
- * Detect if the request is from a mobile client
- * Mobile clients send X-Client-Type: mobile header
- */
-function isMobileClient(req: any): boolean {
-  return req.headers['x-client-type'] === 'mobile';
-}
-
-/**
- * Issue JWT tokens and respond appropriately for web vs mobile
- */
-async function issueTokens(req: any, res: any, user: any) {
-  const { accessToken, refreshToken } = await generateTokenPair({
-    id: user.id,
-    email: user.email,
-  });
-
-  // Store hashed refresh token in DB
-  await db.refreshToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(refreshToken),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      createdAt: new Date(),
-    },
-  });
-
-  if (isMobileClient(req)) {
-    // Mobile: return tokens in JSON body
-    return res.json({
-      message: 'Login successful',
-      user,
-      accessToken,
-      refreshToken,
-    });
-  } else {
-    // Web: set HttpOnly cookies
-    setTokenCookies(res, accessToken, refreshToken);
-    return res.json({ message: 'Login successful', user });
-  }
-}
+// Helper to set session data
+const setSessionData = (req: any, user: any) => {
+  req.session.userId = user._id.toString();
+  req.session.email = user.email;
+  req.session.role = user.role || 'user';
+};
 
 // ==================== Google OAuth ====================
 
@@ -67,9 +25,10 @@ router.get('/google', (req, res, next) => {
       error: 'Google OAuth is not configured. Please contact the administrator.',
     });
   }
+  // Let passport handle the redirect
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-    session: false, // No sessions with JWT
+    session: false,
   })(req, res, next);
 });
 
@@ -77,29 +36,13 @@ router.get('/google/callback', (req, res) => {
   if (!isGoogleAuthConfigured) {
     return res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
   }
+
   passport.authenticate('google', { session: false, failureRedirect: '/auth' })(req, res, async () => {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const user = req.user as any;
 
     try {
-      // Generate JWT tokens
-      const { accessToken, refreshToken } = await generateTokenPair({
-        id: user.id,
-        email: user.email,
-      });
-
-      // Store hashed refresh token
-      await db.refreshToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashToken(refreshToken),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(),
-        },
-      });
-
-      // Set cookies and redirect
-      setTokenCookies(res, accessToken, refreshToken);
+      setSessionData(req, user);
 
       console.log('✅ Google OAuth login successful:', user?.email);
 
@@ -109,8 +52,8 @@ router.get('/google/callback', (req, res) => {
         res.redirect(`${clientUrl}/dashboard`);
       }
     } catch (error) {
-      console.error('❌ Error issuing tokens after Google OAuth:', error);
-      res.redirect(`${clientUrl}/auth?error=token_failed`);
+      console.error('❌ Error saving session after Google OAuth:', error);
+      res.redirect(`${clientUrl}/auth?error=session_failed`);
     }
   });
 });
@@ -129,10 +72,9 @@ router.post('/google/mobile', async (req, res) => {
       return res.status(400).json({ error: 'ID token is required' });
     }
 
-    // Verify the ID token
     const ticket = await googleClient.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID, // Specify the CLIENT_ID of the app that accesses the backend
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -141,82 +83,49 @@ router.post('/google/mobile', async (req, res) => {
       return res.status(401).json({ error: 'Invalid ID token' });
     }
 
-    const { email, name, sub: googleId, picture } = payload;
+    const { email, name, picture } = payload;
 
     if (!email) {
       return res.status(400).json({ error: 'Email not found in Google profile' });
     }
 
-    // Check if user exists
-    let user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    let user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      // Create new user
-      user = await db.user.create({
-        data: {
-          email: email.toLowerCase(),
-          name: name || email.split('@')[0],
-          emailVerified: true, // Google emails are verified
-          avatarType: 'image',
-          // You might want to save the picture URL if your schema supports it, 
-          // or just default to initials/image type. 
-          // Schema text says 'avatarType', doesn't explicitly show avatarUrl field in the previous file view, 
-          // but let's assume standard creation for now.
-          onboardingDone: false,
-          examGoal: '',
-          examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-          totalPoints: 0,
-          totalStudyMinutes: 0,
-          streak: 0,
-          lastActive: new Date(),
-          showProfile: true,
-          refreshTokenHash: null,
-          password: '', // No password for OAuth users
-        },
-      });
-      console.log('✅ User created via Google Mobile:', user.email);
+      const newUser = {
+        email: email.toLowerCase(),
+        name: name || email.split('@')[0],
+        emailVerified: true,
+        avatarType: 'image',
+        avatar: picture,
+        onboardingDone: false,
+        examGoal: '',
+        examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        totalPoints: 0,
+        totalStudyMinutes: 0,
+        streak: 0,
+        lastActive: new Date(),
+        showProfile: true,
+        role: 'user' as const,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const insertResult = await (await collections.users).insertOne(newUser as any);
+      user = await (await collections.users).findOne({ _id: insertResult.insertedId });
+      console.log('✅ User created via Google Mobile:', user!.email);
     } else {
-      // Update last active
-      await db.user.update({
-        where: { id: user.id },
-        data: { lastActive: new Date() },
-      });
+      await (await collections.users).updateOne(
+        { _id: user._id },
+        { $set: { lastActive: new Date(), updatedAt: new Date() } }
+      );
     }
 
-    // Issue tokens (JSON response for mobile)
-    // We need to forcefully set req.headers['x-client-type'] = 'mobile' or 
-    // just reuse the issueTokens logic which checks it. 
-    // The issueTokens function checks `req.headers['x-client-type'] === 'mobile'`.
-    // We should ensure the client sends this header or we manually handle the response here.
-    // The client modification didn't explicitly add the header, let's just return JSON here directly to be safe.
-
-    const { accessToken, refreshToken } = await generateTokenPair({
-      id: user.id,
-      email: user.email,
-    });
-
-    // Store hashed refresh token
-    await db.refreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(),
-      },
-    });
-
-    // For mobile, we explicitly return tokens in JSON
-    // The client can then decide how to store them or if the webview cookie jar catches them from a Set-Cookie header.
-    // (See previous extensive comment in Auth.tsx)
-    // To cover all bases: Set cookies AND return JSON.
-
-    setTokenCookies(res, accessToken, refreshToken);
+    setSessionData(req, user);
 
     return res.json({
       message: 'Login successful',
-      user,
-      accessToken,
-      refreshToken
+      user
     });
 
   } catch (error) {
@@ -231,7 +140,6 @@ router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
-    // Validation
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
     }
@@ -249,7 +157,7 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
-    const existingUser = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const existingUser = await (await collections.users).findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ error: 'An account with this email already exists' });
     }
@@ -258,35 +166,38 @@ router.post('/signup', async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    const newUser = await db.user.create({
-      data: {
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        name: name.trim(),
-        emailVerified: false,
-        verificationOtp: otp,
-        otpExpiry,
-        avatarType: 'initials',
-        onboardingDone: false,
-        examGoal: '',
-        examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-        totalPoints: 0,
-        totalStudyMinutes: 0,
-        streak: 0,
-        lastActive: new Date(),
-        showProfile: true,
-        refreshTokenHash: null,
-      },
-    });
+    const newUser = {
+      email: email.toLowerCase(),
+      username: `user_${crypto.randomBytes(4).toString('hex')}`,
+      password: hashedPassword,
+      name: name.trim(),
+      emailVerified: false,
+      verificationOtp: otp,
+      otpExpiry,
+      avatarType: 'initials',
+      onboardingDone: false,
+      examGoal: '',
+      examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+      totalPoints: 0,
+      totalStudyMinutes: 0,
+      streak: 0,
+      lastActive: new Date(),
+      showProfile: true,
+      role: 'user' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    console.log('✅ User created:', newUser.email, 'ID:', newUser.id);
-    console.log('📧 OTP for', newUser.email, ':', otp);
+    const insertResult = await (await collections.users).insertOne(newUser as any);
+    const createdUser = await (await collections.users).findOne({ _id: insertResult.insertedId });
 
-    sendOTPEmail(email, otp, name).then(() => {
-      console.log('✅ Verification email sent successfully to:', email);
+    console.log('✅ User created:', createdUser!.email, 'ID:', createdUser!._id);
+    console.log('📧 OTP for', createdUser!.email, ':', otp);
+
+    sendOTPEmail(createdUser!.email, otp, createdUser!.name).then(() => {
+      console.log('✅ Verification email sent successfully to:', createdUser!.email);
     }).catch(err => {
-      console.error('❌ Failed to send verification email to:', email);
-      console.error('❌ Email error:', err);
+      console.error('❌ Failed to send verification email to:', createdUser!.email);
     });
 
     res.json({
@@ -308,7 +219,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email and verification code are required' });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -330,21 +241,27 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Invalid verification code' });
     }
 
-    // Mark email as verified
-    const updatedUser = await db.user.update({
-      where: { id: user.id! },
-      data: {
-        emailVerified: true,
-        verificationOtp: undefined,
-        otpExpiry: undefined,
-        lastActive: new Date(),
-      },
-    });
+    await (await collections.users).updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          emailVerified: true,
+          lastActive: new Date(),
+          updatedAt: new Date()
+        },
+        $unset: {
+          verificationOtp: "",
+          otpExpiry: ""
+        }
+      }
+    );
 
-    console.log('✅ User verified:', updatedUser.email);
+    console.log('✅ User verified:', user.email);
 
-    // Issue JWT tokens immediately after verification
-    await issueTokens(req, res, updatedUser);
+    // Set express session
+    setSessionData(req, user);
+
+    res.json({ message: 'Login successful', user });
   } catch (error) {
     console.error('OTP verification error:', error);
     res.status(500).json({ error: 'Failed to verify code. Please try again.' });
@@ -361,7 +278,7 @@ router.post('/resend-otp', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -374,17 +291,14 @@ router.post('/resend-otp', async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    await db.user.update({
-      where: { id: user.id! },
-      data: { verificationOtp: otp, otpExpiry },
-    });
+    await (await collections.users).updateOne(
+      { _id: user._id },
+      { $set: { verificationOtp: otp, otpExpiry } }
+    );
 
     console.log(`📧 Resending OTP for ${email}:`, otp);
-    sendOTPEmail(email, otp, user.name).then(() => {
-      console.log('✅ Verification email resent successfully to:', email);
-    }).catch(err => {
+    sendOTPEmail(email, otp, user.name).catch(err => {
       console.error('❌ Failed to resend verification email to:', email);
-      console.error('❌ Email error:', err);
     });
 
     res.json({ message: 'Verification code sent successfully' });
@@ -404,7 +318,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user || !user.password) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -419,17 +333,14 @@ router.post('/login', async (req, res) => {
       const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-      await db.user.update({
-        where: { id: user.id! },
-        data: { verificationOtp: otp, otpExpiry },
-      });
+      await (await collections.users).updateOne(
+        { _id: user._id },
+        { $set: { verificationOtp: otp, otpExpiry } }
+      );
 
       console.log(`📧 Sending OTP to unverified user ${user.email}:`, otp);
-      sendOTPEmail(user.email, otp, user.name).then(() => {
-        console.log('✅ Verification email sent successfully to:', user.email);
-      }).catch(err => {
-        console.error('❌ Failed to send verification email to:', user.email);
-        console.error('❌ Email error:', err);
+      sendOTPEmail(user.email, otp, user.name).catch(err => {
+        console.error('❌ Failed to send verification email');
       });
 
       return res.status(403).json({
@@ -438,79 +349,19 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Update last active
-    await db.user.update({
-      where: { id: user.id! },
-      data: { lastActive: new Date() },
-    });
+    await (await collections.users).updateOne(
+      { _id: user._id },
+      { $set: { lastActive: new Date() } }
+    );
+
+    setSessionData(req, user);
 
     console.log('✅ User logged in:', user.email);
 
-    await issueTokens(req, res, user);
+    res.json({ message: 'Login successful', user });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to log in. Please try again.' });
-  }
-});
-
-// ==================== Token Refresh ====================
-
-router.post('/refresh', async (req, res) => {
-  try {
-    // Get refresh token from cookie or body
-    const refreshTokenRaw =
-      req.cookies?.refresh_token ||
-      req.body?.refreshToken;
-
-    if (!refreshTokenRaw) {
-      return res.status(401).json({
-        error: 'No refresh token provided',
-        code: 'NO_REFRESH_TOKEN',
-      });
-    }
-
-    // Verify the refresh token
-    const payload = await verifyRefreshToken(refreshTokenRaw);
-    if (!payload) {
-      clearTokenCookies(res);
-      return res.status(401).json({
-        error: 'Invalid or expired refresh token',
-        code: 'INVALID_REFRESH_TOKEN',
-      });
-    }
-
-    // Check if the hashed token exists in DB
-    const tokenHash = hashToken(refreshTokenRaw);
-    const storedToken = await db.refreshToken.findFirst({
-      where: { tokenHash, userId: payload.userId },
-    });
-
-    if (!storedToken) {
-      // Token reuse detected — revoke ALL tokens for this user (security measure)
-      await db.refreshToken.deleteMany({ where: { userId: payload.userId } });
-      clearTokenCookies(res);
-      console.warn('⚠️  Refresh token reuse detected for user:', payload.userId);
-      return res.status(401).json({
-        error: 'Session revoked for security. Please login again.',
-        code: 'TOKEN_REUSE',
-      });
-    }
-
-    // Delete the used refresh token (rotation)
-    await db.refreshToken.delete({ where: { id: storedToken.id! } });
-
-    // Verify user still exists
-    const user = await db.user.findUnique({ where: { id: payload.userId } });
-    if (!user) {
-      clearTokenCookies(res);
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Generate new token pair
-    await issueTokens(req, res, user);
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    res.status(500).json({ error: 'Failed to refresh token' });
   }
 });
 
@@ -524,7 +375,7 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.json({
@@ -535,10 +386,10 @@ router.post('/forgot-password', async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
     const resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    await db.user.update({
-      where: { id: user.id! },
-      data: { resetToken: otp, resetTokenExpiry },
-    });
+    await (await collections.users).updateOne(
+      { _id: user._id },
+      { $set: { resetToken: otp, resetTokenExpiry } }
+    );
 
     console.log(`🔑 Reset OTP for ${email}:`, otp);
     sendPasswordResetEmail(email, otp, user.name).catch(err => {
@@ -568,7 +419,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await (await collections.users).findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -584,20 +435,22 @@ router.post('/reset-password', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    await db.user.update({
-      where: { id: user.id! },
-      data: {
-        password: hashedPassword,
-        resetToken: undefined,
-        resetTokenExpiry: undefined,
-      },
-    });
+    await (await collections.users).updateOne(
+      { _id: user._id },
+      {
+        $set: { password: hashedPassword },
+        $unset: { resetToken: "", resetTokenExpiry: "" }
+      }
+    );
 
-    // Revoke all refresh tokens on password reset
-    await db.refreshToken.deleteMany({ where: { userId: user.id! } });
+    // Express-session automatically invalidates sessions on password reset if we destroy the active one
+    // However, destroying ALL active sessions for a user requires hitting the session store directly
+    // connect-mongo doesn't easily support querying by partial session data, but the current user's is handled:
+    if (req.session.userId === user._id.toString()) {
+      req.session.destroy(() => { });
+    }
 
     console.log('✅ Password reset successful for:', user.email);
-
     res.json({ message: 'Password reset successful. You can now sign in with your new password.' });
   } catch (error) {
     console.error('Reset password error:', error);
@@ -608,26 +461,13 @@ router.post('/reset-password', async (req, res) => {
 // ==================== Get Current User ====================
 
 router.get('/me', async (req, res) => {
-  // Extract token
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : req.cookies?.access_token;
-
-  if (!token) {
+  if (!req.session?.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const payload = await verifyAccessToken(token);
-  if (!payload) {
-    return res.status(401).json({
-      error: 'Token expired or invalid',
-      code: 'TOKEN_EXPIRED',
-    });
-  }
-
-  const user = await db.user.findUnique({ where: { id: payload.userId } });
+  const user = await (await collections.users).findOne({ _id: new ObjectId(req.session.userId) });
   if (!user) {
+    req.session.destroy(() => { });
     return res.status(401).json({ error: 'User not found' });
   }
 
@@ -636,27 +476,17 @@ router.get('/me', async (req, res) => {
 
 // ==================== Logout ====================
 
-router.post('/logout', async (req, res) => {
-  try {
-    // Try to revoke the refresh token from DB
-    const refreshTokenRaw =
-      req.cookies?.refresh_token ||
-      req.body?.refreshToken;
-
-    if (refreshTokenRaw) {
-      const tokenHash = hashToken(refreshTokenRaw);
-      await db.refreshToken.deleteMany({ where: { tokenHash } });
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ error: 'Failed to log out' });
     }
 
-    clearTokenCookies(res);
+    res.clearCookie('connect.sid');
     console.log('👋 User logged out');
     res.json({ success: true });
-  } catch (error) {
-    console.error('Logout error:', error);
-    // Still clear cookies even if DB cleanup fails
-    clearTokenCookies(res);
-    res.json({ success: true });
-  }
+  });
 });
 
 export default router;
