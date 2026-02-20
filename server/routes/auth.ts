@@ -115,6 +115,116 @@ router.get('/google/callback', (req, res) => {
   });
 });
 
+// ==================== Google OAuth (Mobile) ====================
+
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+router.post('/google/mobile', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ error: 'ID token is required' });
+    }
+
+    // Verify the ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID, // Specify the CLIENT_ID of the app that accesses the backend
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid ID token' });
+    }
+
+    const { email, name, sub: googleId, picture } = payload;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email not found in Google profile' });
+    }
+
+    // Check if user exists
+    let user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+
+    if (!user) {
+      // Create new user
+      user = await db.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name: name || email.split('@')[0],
+          emailVerified: true, // Google emails are verified
+          avatarType: 'image',
+          // You might want to save the picture URL if your schema supports it, 
+          // or just default to initials/image type. 
+          // Schema text says 'avatarType', doesn't explicitly show avatarUrl field in the previous file view, 
+          // but let's assume standard creation for now.
+          onboardingDone: false,
+          examGoal: '',
+          examDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+          totalPoints: 0,
+          totalStudyMinutes: 0,
+          streak: 0,
+          lastActive: new Date(),
+          showProfile: true,
+          refreshTokenHash: null,
+          password: '', // No password for OAuth users
+        },
+      });
+      console.log('✅ User created via Google Mobile:', user.email);
+    } else {
+      // Update last active
+      await db.user.update({
+        where: { id: user.id },
+        data: { lastActive: new Date() },
+      });
+    }
+
+    // Issue tokens (JSON response for mobile)
+    // We need to forcefully set req.headers['x-client-type'] = 'mobile' or 
+    // just reuse the issueTokens logic which checks it. 
+    // The issueTokens function checks `req.headers['x-client-type'] === 'mobile'`.
+    // We should ensure the client sends this header or we manually handle the response here.
+    // The client modification didn't explicitly add the header, let's just return JSON here directly to be safe.
+
+    const { accessToken, refreshToken } = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+    });
+
+    // Store hashed refresh token
+    await db.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+      },
+    });
+
+    // For mobile, we explicitly return tokens in JSON
+    // The client can then decide how to store them or if the webview cookie jar catches them from a Set-Cookie header.
+    // (See previous extensive comment in Auth.tsx)
+    // To cover all bases: Set cookies AND return JSON.
+
+    setTokenCookies(res, accessToken, refreshToken);
+
+    return res.json({
+      message: 'Login successful',
+      user,
+      accessToken,
+      refreshToken
+    });
+
+  } catch (error) {
+    console.error('❌ Google Mobile Auth Error:', error);
+    res.status(401).json({ error: 'Google authentication failed' });
+  }
+});
+
 // ==================== Email/Password Signup ====================
 
 router.post('/signup', async (req, res) => {
