@@ -6,7 +6,8 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/components/Logo';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import ThemeToggle from '@/components/ThemeToggle';
-import { API_URL } from '@/config/api';
+import { API_URL } from '../config/api';
+import { isNativePlatform } from '../lib/capacitor';
 
 export default function Auth() {
     const [authType, setAuthType] = useState<'signin' | 'signup' | 'verify-signup' | 'forgot-password' | 'verify-reset'>('signin');
@@ -218,7 +219,7 @@ export default function Auth() {
 
     const handleGoogleLogin = async () => {
         soundManager.playClick();
-        const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+        const isNative = isNativePlatform();
 
         if (isNative) {
             try {

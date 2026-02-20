@@ -9,8 +9,9 @@ import Logo from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import { apiFetch } from '@/config/api';
+import { isNativePlatform } from '../lib/capacitor';
 
-const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+const isNativeApp = isNativePlatform();
 
 export default function Landing() {
     const navigate = useNavigate();
