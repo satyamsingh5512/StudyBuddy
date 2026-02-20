@@ -12,7 +12,7 @@ import authRoutes from './routes/auth.js';
 import todoRoutes from './routes/todos.js';
 import reportRoutes from './routes/reports.js';
 import noticeRoutes from './routes/notices.js';
-import aiRoutes from './routes/ai.js';
+import chatRoutes from './routes/chat.js';
 import userRoutes from './routes/users.js';
 import faqRoutes from './routes/faqs.js';
 import timerRoutes from './routes/timer.js';
@@ -108,6 +108,25 @@ async function startServer() {
 
   app.use(express.json({ limit: '1mb' }));
 
+  const session = (await import('express-session')).default;
+  const MongoStore = (await import('connect-mongo')).default;
+
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'supersecret_studybuddy_dev_key',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: 'sessions',
+    }),
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // standard session cookies
+    }
+  }));
+
   // Public health check endpoints (before rate limiting and auth)
   app.get('/health', (_req, res) => {
     res.json({
@@ -143,12 +162,7 @@ async function startServer() {
 
   // Detailed health check (authenticated only)
   app.get('/api/health/detailed', async (req, res) => {
-    // Quick JWT check for detailed health
-    const { verifyAccessToken } = await import('./lib/jwt.js');
-    const token = req.headers.authorization?.slice(7) || req.cookies?.access_token;
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    const payload = await verifyAccessToken(token);
-    if (!payload) return res.status(401).json({ error: 'Invalid token' });
+    if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
@@ -171,7 +185,7 @@ async function startServer() {
   app.use('/api/todos', todoRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/notices', noticeRoutes);
-  app.use('/api/ai', aiRoutes);
+  app.use('/api/chat', chatRoutes); // Adheres to API endpoint structure for ai rate limiting
   app.use('/api/users', userRoutes);
   app.use('/api/faqs', faqRoutes);
   app.use('/api/timer', timerRoutes);
