@@ -1,21 +1,16 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
 import { messageRateLimiter } from '../middleware/rateLimiting.js';
-import { db } from '../lib/db.js';
-import { getMongoDb } from '../lib/mongodb.js';
+import { collections } from '../db/collections.js';
+import { ObjectId } from 'mongodb';
 
 const router = Router();
 
-// Get conversations list
 router.get('/conversations', isAuthenticated, async (req, res) => {
   try {
-    const userId = (req.user as any).id;
-    const mongoDb = await getMongoDb();
-    if (!mongoDb) throw new Error('Database not connected');
+    const userId = req.user!._id;
 
-    // Get all unique user IDs involved in conversations
-    // Using aggregation to mimic distinct findMany with OR
-    const distinctUsers = await mongoDb.collection('direct_messages').aggregate([
+    const distinctUsers = await (await collections.directMessages).aggregate([
       {
         $match: {
           $or: [{ senderId: userId }, { receiverId: userId }]
@@ -35,36 +30,33 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
 
     let participantIds = new Set<string>();
     if (distinctUsers.length > 0) {
-      distinctUsers[0].senders.forEach((id: string) => participantIds.add(id));
-      distinctUsers[0].receivers.forEach((id: string) => participantIds.add(id));
+      distinctUsers[0].senders.forEach((id: ObjectId) => participantIds.add(id.toString()));
+      distinctUsers[0].receivers.forEach((id: ObjectId) => participantIds.add(id.toString()));
     }
 
-    // Remove self
-    participantIds.delete(userId);
-    const userIds = Array.from(participantIds);
+    participantIds.delete(userId.toString());
+    const userIds = Array.from(participantIds).map(id => new ObjectId(id));
 
     if (userIds.length === 0) {
       return res.json([]);
     }
 
-    // Batch fetch data
-    // 1. Fetch users
-    const users = await db.user.findMany({
-      where: { id: { $in: userIds } }, // Generic findMany supports mongo syntax if passed directly to find
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        avatar: true,
-        avatarType: true,
-        lastActive: true,
-      },
-    });
+    const users = await (await collections.users).find(
+      { _id: { $in: userIds } },
+      {
+        projection: {
+          name: 1,
+          username: 1,
+          avatar: 1,
+          avatarType: 1,
+          lastActive: 1,
+        }
+      }
+    ).toArray();
 
-    // 2. Fetch last messages
-    // We want the last message for each conversation
-    // Aggregation is best for "last per group"
-    const lastMessages = await mongoDb.collection('direct_messages').aggregate([
+    const formattedUsers = users.map(u => ({ ...u, id: u._id }));
+
+    const lastMessages = await (await collections.directMessages).aggregate([
       {
         $match: {
           $or: [
@@ -88,8 +80,7 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
       }
     ]).toArray();
 
-    // 3. Fetch unread counts
-    const unreadCounts = await mongoDb.collection('direct_messages').aggregate([
+    const unreadCounts = await (await collections.directMessages).aggregate([
       {
         $match: {
           receiverId: userId,
@@ -105,20 +96,19 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
       }
     ]).toArray();
 
-    // Map to memory maps
-    const lastMessageMap = new Map(lastMessages.map(item => [item._id, item.lastMessage]));
-    const unreadCountMap = new Map(unreadCounts.map(item => [item._id, item.count]));
+    const lastMessageMap = new Map(lastMessages.map(item => [item._id.toString(), item.lastMessage]));
+    const unreadCountMap = new Map(unreadCounts.map(item => [item._id.toString(), item.count]));
 
-    const conversations = users.map(user => {
-      const lastMessage = lastMessageMap.get(user.id);
-      const unreadCount = unreadCountMap.get(user.id) || 0;
+    const conversations = formattedUsers.map(user => {
+      const lastMessage = lastMessageMap.get(user._id.toString());
+      const unreadCount = unreadCountMap.get(user._id.toString()) || 0;
 
       return {
         user,
         lastMessage,
         unreadCount
       };
-    }).sort((a, b) => { // Sort by last message time
+    }).sort((a, b) => {
       const dateA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const dateB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
       return dateB - dateA;
@@ -131,22 +121,20 @@ router.get('/conversations', isAuthenticated, async (req, res) => {
   }
 });
 
-// Get messages with a specific user
 router.get('/:userId', isAuthenticated, async (req, res) => {
   try {
-    const currentUserId = (req.user as any).id;
-    const { userId } = req.params;
+    const currentUserId = req.user!._id;
+    const targetUserId = new ObjectId(req.params.userId);
 
-    const messages = await db.directMessage.findMany({
-      where: {
+    const messages = await (await collections.directMessages).find(
+      {
         $or: [
-          { senderId: currentUserId, receiverId: userId },
-          { senderId: userId, receiverId: currentUserId },
+          { senderId: currentUserId, receiverId: targetUserId },
+          { senderId: targetUserId, receiverId: currentUserId },
         ],
       },
-      orderBy: { createdAt: 'asc' },
-      take: 50,
-    });
+      { sort: { createdAt: 1 }, limit: 50 }
+    ).toArray();
 
     res.json(messages);
   } catch (error) {
@@ -155,30 +143,31 @@ router.get('/:userId', isAuthenticated, async (req, res) => {
   }
 });
 
-// Send a message
 router.post('/:userId', messageRateLimiter, isAuthenticated, async (req, res) => {
   try {
-    const senderId = (req.user as any).id;
-    const { userId } = req.params;
+    const senderId = req.user!._id;
+    const receiverId = new ObjectId(req.params.userId);
     const { message } = req.body;
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
-    const newMessage = await db.directMessage.create({
-      data: {
-        senderId,
-        receiverId: userId,
-        message: message.trim(),
-        read: false,
-      },
-    });
+    const messageData = {
+      senderId,
+      receiverId,
+      message: message.trim(),
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    // Emit real-time message if io is available
+    const result = await (await collections.directMessages).insertOne(messageData);
+    const newMessage = await (await collections.directMessages).findOne({ _id: result.insertedId });
+
     const io = req.app.get('io');
     if (io) {
-      io.to(`user-${userId}`).emit('new-message', newMessage);
+      io.to(`user-${receiverId.toString()}`).emit('new-message', newMessage);
     }
 
     res.json(newMessage);
@@ -188,22 +177,21 @@ router.post('/:userId', messageRateLimiter, isAuthenticated, async (req, res) =>
   }
 });
 
-// Mark messages as read
 router.patch('/:userId/read', isAuthenticated, async (req, res) => {
   try {
-    const currentUserId = (req.user as any).id;
-    const { userId } = req.params;
+    const currentUserId = req.user!._id;
+    const targetUserId = new ObjectId(req.params.userId);
 
-    await db.directMessage.updateMany({
-      where: {
-        senderId: userId,
+    await (await collections.directMessages).updateMany(
+      {
+        senderId: targetUserId,
         receiverId: currentUserId,
         read: false,
       },
-      data: {
-        read: true,
-      },
-    });
+      {
+        $set: { read: true, updatedAt: new Date() },
+      }
+    );
 
     res.json({ success: true });
   } catch (error) {
