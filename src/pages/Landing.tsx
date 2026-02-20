@@ -269,7 +269,6 @@ export default function Landing() {
                                             {/* Feature Highlights */}
                                             <div className="grid grid-cols-2 gap-4 mb-8 text-left max-w-xl mx-auto lg:mx-0">
                                                 {[
-                                                    { icon: <TrendingUp className="w-4 h-4 text-emerald-500" />, text: "120 FPS Fluid Animations" },
                                                     { icon: <CheckCircle className="w-4 h-4 text-blue-500" />, text: "Offline Mode" },
                                                     { icon: <Target className="w-4 h-4 text-purple-500" />, text: "Focus Mode Integrations" },
                                                     { icon: <Users className="w-4 h-4 text-orange-500" />, text: "Real-time Sync" },
