@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm ci
+    buildCommand: npm ci --legacy-peer-deps
     startCommand: npx tsx server/index.ts
     healthCheckPath: /health
     autoDeploy: false
@@ -29,6 +29,8 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: EMAIL_FROM
+        value: "StudyBuddy <noreply@satym.in>"
       - key: ADMIN_EMAIL
         sync: false
       - key: GROQ_API_KEY
