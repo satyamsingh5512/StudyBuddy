@@ -10,6 +10,8 @@ import ThemeToggle from '@/components/ThemeToggle';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import { apiFetch } from '@/config/api';
 
+const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+
 export default function Landing() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
@@ -222,120 +224,187 @@ export default function Landing() {
                     </div>
 
                     {/* Android App Download & Waitlist Section */}
-                    <div className="mt-32 max-w-4xl mx-auto">
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.6 }}
-                            className="relative overflow-hidden rounded-3xl border border-border/50"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.08) 50%, rgba(16,185,129,0.06) 100%)',
-                            }}
-                        >
-                            {/* Decorative gradient blobs */}
-                            <div className="absolute -top-20 -right-20 w-60 h-60 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-                            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                    {!isNativeApp && (
+                        <div className="mt-32 max-w-5xl mx-auto">
+                            <motion.div
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ duration: 0.6 }}
+                                className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 backdrop-blur-md"
+                            >
+                                {/* Decorative elements */}
+                                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+                                <div className="absolute -top-20 -right-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                            <div className="relative z-10 p-8 md:p-12">
-                                <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                                    {/* Left: Phone Icon + Info */}
-                                    <div className="flex-shrink-0 text-center md:text-left">
-                                        <motion.div
-                                            initial={{ scale: 0.8, opacity: 0 }}
-                                            whileInView={{ scale: 1, opacity: 1 }}
-                                            viewport={{ once: true }}
-                                            transition={{ duration: 0.5, delay: 0.2 }}
-                                            className="w-24 h-24 mx-auto md:mx-0 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/25 mb-4"
-                                        >
-                                            <Smartphone className="w-12 h-12 text-white" />
-                                        </motion.div>
-                                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Coming Soon</span>
+                                <div className="relative z-10 p-8 md:p-12">
+                                    {/* Update Badge */}
+                                    <div className="flex items-center gap-3 mb-8">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                            </span>
+                                            <span className="text-xs font-bold text-primary tracking-wide uppercase">New Update Incoming</span>
+                                        </div>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+                                    </div>
+
+                                    <div className="flex flex-col lg:flex-row gap-12 items-center">
+                                        {/* Left: Content & Waitlist */}
+                                        <div className="flex-1 text-center lg:text-left">
+                                            <div className="flex items-center justify-center lg:justify-start gap-3 mb-4">
+                                                <Smartphone className="w-8 h-8 text-indigo-500" />
+                                                <h2 className="text-3xl md:text-4xl font-bold">
+                                                    StudyBuddy Native
+                                                </h2>
+                                            </div>
+
+                                            <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto lg:mx-0">
+                                                We're bringing the ultimate study experience directly to your pocket.
+                                                Native performance, offline support, and push notifications are on the way.
+                                            </p>
+
+                                            {/* Feature Highlights */}
+                                            <div className="grid grid-cols-2 gap-4 mb-8 text-left max-w-xl mx-auto lg:mx-0">
+                                                {[
+                                                    { icon: <TrendingUp className="w-4 h-4 text-emerald-500" />, text: "120 FPS Fluid Animations" },
+                                                    { icon: <CheckCircle className="w-4 h-4 text-blue-500" />, text: "Offline Mode" },
+                                                    { icon: <Target className="w-4 h-4 text-purple-500" />, text: "Focus Mode Integrations" },
+                                                    { icon: <Users className="w-4 h-4 text-orange-500" />, text: "Real-time Sync" },
+                                                ].map((feat, i) => (
+                                                    <div key={i} className="flex items-center gap-2 text-sm font-medium text-foreground/80">
+                                                        <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm border border-border/50">
+                                                            {feat.icon}
+                                                        </div>
+                                                        {feat.text}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Waitlist Form */}
+                                            <div className="max-w-md mx-auto lg:mx-0 bg-background/50 p-6 rounded-2xl border border-border/50 shadow-sm relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-500" />
+                                                <h3 className="font-semibold text-foreground mb-1">Get Early Access</h3>
+                                                <p className="text-sm text-muted-foreground mb-4">Join 2,000+ students waiting for the beta release.</p>
+
+                                                <AnimatePresence mode="wait">
+                                                    {waitlistStatus === 'success' ? (
+                                                        <motion.div
+                                                            key="success"
+                                                            initial={{ opacity: 0, y: 10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="flex flex-col items-center justify-center p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center"
+                                                        >
+                                                            <CheckCircle className="w-8 h-8 text-emerald-500 mb-2" />
+                                                            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                                                {waitlistMessage}
+                                                            </p>
+                                                        </motion.div>
+                                                    ) : (
+                                                        <motion.form
+                                                            key="form"
+                                                            initial={{ opacity: 0, y: 10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            onSubmit={handleWaitlistSubmit}
+                                                            className="flex flex-col gap-3"
+                                                        >
+                                                            <div className="relative">
+                                                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                                <input
+                                                                    type="email"
+                                                                    placeholder="Enter your email"
+                                                                    value={waitlistEmail}
+                                                                    onChange={(e) => {
+                                                                        setWaitlistEmail(e.target.value);
+                                                                        if (waitlistStatus === 'error') setWaitlistStatus('idle');
+                                                                    }}
+                                                                    required
+                                                                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-muted-foreground"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="submit"
+                                                                disabled={waitlistStatus === 'loading' || !waitlistEmail.trim()}
+                                                                className="w-full rounded-xl bg-foreground text-background hover:bg-foreground/90 py-3 text-sm font-semibold transition-all disabled:opacity-50"
+                                                            >
+                                                                {waitlistStatus === 'loading' ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                                ) : null}
+                                                                Join the Waitlist
+                                                            </Button>
+                                                        </motion.form>
+                                                    )}
+                                                </AnimatePresence>
+
+                                                <AnimatePresence>
+                                                    {waitlistStatus === 'error' && (
+                                                        <motion.p
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            className="text-xs text-red-500 mt-3 text-center"
+                                                        >
+                                                            {waitlistMessage}
+                                                        </motion.p>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </div>
+
+                                        {/* Right: Abstract Phone Visual */}
+                                        <div className="hidden lg:flex flex-col items-center justify-center w-[300px]">
+                                            <motion.div
+                                                initial={{ y: 20, opacity: 0 }}
+                                                whileInView={{ y: 0, opacity: 1 }}
+                                                transition={{ duration: 0.8, delay: 0.2 }}
+                                                className="relative w-64 h-[500px] bg-background rounded-[3rem] border-8 border-foreground/10 shadow-2xl overflow-hidden flex flex-col"
+                                            >
+                                                {/* Notch */}
+                                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-foreground/10 rounded-b-xl z-20" />
+
+                                                {/* Screen Content */}
+                                                <div className="flex-1 p-6 flex flex-col pt-12 relative z-10">
+                                                    {/* Fake Dashboard */}
+                                                    <div className="w-3/4 h-6 bg-border/50 rounded-lg mb-6" />
+
+                                                    <div className="space-y-4 flex-1">
+                                                        <div className="w-full h-24 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl flex p-4 shadow-sm border border-border/30">
+                                                            <div className="w-10 h-10 rounded-full bg-indigo-500/20 mb-auto" />
+                                                            <div className="ml-3 flex-1">
+                                                                <div className="w-2/3 h-3 bg-indigo-500/20 rounded mb-2" />
+                                                                <div className="w-1/2 h-2 bg-indigo-500/10 rounded" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-full h-16 bg-card rounded-2xl shadow-sm border border-border/50 flex items-center p-3 animate-pulse">
+                                                            <div className="w-8 h-8 rounded-full bg-border/50" />
+                                                            <div className="ml-3 flex-1">
+                                                                <div className="w-3/4 h-2 bg-border/50 rounded mb-2" />
+                                                                <div className="w-1/2 h-2 bg-border/30 rounded" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-full h-16 bg-card rounded-2xl shadow-sm border border-border/50 flex items-center p-3">
+                                                            <div className="w-8 h-8 rounded-full bg-border/50" />
+                                                            <div className="ml-3 flex-1">
+                                                                <div className="w-2/3 h-2 bg-border/50 rounded mb-2" />
+                                                                <div className="w-1/3 h-2 bg-border/30 rounded" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Gradient Overlay for visual effect */}
+                                                <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-background to-transparent z-20 pointer-events-none" />
+                                            </motion.div>
                                         </div>
                                     </div>
-
-                                    {/* Right: Content */}
-                                    <div className="flex-1 text-center md:text-left">
-                                        <h2 className="text-2xl md:text-3xl font-bold mb-2">
-                                            StudyBuddy for Android
-                                        </h2>
-                                        <p className="text-muted-foreground text-base mb-6 max-w-md">
-                                            Study on the go! Get the full power of StudyBuddy right in your pocket.
-                                            Join the waitlist to be the first to know when it's available.
-                                        </p>
-
-                                        {/* Waitlist Form */}
-                                        <AnimatePresence mode="wait">
-                                            {waitlistStatus === 'success' ? (
-                                                <motion.div
-                                                    key="success"
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"
-                                                >
-                                                    <CheckCircle className="w-6 h-6 text-emerald-500 flex-shrink-0" />
-                                                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                                                        {waitlistMessage}
-                                                    </p>
-                                                </motion.div>
-                                            ) : (
-                                                <motion.form
-                                                    key="form"
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    onSubmit={handleWaitlistSubmit}
-                                                    className="flex flex-col sm:flex-row gap-3"
-                                                >
-                                                    <div className="relative flex-1">
-                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                                        <input
-                                                            type="email"
-                                                            placeholder="Enter your email"
-                                                            value={waitlistEmail}
-                                                            onChange={(e) => {
-                                                                setWaitlistEmail(e.target.value);
-                                                                if (waitlistStatus === 'error') setWaitlistStatus('idle');
-                                                            }}
-                                                            required
-                                                            className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-background/80 backdrop-blur-sm border border-border/60 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all placeholder:text-muted-foreground/60"
-                                                        />
-                                                    </div>
-                                                    <Button
-                                                        type="submit"
-                                                        disabled={waitlistStatus === 'loading' || !waitlistEmail.trim()}
-                                                        className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3.5 text-sm font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:shadow-xl hover:shadow-indigo-500/30 disabled:opacity-50"
-                                                    >
-                                                        {waitlistStatus === 'loading' ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                                        ) : null}
-                                                        Join Waitlist
-                                                    </Button>
-                                                </motion.form>
-                                            )}
-                                        </AnimatePresence>
-
-                                        {/* Error message */}
-                                        <AnimatePresence>
-                                            {waitlistStatus === 'error' && (
-                                                <motion.p
-                                                    initial={{ opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    className="text-sm text-red-500 mt-2"
-                                                >
-                                                    {waitlistMessage}
-                                                </motion.p>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
                                 </div>
-                            </div>
-                        </motion.div>
-                    </div>
+                            </motion.div>
+                        </div>
+                    )}
 
                 </div>
             </main>
