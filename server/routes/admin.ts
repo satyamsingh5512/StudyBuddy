@@ -1,28 +1,28 @@
 import express from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { isAdmin } from '../middleware/admin.js';
-import { db } from '../lib/db.js';
+import { adminGuard } from '../middleware/adminGuard.js';
+import { collections } from '../db/collections.js';
 import { sendDailyStatsEmail } from '../lib/email.js';
 import { isTempEmail } from '../lib/emailValidator.js';
 
 const router = express.Router();
 
 // Get admin dashboard stats
-router.get('/stats', isAuthenticated, isAdmin, async (_req, res) => {
+router.get('/stats', isAuthenticated, adminGuard, async (_req, res) => {
   try {
-    const totalUsers = await db.user.count();
-    const verifiedUsers = await db.user.count({ where: { emailVerified: true } });
-    const activeToday = await db.user.count({
-      where: {
-        lastActive: {
-          $gte: new Date(new Date().setHours(0, 0, 0, 0))
-        }
-      }
+    const totalUsers = await (await collections.users).countDocuments();
+    const verifiedUsers = await (await collections.users).countDocuments({ emailVerified: true });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const activeToday = await (await collections.users).countDocuments({
+      lastActive: { $gte: today }
     });
 
-    // Count users with temp emails
-    const allUsers = await db.user.findMany({ select: { email: true } });
-    const tempEmailCount = allUsers.filter((u: any) => isTempEmail(u.email)).length;
+    // Count users with temp emails (fetching only email field using projection)
+    const allUsers = await (await collections.users).find({}, { projection: { email: 1 } }).toArray();
+    const tempEmailCount = allUsers.filter(u => isTempEmail(u.email)).length;
 
     res.json({
       totalUsers,
@@ -38,11 +38,9 @@ router.get('/stats', isAuthenticated, isAdmin, async (_req, res) => {
 });
 
 // Send daily stats email to all users
-router.post('/send-daily-stats', isAuthenticated, isAdmin, async (_req, res) => {
+router.post('/send-daily-stats', isAuthenticated, adminGuard, async (_req, res) => {
   try {
-    const users = await db.user.findMany({
-      where: { emailVerified: true }
-    });
+    const users = await (await collections.users).find({ emailVerified: true }).toArray();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -53,44 +51,37 @@ router.post('/send-daily-stats', isAuthenticated, isAdmin, async (_req, res) => 
 
     for (const user of users) {
       try {
-        // Skip temporary/disposable emails
         if (isTempEmail(user.email)) {
           console.log(`⚠️  Skipping temp email: ${user.email}`);
           skippedTempEmails++;
           continue;
         }
 
-        // Get today's todos
-        const todos = await db.todo.findMany({
-          where: {
-            userId: user.id,
-            createdAt: { $gte: today }
-          }
-        });
+        const todosDb = await collections.todos;
+        const schedulesDb = await collections.schedules;
+        const timersDb = await collections.timerSessions;
 
-        // Get today's schedules
-        const schedules = await db.schedule.findMany({
-          where: {
-            userId: user.id,
-            date: { $gte: today }
-          }
-        });
+        const todos = await todosDb.find({
+          userId: user._id,
+          createdAt: { $gte: today }
+        }).toArray();
 
-        // Get today's timer sessions
-        const timerSessions = await db.timerSession.findMany({
-          where: {
-            userId: user.id,
-            createdAt: { $gte: today }
-          }
-        });
+        const schedules = await schedulesDb.find({
+          userId: user._id,
+          date: { $gte: today }
+        }).toArray();
 
-        // Calculate stats
+        const timerSessions = await timersDb.find({
+          userId: user._id,
+          createdAt: { $gte: today }
+        }).toArray();
+
         const completedTodos = todos.filter(t => t.completed).length;
         const totalTodos = todos.length;
         const completedSchedules = schedules.filter(s => s.completed).length;
         const totalSchedules = schedules.length;
 
-        const totalStudyMinutes = timerSessions.reduce((sum: number, session: any) => {
+        const totalStudyMinutes = timerSessions.reduce((sum: number, session) => {
           return sum + (session.duration || 0);
         }, 0);
 
