@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { db } from '../lib/db.js';
-import { getMongoDb, toObjectId } from '../lib/mongodb.js';
+import { collections } from '../db/collections.js';
+import { ObjectId } from 'mongodb';
 
 const router = Router();
 
-// Save study session
-router.post('/session', isAuthenticated, async (req: any, res: any) => {
+router.post('/session', isAuthenticated, async (req, res) => {
   try {
     const { minutes, sessionType = 'pomodoro' } = req.body;
 
@@ -14,81 +13,64 @@ router.post('/session', isAuthenticated, async (req: any, res: any) => {
       return res.status(400).json({ error: 'Invalid session duration' });
     }
 
-    const mongoDb = await getMongoDb();
-    if (!mongoDb) {
-      return res.status(500).json({ error: 'Database connection failed' });
-    }
+    const userId = req.user!._id;
 
-    const userId = req.user.id;
-
-    // Fetch current user data
-    const currentUser = await mongoDb.collection('users').findOne({ _id: toObjectId(userId) });
+    const currentUser = await (await collections.users).findOne({ _id: userId });
     if (!currentUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const currentPoints = typeof currentUser.totalPoints === 'number' ? currentUser.totalPoints : 0;
-    const currentMinutes = typeof currentUser.totalStudyMinutes === 'number' ? currentUser.totalStudyMinutes : 0;
+    await (await collections.timerSessions).insertOne({
+      userId,
+      duration: minutes,
+      sessionType,
+      startedAt: new Date(Date.now() - minutes * 60 * 1000),
+      completedAt: new Date(),
+      createdAt: new Date()
+    } as any);
 
-    // Create timer session record
-    await db.timerSession.create({
-      data: {
-        userId,
-        duration: minutes,
-        sessionType,
-        startedAt: new Date(Date.now() - minutes * 60 * 1000),
-        completedAt: new Date(),
-      }
-    });
-
-    // Update user stats with calculated values
-    await mongoDb.collection('users').updateOne(
-      { _id: toObjectId(userId) },
+    await (await collections.users).updateOne(
+      { _id: userId },
       {
+        $inc: {
+          totalStudyMinutes: minutes,
+          totalPoints: minutes
+        },
         $set: {
-          totalStudyMinutes: currentMinutes + minutes,
-          totalPoints: currentPoints + minutes,
           lastActive: new Date()
         }
       }
     );
 
-    // Create daily report entry or update existing
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    const existingReport = await db.dailyReport.findFirst({
-      where: {
-        userId: userId,
-        date: {
-          $gte: today,
-          $lt: tomorrow,
-        },
-      },
+    const existingReport = await (await collections.dailyReports).findOne({
+      userId,
+      date: { $gte: today, $lt: tomorrow }
     });
 
     if (existingReport) {
-      // Fetch current report to handle non-numeric fields
-      const currentReport = await mongoDb.collection('daily_reports').findOne({ _id: toObjectId(existingReport.id!) });
-      const currentStudyHours = typeof currentReport?.studyHours === 'number' ? currentReport.studyHours : 0;
-      
-      await mongoDb.collection('daily_reports').updateOne(
-        { _id: toObjectId(existingReport.id!) },
-        { $set: { studyHours: currentStudyHours + minutes / 60 } }
+      await (await collections.dailyReports).updateOne(
+        { _id: existingReport._id },
+        {
+          $inc: { studyHours: minutes / 60 },
+          $set: { updatedAt: new Date() }
+        }
       );
     } else {
-      await db.dailyReport.create({
-        data: {
-          userId: userId,
-          date: today,
-          tasksPlanned: 0,
-          tasksCompleted: 0,
-          studyHours: minutes / 60,
-          understanding: 5,
-          completionPct: 0,
-        },
-      });
+      await (await collections.dailyReports).insertOne({
+        userId,
+        date: today,
+        tasksPlanned: 0,
+        tasksCompleted: 0,
+        studyHours: minutes / 60,
+        understanding: 5,
+        completionPct: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as any);
     }
 
     res.json({
@@ -102,61 +84,49 @@ router.post('/session', isAuthenticated, async (req: any, res: any) => {
   }
 });
 
-// Get analytics data
-router.get('/analytics', isAuthenticated, async (req: any, res: any) => {
+router.get('/analytics', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!._id;
     const { days = 7 } = req.query;
 
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
+    startDate.setDate(startDate.getDate() - parseInt(days as string));
     startDate.setHours(0, 0, 0, 0);
 
-    // Get timer sessions for more accurate analytics
-    const sessions = await db.timerSession.findMany({
-      where: {
-        userId,
-        completedAt: { $gte: startDate },
-      },
-      orderBy: { completedAt: 'asc' },
-    });
+    const sessions = await (await collections.timerSessions).find(
+      { userId, completedAt: { $gte: startDate } },
+      { sort: { completedAt: 1 } }
+    ).toArray();
 
-    // Get daily reports for task completion data
-    // Note: TypeScript might complain about explicit cast if not inferred, but findMany returns type T[]
-    const reports = await db.dailyReport.findMany({
-      where: {
-        userId,
-        date: { $gte: startDate },
-      },
-      orderBy: { date: 'asc' },
-    });
+    const reports = await (await collections.dailyReports).find(
+      { userId, date: { $gte: startDate } },
+      { sort: { date: 1 } }
+    ).toArray();
 
-    // Fill in missing days with zero data
     const analytics = [];
-    for (let i = 0; i < parseInt(days); i++) {
+    for (let i = 0; i < parseInt(days as string); i++) {
       const date = new Date(startDate);
       date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
 
-      // Calculate study hours from timer sessions (any type to handle logic)
-      const daySessions = (sessions as any[]).filter(s =>
-        new Date(s.completedAt).toDateString() === date.toDateString()
+      const daySessions = sessions.filter(s =>
+        new Date((s as any).completedAt).toDateString() === date.toDateString()
       );
       const studyHours = daySessions.reduce((sum, s) => sum + s.duration, 0) / 60;
 
-      // Get tasks completed from reports
-      const report = (reports as any[]).find(r =>
+      const report = reports.find(r =>
         new Date(r.date).toDateString() === date.toDateString()
       );
 
       analytics.push({
         date: dateStr,
         studyHours: studyHours,
-        tasksCompleted: report?.tasksCompleted || 0,
-        understanding: report?.understanding || 0,
+        tasksCompleted: (report as any)?.tasksCompleted || 0,
+        understanding: (report as any)?.understanding || 0,
         sessions: daySessions.length,
         sessionTypes: daySessions.reduce((acc, s) => {
-          acc[s.sessionType] = (acc[s.sessionType] || 0) + 1;
+          const type = (s as any).sessionType || 'pomodoro';
+          acc[type] = (acc[type] || 0) + 1;
           return acc;
         }, {} as Record<string, number>),
       });
