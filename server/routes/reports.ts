@@ -1,21 +1,22 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
 import { reportRateLimiter } from '../middleware/rateLimiting.js';
-import { db } from '../lib/db.js';
+import { collections } from '../db/collections.js';
 
 const router = Router();
 
 router.use(isAuthenticated);
 
-// Apply report rate limiter to report creation
 router.post('/', reportRateLimiter, async (req, res) => {
   try {
-    const report = await db.dailyReport.create({
-      data: {
-        ...req.body,
-        userId: (req.user as any).id,
-      },
-    });
+    const reportData = {
+      ...req.body,
+      userId: req.user!._id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const result = await (await collections.dailyReports).insertOne(reportData);
+    const report = await (await collections.dailyReports).findOne({ _id: result.insertedId });
     res.json(report);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create report' });
@@ -24,28 +25,13 @@ router.post('/', reportRateLimiter, async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const reports = await db.dailyReport.findMany({
-      where: { userId: (req.user as any).id },
-      orderBy: { date: 'desc' },
-      take: 30,
-    });
+    const reports = await (await collections.dailyReports).find(
+      { userId: req.user!._id },
+      { sort: { date: -1 }, limit: 30 }
+    ).toArray();
     res.json(reports);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch reports' });
-  }
-});
-
-router.post('/', async (req, res) => {
-  try {
-    const report = await db.dailyReport.create({
-      data: {
-        ...req.body,
-        userId: (req.user as any).id,
-      },
-    });
-    res.json(report);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create report' });
   }
 });
 
