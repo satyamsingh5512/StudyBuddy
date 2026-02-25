@@ -1,6 +1,6 @@
 import express from 'express';
 import { isAuthenticated } from '../middleware/auth.js';
-import { adminGuard } from '../middleware/adminGuard.js';
+import { isAdmin } from '../middleware/admin.js';
 import { collections } from '../db/collections.js';
 import { sendDailyStatsEmail } from '../lib/email.js';
 import { isTempEmail } from '../lib/emailValidator.js';
@@ -8,7 +8,7 @@ import { isTempEmail } from '../lib/emailValidator.js';
 const router = express.Router();
 
 // Get admin dashboard stats
-router.get('/stats', isAuthenticated, adminGuard, async (_req, res) => {
+router.get('/stats', isAuthenticated, isAdmin, async (_req, res) => {
   try {
     const totalUsers = await (await collections.users).countDocuments();
     const verifiedUsers = await (await collections.users).countDocuments({ emailVerified: true });
@@ -38,7 +38,7 @@ router.get('/stats', isAuthenticated, adminGuard, async (_req, res) => {
 });
 
 // Send daily stats email to all users
-router.post('/send-daily-stats', isAuthenticated, adminGuard, async (_req, res) => {
+router.post('/send-daily-stats', isAuthenticated, isAdmin, async (_req, res) => {
   try {
     const users = await (await collections.users).find({ emailVerified: true }).toArray();
 

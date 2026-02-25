@@ -31,9 +31,9 @@ export const generateAIResponse = async (
     }
 
     try {
-        console.log('🤖 AI Orchestrator: Generating via Gemini Pro...');
+        console.log('🤖 AI Orchestrator: Generating via Gemini...');
         const genAI = getGeminiClient();
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         // Convert messages to Gemini format
         const systemMessages = messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
