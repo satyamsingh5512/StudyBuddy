@@ -5,6 +5,62 @@ import { getDb } from '../db/client.js';
 
 const router = Router();
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+
+/**
+ * GET /api/username/check/:username
+ * Public endpoint — no auth required (called during onboarding before user has a session).
+ * Checks availability using the in-memory trie with a DB fallback.
+ */
+router.get('/check/:username', async (req, res) => {
+  const { username } = req.params;
+
+  // Format validation
+  if (!username || username.length < 3) {
+    return res.json({ available: false, message: 'Username must be at least 3 characters' });
+  }
+  if (username.length > 20) {
+    return res.json({ available: false, message: 'Username must be less than 20 characters' });
+  }
+  if (!USERNAME_REGEX.test(username)) {
+    return res.json({ available: false, message: 'Only letters, numbers, and underscores allowed' });
+  }
+
+  try {
+    // Primary check: in-memory trie (O(m), very fast)
+    const takenInTrie = usernameTrie.exists(username);
+
+    if (takenInTrie) {
+      const suggestions = usernameTrie.generateSuggestions(username);
+      return res.json({
+        available: false,
+        message: `@${username} is already taken`,
+        suggestions,
+      });
+    }
+
+    // Fallback check: database (handles edge case where trie isn't warm yet)
+    const existing = await (await collections.users).findOne(
+      { username: { $regex: new RegExp(`^${username}$`, 'i') } },
+      { projection: { _id: 1 } },
+    );
+
+    if (existing) {
+      const suggestions = usernameTrie.generateSuggestions(username);
+      return res.json({
+        available: false,
+        message: `@${username} is already taken`,
+        suggestions,
+      });
+    }
+
+    return res.json({ available: true, message: `@${username} is available!` });
+  } catch (error) {
+    console.error('❌ Username check error:', error);
+    return res.status(500).json({ available: false, message: 'Could not check username, please try again' });
+  }
+});
+
 let trieInitialized = false;
 
 async function initializeTrie() {
