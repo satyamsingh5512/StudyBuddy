@@ -78,12 +78,29 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
     }
 
     // Debounce the check
+    // Don't show "too short" error while actively typing — only once 3+ chars
+    if (value.length > 0 && value.length < 3) {
+      setStatus('idle');
+      setMessage('');
+      setSuggestions([]);
+      onValidationChange?.(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
       checkUsername(value);
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [value, checkUsername, onValidationChange]);
+
+  const handleBlur = () => {
+    if (value.length > 0 && value.length < 3) {
+      setStatus('invalid');
+      setMessage('Username must be at least 3 characters');
+      onValidationChange?.(false);
+    }
+  };
 
   const handleSuggestionClick = (suggestion: string) => {
     onChange(suggestion);
@@ -96,6 +113,7 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
           placeholder="Choose a username"
           value={value}
           onChange={(e) => onChange(e.target.value.toLowerCase())}
+          onBlur={handleBlur}
           className={`pr-10 transition-all duration-200 ${status === 'available'
               ? 'border-green-500 focus:ring-green-500'
               : status === 'taken' || status === 'invalid'
