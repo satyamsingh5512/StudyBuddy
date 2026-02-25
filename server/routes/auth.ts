@@ -37,20 +37,29 @@ router.get('/google/callback', (req, res) => {
     return res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
   }
 
-  passport.authenticate('google', { session: false, failureRedirect: '/auth' })(req, res, async () => {
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  passport.authenticate('google', { session: false, failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth?error=google_failed` })(req, res, async () => {
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
     const user = req.user as any;
 
     try {
       setSessionData(req, user);
 
-      console.log('✅ Google OAuth login successful:', user?.email);
+      const nextPage = user && !user.onboardingDone ? 'onboarding' : 'dashboard';
 
-      if (user && !user.onboardingDone) {
-        res.redirect(`${clientUrl}/onboarding`);
-      } else {
-        res.redirect(`${clientUrl}/dashboard`);
-      }
+      // CRITICAL: explicitly save session to MongoDB before redirecting.
+      // Without this, the async MongoStore write may not complete before the
+      // browser follows the redirect and the /auth/me call arrives — causing
+      // the session to appear missing (race condition).
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Failed to save session after Google OAuth:', err);
+          return res.redirect(`${clientUrl}/auth?error=session_failed`);
+        }
+        console.log('✅ Google OAuth login successful:', user?.email);
+        // Redirect to a dedicated frontend callback page that will
+        // retry /auth/me and then navigate to the right place.
+        res.redirect(`${clientUrl}/auth/google/callback?next=${nextPage}`);
+      });
     } catch (error) {
       console.error('❌ Error saving session after Google OAuth:', error);
       res.redirect(`${clientUrl}/auth?error=session_failed`);

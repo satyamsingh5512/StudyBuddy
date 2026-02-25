@@ -40,6 +40,7 @@ const Support = lazy(() => import('./pages/Support'));
 const News = lazy(() => import('./pages/News'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Admin = lazy(() => import('./pages/Admin'));
+const GoogleAuthCallback = lazy(() => import('./pages/GoogleAuthCallback'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -136,6 +137,8 @@ function App() {
         <Routes>
           {/* Public routes - always accessible */}
           <Route path="/auth" element={<Auth />} />
+          {/* Google OAuth callback — must be public and rendered before auth check */}
+          <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />

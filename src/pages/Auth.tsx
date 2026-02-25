@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { soundManager } from '../lib/sounds';
@@ -21,10 +22,19 @@ export default function Auth() {
     const [isLoading, setIsLoading] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const { toast } = useToast();
+    const [searchParams] = useSearchParams();
 
     useEffect(() => {
         soundManager.initialize();
+        // Show error toast if OAuth redirect included an error param
+        const error = searchParams.get('error');
+        if (error === 'google_failed') {
+            toast({ title: 'Google Sign-In Failed', description: 'Could not authenticate with Google. Please try again.', variant: 'destructive' });
+        } else if (error === 'google_session_failed' || error === 'session_failed') {
+            toast({ title: 'Sign-In Error', description: 'Session could not be established. Please try again.', variant: 'destructive' });
+        }
     }, []);
+
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
