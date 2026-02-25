@@ -1,0 +1,84 @@
+name: Deploy StudyBuddy
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-and-test:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Build Web
+        run: npm run build
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Render (Staging)
+        run: |
+          curl -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
+          echo "Triggered staging deployment"
+
+      - name: Wait for Deploy
+        run: sleep 60
+
+      - name: Health Check
+        run: |
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api-staging.satym.in/health)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Staging health check passed"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: Status $STATUS, waiting..."
+            sleep 10
+          done
+          echo "❌ Staging health check failed"
+          exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy to Render (Production)
+        run: |
+          curl -X POST "${{ secrets.RENDER_PROD_DEPLOY_HOOK }}"
+          echo "Triggered production deployment"
+
+      - name: Wait for Deploy
+        run: sleep 90
+
+      - name: Health Check
+        run: |
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.satym.in/health)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Production health check passed"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: Status $STATUS, waiting..."
+            sleep 15
+          done
+          echo "❌ Production health check failed"
+          exit 1

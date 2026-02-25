@@ -1,0 +1,92 @@
+Implementation Plan
+28 minutes ago
+
+Review
+Premium UI/UX Implementation Plan: StudyBuddy
+Goal Description
+Redesign StudyBuddy into a premium, $20/month tier EdTech SaaS product. The platform will pivot to a modern, focused, dark-mode-first aesthetic (Notion × Linear × Discord) optimizing for deep focus, collaboration, and high-quality micro-interactions.
+
+User Review Required
+IMPORTANT
+
+This is a massive structural and visual overhaul. Please review the design system and component inventory below. Once approved, I will implement this in phases: Phase 1 (Core Design System & Layout), Phase 2 (Dashboard & Sidebar), Phase 3 (Study Room & AI), Phase 4 (Flashcards & Library). Do you approve this design direction?
+
+🎨 Design System
+Color Palette (Dark-Mode First)
+Primary Brand: Electric Indigo (#6C47FF)
+Accent: Warm Amber (#F59E0B) or Teal (#14B8A6)
+Surface Layers:
+bg-background: #09090B (Deep absolute dark)
+bg-card: #18181B (Base layer)
+bg-elevated: #27272A (Floating menus, modals)
+Semantic: Success (#10B981), Warning (#F59E0B), Error (#EF4444), Info (#3B82F6)
+Text: Primary (#FAFAFA), Secondary (#A1A1AA), Muted (#71717A)
+Typography
+Headings: Inter (geometric, bold, tight tracking)
+Body: Inter (clean, highly legible)
+Monospace: JetBrains Mono (for AI blocks and code)
+Scale: Custom Tailwind scale mapped from text-xs to text-4xl
+Spacing & Layout
+Grid: Strict 8px base spacing system (p-2, gap-4, m-8)
+Layout:
+Left Sidebar: Collapsible (72px collapsed / 240px expanded)
+Right Sidebar: AI Assistant (400px fixed when open)
+Content: 1280px max-width, 32px standard gutters
+🧱 Component Inventory
+Button: Variants: primary (indigo gradient), secondary (glassmorphism outline), ghost, danger. States: hover (lift & glow), loading (shimmer text).
+Input: Variants: default (subtle border), focused (indigo ring + shadow), error (red ring).
+Avatar: Sizes: sm/md/lg. Includes online status dots and absolute positioning for group avatar stacks.
+Tag/Badge: Pill-shaped, semi-transparent background (bg-opacity-10), color-coded by subject.
+Room Card: Glassmorphism effect, dynamic pulsing green border when active, avatar stack of members.
+Stat Widget: Backdrop blur, large number, subtle trend arrow graph in the background.
+Progress Ring: SVG circle for Pomodoro. Animated stroke-dashoffset using Framer Motion.
+Modal: Deep backdrop blur (backdrop-blur-md), elevated dark surface, scale-up entrance animation.
+Sidebar Nav Item: Icon + Label. Active state has a vertical indigo accent bar and subtle background gradient.
+Notification Item: Unread dot, muted timestamp, hover state raises priority.
+📄 Core Pages Design Specs
+1. Dashboard (Home)
+Layout: CSS Grid, 3 columns on large screens. Top greeting row, middle stats row, bottom timeline and active rooms.
+Components: Stat Widgets, Heatmap, Progress Ring, Room Cards, AI Tip Card.
+Colors: Surfaces use bg-card with an indigo radical gradient glow behind the active session ring.
+Animation: Staggered fade-up on load (150ms delay per row).
+Wow Factor: A GitHub-style "Study Streak" heatmap that subtly glows on days with extreme high activity.
+2. Study Room (Live Space)
+Layout: Split-pane. Left 70% is the interactive Editor/Board. Right 30% is the Participant/Chat panel.
+Components: Avatar Stack, Rich Text Toolbar, Progress Ring (synced pomodoro), Reaction Bar.
+Colors: Editor is pure bg-background for stark contrast. Toolbars are bg-elevated.
+Animation: Avatars pulse when speaking. Emoji reactions float up and fade out.
+Wow Factor: "Focus Mode" hotkey (Cmd+Shift+F) dims the entire UI except the glowing Pomodoro ring and the text editor.
+3. Resource Library
+Layout: Masonry grid layout with a sticky top filter bar.
+Components: Resource Cards, Input (search), Tags (filters), Dropzone.
+Colors: Cards are standard surface colors. The Dropzone uses an indigo dashed border.
+Animation: Hovering a card lifts it -4px and increases the drop shadow.
+Wow Factor: "AI Summarize" button on cards opens a sidebar streaming a GPT-generated summary of the PDF while showing a skeleton loader.
+4. Flashcard Studio
+Layout: Full-screen focus layout for studying. 2-column for deck creation.
+Components: Flashcard (3D component), Progress Bar, Badges.
+Colors: Dark surface cards with success/error semantic colors for "Remembered / Forgot" buttons.
+Animation: True 3D CSS rotateY(180deg) flip animation.
+Wow Factor: Spaced repetition badges that slowly shift from green to amber as the review date approaches.
+5. Leaderboard & Gamification
+Layout: Stacked list layout with top 3 users highlighted in podium format.
+Components: Avatar, Progress bars, Badges (trophies).
+Colors: Gold, Silver, Bronze accents for top 3. Indigo for the current user's highlight.
+Animation: XP progress bars animate from 0 to current value on scroll.
+Wow Factor: SVG Confetti burst physics animation triggered when leveling up a tier.
+6. AI Study Assistant (Sidebar)
+Layout: Fixed right-side panel, 400px wide. Scrollable chat area, sticky input at bottom.
+Components: Chat bubbles, Code block renderers, Quick-prompt chips.
+Colors: User bubbles are solid indigo, AI bubbles are bg-elevated.
+Animation: Smooth slide-in from the right edge. Typing indicator dots bounce sequentially.
+Wow Factor: Markdown rendering with syntax highlighting and mathematical LaTeX formula support.
+Verification Plan
+Because this task involves primarily visual and architectural overhaul, verification will center entirely on manual verification and visual QA logic:
+
+CSS/Tailwind Validation: Run npx tsc && npx vite build to ensure all custom Tailwind colors and spacing scale compile successfully without throwing undeclared class errors.
+Component Rendering: As Phase 1 completes, verify that the ThemeToggle and dark mode work seamlessly with the new core background/foreground colors.
+Responsiveness: Resize window down to xs (475px) to ensure the 1280px max-width layout gracefully degrading into a single-column layout.
+Visual Approval: The user must review Localhost across each Phase visually to confirm the Premium SaaS aesthetic is hit prior to continuing to the next phase.
+
+
+

@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build
+dist/
+dist-server/
+build/
+*.tsbuildinfo
+.vite/
+
+# Compiled TypeScript (server)
+server/**/*.js
+server/**/*.js.map
+!server/**/*.config.js
+
+# Capacitor
+android/
+ios/
+*.keystore
+*.jks
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Agent/AI tool configs
+.agent/
+.agents/
+.gemini/
+.github/skills/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (keep important docs)
+!*.md
+
+# Prisma (not used - MongoDB only)
+prisma/
+
+# Backup files
+*.backup
+*.old
+*.bak
+backups/

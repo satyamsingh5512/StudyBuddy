@@ -1,0 +1,287 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* StudyBuddy Light Theme - High Contrast Muted */
+
+        --background: 0 0% 100%;
+        --foreground: 240 10% 4%;
+
+        --card: 0 0% 100%;
+        --card-foreground: 240 10% 4%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 240 10% 4%;
+
+        --primary: 251 100% 64%;
+        /* #6C47FF */
+        --primary-foreground: 0 0% 98%;
+
+        --secondary: 240 5% 96%;
+        --secondary-foreground: 240 6% 10%;
+
+        --muted: 240 5% 96%;
+        --muted-foreground: 240 4% 46%;
+
+        --accent: 38 92% 50%;
+        /* #F59E0B Amber */
+        --accent-foreground: 0 0% 98%;
+
+        --success: 160 84% 39%;
+        /* #10B981 */
+        --success-foreground: 0 0% 98%;
+
+        --destructive: 0 84% 60%;
+        /* #EF4444 */
+        --destructive-foreground: 0 0% 98%;
+
+        --info: 217 91% 60%;
+        /* #3B82F6 */
+        --info-foreground: 0 0% 98%;
+
+        --border: 0 0% 0%;
+        /* Formss Border */
+        --input: 240 6% 90%;
+        --ring: 251 100% 64%;
+
+        --radius: 0.5rem;
+    }
+
+    .dark {
+        /* StudyBuddy Dark Theme - Notion/Linear Style */
+
+        --background: 240 10% 4%;
+        /* #09090B */
+        --foreground: 0 0% 98%;
+        /* #FAFAFA */
+
+        --card: 240 6% 10%;
+        /* #18181B */
+        --card-foreground: 0 0% 98%;
+
+        --popover: 240 5% 15%;
+        /* #27272A */
+        --popover-foreground: 0 0% 98%;
+
+        --primary: 251 100% 64%;
+        /* #6C47FF */
+        --primary-foreground: 0 0% 98%;
+
+        --secondary: 240 5% 15%;
+        /* #27272A */
+        --secondary-foreground: 0 0% 98%;
+
+        --muted: 240 5% 15%;
+        --muted-foreground: 240 5% 65%;
+        /* #A1A1AA */
+
+        --accent: 38 92% 50%;
+        /* #F59E0B Amber */
+        --accent-foreground: 0 0% 98%;
+
+        --success: 160 84% 39%;
+        /* #10B981 */
+        --success-foreground: 0 0% 98%;
+
+        --destructive: 0 63% 31%;
+        /* Darker red */
+        --destructive-foreground: 0 0% 98%;
+
+        --info: 217 91% 60%;
+        /* #3B82F6 */
+        --info-foreground: 0 0% 98%;
+
+        --border: 0 0% 100%;
+        /* Formss Border */
+        --input: 240 3.7% 15.9%;
+        --ring: 240 4.9% 83.9%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    /* Smooth theme transitions */
+    *,
+    *::before,
+    *::after {
+        transition-property: color, background-color, border-color, fill, stroke;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+    }
+
+    .theme-transitioning * {
+        transition: none !important;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-family: 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        min-height: 100vh;
+        background-attachment: fixed;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Inter', sans-serif;
+        letter-spacing: -0.02em;
+        @apply font-bold;
+    }
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .glass-card {
+        @apply backdrop-blur-xl border border-white/10 shadow-xl;
+        background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    .dark .glass-card {
+        @apply border-white/5;
+        background-color: rgba(24, 24, 27, 0.6);
+        /* --card with lower opacity */
+    }
+
+    /* Micro-interactions: Card Lift */
+    .card-lift {
+        @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl;
+    }
+
+    /* Text constraints */
+    .text-mono {
+        font-family: 'JetBrains Mono', monospace;
+    }
+}
+
+/* Page Transitions */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-transition {
+    animation: fadeInSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animations */
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(108, 71, 255, 0.4);
+    }
+
+    50% {
+        opacity: .8;
+        box-shadow: 0 0 0 10px rgba(108, 71, 255, 0);
+    }
+}
+
+.animate-pulse-glow {
+    animation: pulseGlow 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.animate-shimmer {
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
+/* Optimized Lists */
+.list-item-optimized {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 60px;
+}
+@layer base {
+  /* Light Mode Background */
+  body:not(.dark) {
+    background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, rgba(201, 218, 255, 0.5) 100%);
+    background-color: #fff;
+  }
+
+  /* Dark Mode Background */
+  .dark body {
+    background-image: none;
+    background-color: #09090b;
+  }
+}
+
+@layer utilities {
+  .neo-button {
+    @apply px-6 py-2 bg-white border-2 border-black text-black font-semibold hover:translate-x-[2px] hover:translate-y-[2px] transition-all active:translate-x-[4px] active:translate-y-[4px];
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  .dark .neo-button {
+    @apply bg-zinc-900 border-white/20 text-white;
+    box-shadow: 4px 4px 0px 0px #757373;
+  }
+
+  .neo-button:hover {
+    box-shadow: none !important;
+  }
+
+  .neo-button-primary {
+    @apply px-6 py-2 bg-black border-2 border-black text-white font-semibold hover:translate-x-[2px] hover:translate-y-[2px] transition-all hover:bg-zinc-800;
+    box-shadow: 4px 4px 0px 0px #000000;
+  }
+
+  .dark .neo-button-primary {
+    @apply bg-white border-white text-black hover:bg-zinc-200;
+    box-shadow: 4px 4px 0px 0px #757373;
+  }
+
+  .neo-button-primary:hover {
+    box-shadow: none !important;
+  }
+
+  .neo-card {
+    @apply bg-white border-2 border-black rounded-xl p-6;
+    box-shadow: 8px 8px 0px 0px #000000;
+  }
+
+  .dark .neo-card {
+    @apply bg-zinc-950 border-white/20;
+    box-shadow: 8px 8px 0px 0px #757373;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}

@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: studybuddy-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --legacy-peer-deps
+    startCommand: npx tsx server/index.ts
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: CLIENT_URL
+        value: https://sbd.satym.in
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "StudyBuddy <noreply@satym.in>"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: KEEP_ALIVE
+        value: "true"
+      - key: SELF_URL
+        value: "https://studybuddy-api-s1bx.onrender.com"
+      - key: ALLOWED_ORIGINS
+        value: https://sbd.satym.in,capacitor://localhost,https://localhost
