@@ -140,6 +140,16 @@ async fn get_me(Extension(auth_user): Extension<AuthUser>) -> Json<User> {
 async fn logout(jar: CookieJar) -> Result<impl IntoResponse, StatusCode> {
     let mut cookie = Cookie::from("connect.sid");
     cookie.set_path("/");
+    
+    let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production";
+    if is_prod {
+        cookie.set_same_site(SameSite::None);
+        cookie.set_secure(true);
+    } else {
+        cookie.set_same_site(SameSite::Lax);
+        cookie.set_secure(false);
+    }
+    
     let updated_jar = jar.remove(cookie);
 
     Ok((updated_jar, Json(serde_json::json!({ "success": true }))))
@@ -425,7 +435,16 @@ fn set_auth_cookie(jar: CookieJar, token: String) -> CookieJar {
     let mut cookie = Cookie::new("connect.sid", token);
     cookie.set_http_only(true);
     cookie.set_path("/");
-    cookie.set_same_site(SameSite::Lax);
+    
+    let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production";
+    if is_prod {
+        cookie.set_same_site(SameSite::None);
+        cookie.set_secure(true);
+    } else {
+        cookie.set_same_site(SameSite::Lax);
+        cookie.set_secure(false);
+    }
+    
     // 30 days in seconds
     cookie.set_max_age(time::Duration::seconds(30 * 24 * 60 * 60));
     jar.add(cookie)
