@@ -42,144 +42,125 @@ export function AndroidWaitlistSection() {
     };
 
     return (
-        <section
-            id="android-waitlist"
-            className="relative z-10 py-24 overflow-hidden bg-gradient-to-b from-background to-emerald-950/10"
-        >
-            {/* Background glow */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-emerald-500/5 blur-[100px]" />
-            </div>
-
-            <div className="container mx-auto px-6 max-w-4xl relative">
-                {/* Badge */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+        <section className="relative z-10 py-12 bg-transparent">
+            <div className="container mx-auto">
+                <motion.div 
+                    initial={{ opacity: 0, y: 40 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="flex justify-center mb-6"
+                    viewport={{ once: true, margin: "-100px" }}
+                    className="max-w-4xl mx-auto bg-white/40 dark:bg-black/40 backdrop-blur-xl border-2 border-black/10 dark:border-white/10 shadow-xl rounded-[2.5rem] p-8 md:p-16 relative overflow-hidden"
                 >
-                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
-                        <Smartphone className="h-3.5 w-3.5" />
-                        Android App — Coming Soon
-                    </span>
-                </motion.div>
+                    {/* Background glow inside card */}
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-emerald-500/10 blur-[80px]" />
+                    </div>
 
-                {/* Headline */}
-                <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.05 }}
-                    className="text-center mb-4"
-                >
-                    <h2 className="text-4xl md:text-5xl font-black tracking-tight text-foreground leading-tight">
-                        Study Buddy in your pocket
-                    </h2>
-                    <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-                        The native Android app is almost ready. Be first in line — get early access and exclusive features before public launch.
-                    </p>
-                </motion.div>
+                    <div className="relative z-10">
+                        {/* Badge */}
+                        <div className="flex justify-center mb-8">
+                            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                <Smartphone className="h-4 w-4" />
+                                Android App — Coming Soon
+                            </span>
+                        </div>
 
-                {/* Perks */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.1 }}
-                    className="flex flex-wrap justify-center gap-3 mb-10"
-                >
-                    {perks.map((p, i) => (
-                        <motion.span
-                            key={i}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            whileInView={{ opacity: 1, scale: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.1 + i * 0.05 }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-muted/60 border border-border text-foreground"
-                        >
-                            <span>{p.icon}</span>
-                            {p.text}
-                        </motion.span>
-                    ))}
-                </motion.div>
+                        {/* Headline */}
+                        <div className="text-center mb-10">
+                            <h2 className="text-4xl md:text-5xl font-black tracking-tight text-black dark:text-white leading-tight">
+                                Study Buddy in your pocket
+                            </h2>
+                            <p className="mt-4 text-lg text-zinc-700 dark:text-zinc-300 max-w-xl mx-auto font-medium">
+                                The native Android app is almost ready. Be first in line — get early access and exclusive features before public launch.
+                            </p>
+                        </div>
 
-                {/* Form */}
-                <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.15 }}
-                    className="max-w-md mx-auto"
-                >
-                    <AnimatePresence mode="wait">
-                        {status === 'success' ? (
-                            <motion.div
-                                key="success"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex flex-col items-center gap-3 py-8 text-center"
-                            >
-                                <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                                    <CheckCircle2 className="h-7 w-7 text-emerald-400" />
-                                </div>
-                                <p className="font-bold text-lg text-foreground">You're on the list! 🎉</p>
-                                <p className="text-sm text-muted-foreground">
-                                    We'll send you the APK download link the moment it's ready.
-                                </p>
-                            </motion.div>
-                        ) : (
-                            <motion.form
-                                key="form"
-                                onSubmit={handleSubmit}
-                                className="flex flex-col sm:flex-row gap-2"
-                            >
-                                <div className="flex-1 relative">
-                                    <Bell className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <input
-                                        type="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="Enter your email"
-                                        disabled={status === 'loading'}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-background/80 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 transition"
-                                    />
-                                </div>
-                                <motion.button
-                                    type="submit"
-                                    disabled={status === 'loading'}
-                                    whileTap={{ scale: 0.96 }}
-                                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm transition-colors disabled:opacity-60 whitespace-nowrap"
+                        {/* Perks */}
+                        <div className="flex flex-wrap justify-center gap-3 mb-12">
+                            {perks.map((p, i) => (
+                                <span
+                                    key={i}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-white/60 dark:bg-white/10 border border-black/10 dark:border-white/10 text-black dark:text-white shadow-sm"
                                 >
-                                    {status === 'loading' ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <>
-                                            Notify me
-                                            <ChevronRight className="h-4 w-4" />
-                                        </>
-                                    )}
-                                </motion.button>
-                            </motion.form>
-                        )}
-                    </AnimatePresence>
+                                    <span>{p.icon}</span>
+                                    {p.text}
+                                </span>
+                            ))}
+                        </div>
 
-                    {status === 'error' && (
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="text-center text-sm text-destructive mt-2"
-                        >
-                            {errorMsg}
-                        </motion.p>
-                    )}
+                        {/* Form */}
+                        <div className="max-w-md mx-auto">
+                            <AnimatePresence mode="wait">
+                                {status === 'success' ? (
+                                    <motion.div
+                                        key="success"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="flex flex-col items-center gap-4 py-8 text-center bg-white/50 dark:bg-black/50 rounded-3xl border border-emerald-500/20"
+                                    >
+                                        <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                            <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-xl text-black dark:text-white">You're on the list! 🎉</p>
+                                            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                                                We'll send you the APK download link the moment it's ready.
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                ) : (
+                                    <motion.form
+                                        key="form"
+                                        onSubmit={handleSubmit}
+                                        className="flex flex-col sm:flex-row gap-3"
+                                    >
+                                        <div className="flex-1 relative">
+                                            <Bell className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                                            <input
+                                                type="email"
+                                                required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder="Enter your email"
+                                                disabled={status === 'loading'}
+                                                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-black/10 dark:border-white/10 bg-white/50 dark:bg-black/50 text-base font-medium text-black dark:text-white placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/20 disabled:opacity-50 transition-all shadow-sm"
+                                            />
+                                        </div>
+                                        <motion.button
+                                            type="submit"
+                                            disabled={status === 'loading'}
+                                            whileTap={{ scale: 0.96 }}
+                                            className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-base shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] transition-all disabled:opacity-60 whitespace-nowrap"
+                                        >
+                                            {status === 'loading' ? (
+                                                <Loader2 className="h-5 w-5 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    Notify me
+                                                    <ChevronRight className="h-5 w-5" />
+                                                </>
+                                            )}
+                                        </motion.button>
+                                    </motion.form>
+                                )}
+                            </AnimatePresence>
 
-                    {status !== 'success' && (
-                        <p className="text-center text-xs text-muted-foreground mt-3">
-                            No spam, ever. Just one email when the app drops.
-                        </p>
-                    )}
+                            {status === 'error' && (
+                                <motion.p
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="text-center text-sm text-red-500 font-bold mt-4"
+                                >
+                                    {errorMsg}
+                                </motion.p>
+                            )}
+
+                            {status !== 'success' && (
+                                <p className="text-center text-sm text-zinc-500 font-medium mt-4">
+                                    No spam, ever. Just one email when the app drops.
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </motion.div>
             </div>
         </section>

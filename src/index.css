@@ -137,6 +137,21 @@
         height: 100dvh;
     }
 
+    [data-scroll-container] {
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        transform: translateZ(0);
+        backface-visibility: hidden;
+        perspective: 1000px;
+    }
+
+    /* Used by shader pages for horizontal layout */
+    .section-horizontal {
+        transform: translateZ(0);
+        will-change: transform;
+        contain: layout style paint;
+    }
+
     h1,
     h2,
     h3,

@@ -272,12 +272,12 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </CardContent>
       </Card>
 
-      {/* Session Types Breakdown - Histogram Style */}
+      {/* Subjects Breakdown - Histogram Style */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Focus Session Types
+            Focus Subjects
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
@@ -296,8 +296,8 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
               return (
                 <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg p-6">
                   <Activity className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="font-medium">No session data available</p>
-                  <p className="text-sm mt-1">Start a focus session to see your breakdown</p>
+                  <p className="font-medium">No subject data available</p>
+                  <p className="text-sm mt-1">Start a focus session with a subject to see your breakdown</p>
                 </div>
               );
             }

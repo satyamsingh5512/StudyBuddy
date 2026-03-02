@@ -20,7 +20,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import FlipClock from './FlipClock';
 import { KeepAwake } from '@capacitor-community/keep-awake';
@@ -28,17 +27,34 @@ import { KeepAwake } from '@capacitor-community/keep-awake';
 interface FullscreenTimerProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedSubject?: string;
 }
 
-export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProps) {
+export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: FullscreenTimerProps) {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved, 10) : 50;
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    return !isNaN(parsed) && parsed >= 1 && parsed <= 120 ? parsed : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Keep duration in sync when StudyTimer (or any tab) changes it
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pomodoroDuration' && e.newValue) {
+        const parsed = parseInt(e.newValue, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 120) {
+          setPomodoroDuration(parsed);
+          setTempDuration(parsed);
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   const { toast } = useToast();
 
   const POMODORO_DURATION = pomodoroDuration * 60;
@@ -52,10 +68,11 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
     if (minutes < 1) return;
 
     try {
+      // In fullscreen mode, we might not have selectedSubject locally, but we can pass a default or keep it undefined
       const res = await apiFetch('/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutes, sessionType: 'fullscreen' }),
+        body: JSON.stringify({ duration: minutes, subject: selectedSubject }),
       });
 
       if (res.ok) {
@@ -137,15 +154,19 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
   const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
 
   const saveDuration = () => {
-    if (tempDuration >= 1 && tempDuration <= 120) {
-      setPomodoroDuration(tempDuration);
-      localStorage.setItem('pomodoroDuration', tempDuration.toString());
-      setShowSettings(false);
-      toast({
-        title: 'Timer updated',
-        description: `Focus duration set to ${tempDuration} minutes`
-      });
-    }
+    const clamped = Math.max(1, Math.min(120, tempDuration));
+    setPomodoroDuration(clamped);
+    localStorage.setItem('pomodoroDuration', clamped.toString());
+    // Notify StudyTimer of the change
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'pomodoroDuration',
+      newValue: clamped.toString(),
+    }));
+    setShowSettings(false);
+    toast({
+      title: 'Timer updated',
+      description: `Focus duration set to ${clamped} minutes`,
+    });
   };
 
   // Circular progress calculation
@@ -172,22 +193,31 @@ export default function FullscreenTimer({ isOpen, onClose }: FullscreenTimerProp
               <DialogHeader>
                 <DialogTitle>Timer Settings</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="duration">Duration (minutes)</Label>
-                  <Input
-                    id="duration"
-                    type="number"
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="fs-duration-slider">Focus Duration</Label>
+                    <span className="text-2xl font-bold tabular-nums">
+                      {tempDuration}<span className="text-sm font-normal text-muted-foreground ml-1">min</span>
+                    </span>
+                  </div>
+                  <input
+                    id="fs-duration-slider"
+                    type="range"
                     min="1"
                     max="120"
+                    step="1"
                     value={tempDuration}
-                    onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        saveDuration();
-                      }
-                    }}
+                    onChange={(e) => setTempDuration(parseInt(e.target.value, 10))}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary bg-muted"
                   />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1 min</span>
+                    <span>30 min</span>
+                    <span>60 min</span>
+                    <span>90 min</span>
+                    <span>120 min</span>
+                  </div>
                 </div>
                 <Button onClick={saveDuration} className="w-full">
                   Save

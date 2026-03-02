@@ -125,25 +125,6 @@ export default function Onboarding() {
   const selectedExam = EXAMS.find((e) => e.id === examGoal);
   const maxAttempts = examGoal.startsWith('JEE') ? 3 : examGoal.startsWith('NEET') ? 2 : 0;
 
-  const fetchExamData = async () => {
-    if (!examGoal) return;
-
-    try {
-      const res = await apiFetch('/ai/exam-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ examType: examGoal }),
-      });
-
-      if (res.ok) {
-        await res.json();
-        toast({ title: 'Exam information fetched successfully' });
-      }
-    } catch (error) {
-      console.error('Failed to fetch exam data:', error);
-    }
-  };
-
   const fetchFAQs = async () => {
     if (!examGoal) return;
 
@@ -182,22 +163,8 @@ export default function Onboarding() {
         finalAvatarUrl = uploadedAvatar || user?.avatar;
       }
 
-      // Fetch exam date from AI
       let examDate = null;
-      try {
-        const examInfoRes = await apiFetch('/ai/exam-date', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ examType: examGoal, batch }),
-        });
-
-        if (examInfoRes.ok) {
-          const examInfo = await examInfoRes.json();
-          examDate = examInfo.examDate;
-        }
-      } catch (error) {
-        console.error('Failed to fetch exam date:', error);
-      }
+      // Removed AI exam date fetching
 
       const res = await apiFetch('/users/onboarding', {
         method: 'POST',
@@ -386,7 +353,6 @@ export default function Onboarding() {
                   </Button>
                   <Button
                     onClick={() => {
-                      fetchExamData();
                       fetchFAQs();
                       setStep(3);
                     }}

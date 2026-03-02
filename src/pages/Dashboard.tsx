@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Clock, Pencil, Check, X as XIcon } from 'lucide-react';
+import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -14,10 +14,24 @@ import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
 import StudyHeatmap from '@/components/StudyHeatmap';
 import StudyTimer from '@/components/StudyTimer';
-
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Todo {
   id: string;
@@ -66,8 +80,14 @@ const todoItemVariants = {
   exit: { opacity: 0, x: -30, scale: 0.95, transition: { duration: 0.2, ease: 'easeInOut' } },
 };
 
-// Memoized TodoItem component to prevent unnecessary re-renders
-const TodoItem = memo(
+const difficultyConfig: Record<string, { label: string; color: string }> = {
+  easy: { label: 'Easy', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  medium: { label: 'Medium', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+  hard: { label: 'Hard', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
+};
+
+// ─── Sortable TodoItem ───────────────────────────────────────────────────────
+const SortableTodoItem = memo(
   ({
     todo,
     onToggle,
@@ -75,6 +95,7 @@ const TodoItem = memo(
     onRescheduleToday,
     onReschedule,
     onEdit,
+    isDragDisabled,
   }: {
     todo: Todo;
     onToggle: (id: string, completed: boolean) => void;
@@ -82,19 +103,32 @@ const TodoItem = memo(
     onRescheduleToday: (id: string) => void;
     onReschedule: (id: string) => void;
     onEdit: (id: string, updates: Partial<Todo>) => void;
+    isDragDisabled?: boolean;
   }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id: todo.id,
+      disabled: isDragDisabled,
+    });
+
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      zIndex: isDragging ? 50 : undefined,
+      position: isDragging ? 'relative' : undefined,
+    };
+
     const isOverdue = todo.isOverdue && !todo.completed;
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(todo.title);
     const [editSubject, setEditSubject] = useState(todo.subject);
-    const [editDifficulty, setEditDifficulty] = useState(todo.difficulty);
+    const [editDifficulty, setEditDifficulty] = useState<string>(todo.difficulty || 'medium');
     const [editCompleted, setEditCompleted] = useState(todo.completed);
 
     const handleStartEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
       setEditTitle(todo.title);
       setEditSubject(todo.subject);
-      setEditDifficulty(todo.difficulty);
+      setEditDifficulty(todo.difficulty || 'medium');
       setEditCompleted(todo.completed);
       setIsEditing(true);
     };
@@ -110,28 +144,25 @@ const TodoItem = memo(
       setIsEditing(false);
     };
 
-    const handleCancel = () => {
-      setIsEditing(false);
-    };
+    const handleCancel = () => setIsEditing(false);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSave();
-      } else if (e.key === 'Escape') {
-        handleCancel();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSave(); }
+      else if (e.key === 'Escape') { handleCancel(); }
     };
 
+    const diffCfg = difficultyConfig[todo.difficulty] ?? difficultyConfig['medium'];
+
     return (
-      <motion.div
-        layout
-        variants={todoItemVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        className={`rounded-lg border-b last:border-0 border-border/50 group transition-all duration-200 bg-transparent overflow-hidden ${isEditing ? 'bg-secondary/30 ring-1 ring-primary/20' : 'hover:bg-secondary/20'} ${isOverdue && !isEditing ? 'opacity-90 bg-destructive/5 dark:bg-destructive/10 border-destructive/20' : ''
-          } ${todo.completed && !isEditing ? 'opacity-40' : ''}`}
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`rounded-lg border-b last:border-0 border-border/50 group transition-colors duration-150 bg-transparent overflow-hidden
+          ${isEditing ? 'bg-secondary/30 ring-1 ring-primary/20' : 'hover:bg-secondary/20'}
+          ${isOverdue && !isEditing ? 'opacity-90 bg-destructive/5 dark:bg-destructive/10 border-destructive/20' : ''}
+          ${todo.completed && !isEditing ? 'opacity-40' : ''}
+          ${isDragging ? 'shadow-xl ring-1 ring-primary/30 bg-card/95 backdrop-blur-sm scale-[1.01]' : ''}
+        `}
       >
         <AnimatePresence mode="wait">
           {isEditing ? (
@@ -143,12 +174,7 @@ const TodoItem = memo(
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               className="p-3 space-y-3"
             >
-              {/* Edit Title */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
                 <Input
                   value={editTitle}
@@ -160,13 +186,7 @@ const TodoItem = memo(
                 />
               </motion.div>
 
-              {/* Edit Subject & Difficulty */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="flex gap-3"
-              >
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Subject</label>
                   <Input
@@ -179,74 +199,45 @@ const TodoItem = memo(
                 </div>
                 <div className="w-32">
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Difficulty</label>
-                  <Select value={editDifficulty} onValueChange={setEditDifficulty}>
+                  <Select
+                    value={editDifficulty}
+                    onValueChange={(val) => setEditDifficulty(val)}
+                  >
                     <SelectTrigger className="text-sm h-9">
-                      <SelectValue />
+                      <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
+                      <SelectItem value="easy">🟢 Easy</SelectItem>
+                      <SelectItem value="medium">🟡 Medium</SelectItem>
+                      <SelectItem value="hard">🔴 Hard</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </motion.div>
 
-              {/* Status Toggle */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="flex items-center gap-2"
-              >
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="flex items-center gap-2">
                 <label className="text-xs font-medium text-muted-foreground">Status</label>
-                <motion.button
+                <button
                   type="button"
                   onClick={() => setEditCompleted(!editCompleted)}
-                  whileTap={{ scale: 0.92 }}
                   className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 border ${editCompleted
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
-                    : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                      : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
                     }`}
                 >
-                  <motion.span
-                    key={editCompleted ? 'done' : 'pending'}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    transition={{ duration: 0.15 }}
-                    className="flex items-center gap-1.5"
-                  >
+                  <span className="flex items-center gap-1.5">
                     {editCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
                     {editCompleted ? 'Done' : 'Pending'}
-                  </motion.span>
-                </motion.button>
+                  </span>
+                </button>
               </motion.div>
 
-              {/* Save / Cancel */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="flex gap-2 justify-end pt-1"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancel}
-                  className="h-8 px-3 text-xs"
-                >
-                  <XIcon className="h-3.5 w-3.5 mr-1" />
-                  Cancel
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex gap-2 justify-end pt-1">
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-8 px-3 text-xs">
+                  <XIcon className="h-3.5 w-3.5 mr-1" />Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={!editTitle.trim()}
-                  className="h-8 px-3 text-xs"
-                >
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                  Save
+                <Button size="sm" onClick={handleSave} disabled={!editTitle.trim()} className="h-8 px-3 text-xs">
+                  <Check className="h-3.5 w-3.5 mr-1" />Save
                 </Button>
               </motion.div>
             </motion.div>
@@ -257,33 +248,42 @@ const TodoItem = memo(
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex items-start gap-3 p-3"
+              className="flex items-start gap-2 p-3"
             >
-              <motion.div
-                whileTap={{ scale: 0.85 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              >
+              {/* Drag handle */}
+              {!isDragDisabled && (
+                <button
+                  {...attributes}
+                  {...listeners}
+                  className="mt-1 p-0.5 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-40 hover:!opacity-70 transition-opacity touch-none flex-shrink-0"
+                  tabIndex={-1}
+                  aria-label="Drag to reorder"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+
+              <div className="mt-1 flex-shrink-0">
                 <Checkbox
                   checked={todo.completed}
                   onCheckedChange={() => onToggle(todo.id, todo.completed)}
-                  className="mt-1 border-border/50 data-[state=checked]:bg-primary"
+                  className="border-border/50 data-[state=checked]:bg-primary"
                 />
-              </motion.div>
+              </div>
+
               <div className="flex-1 min-w-0">
-                <motion.p
-                  animate={{ opacity: todo.completed ? 0.5 : 1 }}
-                  transition={{ duration: 0.3 }}
-                  className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
-                >
+                <p className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}>
                   {todo.title}
-                </motion.p>
+                </p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <p className="text-xs text-muted-foreground">
-                    {todo.subject} · {todo.difficulty}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{todo.subject}</p>
+                  {/* Difficulty badge */}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${diffCfg.color}`}>
+                    {diffCfg.label}
+                  </span>
                   <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${isOverdue
-                    ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
-                    : 'bg-muted text-muted-foreground'
+                      ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
+                      : 'bg-muted text-muted-foreground'
                     }`}>
                     <Calendar className="h-3 w-3" />
                     {formatScheduledDate(todo.scheduledDate)}
@@ -293,14 +293,12 @@ const TodoItem = memo(
                       (typeof todo.rescheduledCount === 'object' && todo.rescheduledCount && 'increment' in todo.rescheduledCount && typeof (todo.rescheduledCount as any).increment === 'number' ? (todo.rescheduledCount as any).increment : 0);
                     return count > 0 && (
                       <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                        <RotateCcw className="h-3 w-3" />
-                        {count}x
+                        <RotateCcw className="h-3 w-3" />{count}x
                       </span>
                     );
                   })()}
                 </div>
 
-                {/* Overdue task actions */}
                 <AnimatePresence>
                   {isOverdue && (
                     <motion.div
@@ -311,61 +309,42 @@ const TodoItem = memo(
                       className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200/50 dark:border-rose-800/30"
                     >
                       <AlertCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-                      <span className="text-xs text-rose-600 dark:text-rose-400">
-                        This task is overdue
-                      </span>
+                      <span className="text-xs text-rose-600 dark:text-rose-400">This task is overdue</span>
                       <div className="flex gap-1 ml-auto">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onRescheduleToday(todo.id)}
-                          className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                        >
-                          Do today
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onReschedule(todo.id)}
-                          className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20"
-                        >
-                          Reschedule
-                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => onRescheduleToday(todo.id)} className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20">Do today</Button>
+                        <Button variant="ghost" size="sm" onClick={() => onReschedule(todo.id)} className="h-6 px-2 text-xs hover:bg-rose-100 dark:hover:bg-rose-900/20">Reschedule</Button>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-              <div className="flex items-center gap-1">
-                <motion.button
+
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button
                   type="button"
                   onClick={handleStartEdit}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-primary/10 rounded-lg"
                   title="Edit task"
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.9 }}
                 >
-                  <Pencil className="h-4 w-4 text-primary" />
-                </motion.button>
-                <motion.button
+                  <Pencil className="h-3.5 w-3.5 text-primary" />
+                </button>
+                <button
                   type="button"
                   onClick={() => onDelete(todo.id)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/10 rounded-lg"
                   title="Delete task"
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.9 }}
                 >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </motion.button>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     );
   }
 );
-TodoItem.displayName = 'TodoItem';
+SortableTodoItem.displayName = 'SortableTodoItem';
 
 export default function Dashboard() {
   const [user] = useAtom(userAtom);
@@ -381,6 +360,25 @@ export default function Dashboard() {
   const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
   const hasFetchedOnce = useRef(false);
   const { toast } = useToast();
+
+  // DnD sensors — use PointerSensor with a 5px activation distance so clicks still work normally
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setTodos((prev) => {
+      const regularTodos = prev.filter((t) => !t.isOverdue || t.completed);
+      const overdueTodos = prev.filter((t) => t.isOverdue && !t.completed);
+      const oldIndex = regularTodos.findIndex((t) => t.id === active.id);
+      const newIndex = regularTodos.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const reordered = arrayMove(regularTodos, oldIndex, newIndex);
+      return [...overdueTodos, ...reordered];
+    });
+  }, []);
 
   // Silent background fetch — only shows skeleton on first load
   const fetchTodos = useCallback(async () => {
@@ -730,10 +728,10 @@ export default function Dashboard() {
           <Button
             onClick={() => setShowAnalytics(!showAnalytics)}
             onMouseEnter={() => {
-              import('@/components/AnalyticsDashboard');
+
             }}
             onFocus={() => {
-              import('@/components/AnalyticsDashboard');
+
             }}
             variant="outline"
             size="sm"
@@ -968,7 +966,7 @@ export default function Dashboard() {
                   <SkeletonList count={3} />
                 ) : (
                   <>
-                    {/* Show overdue tasks first with a separator */}
+                    {/* Overdue tasks (not draggable) */}
                     <AnimatePresence mode="popLayout">
                       {overdueCount > 0 && (
                         <motion.div
@@ -999,7 +997,38 @@ export default function Dashboard() {
                             {todos
                               .filter((todo) => todo.isOverdue && !todo.completed)
                               .map((todo) => (
-                                <TodoItem
+                                <SortableTodoItem
+                                  key={todo.id}
+                                  todo={todo}
+                                  onToggle={toggleTodo}
+                                  onDelete={deleteTodo}
+                                  onRescheduleToday={rescheduleToToday}
+                                  onReschedule={openRescheduleModal}
+                                  onEdit={editTodo}
+                                  isDragDisabled
+                                />
+                              ))}
+                          </AnimatePresence>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Regular tasks — drag-to-reorder */}
+                    {(() => {
+                      const regularTodos = todos.filter((t) => !t.isOverdue || t.completed);
+                      return (
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={regularTodos.map((t) => t.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <AnimatePresence mode="popLayout">
+                              {regularTodos.map((todo) => (
+                                <SortableTodoItem
                                   key={todo.id}
                                   todo={todo}
                                   onToggle={toggleTodo}
@@ -1009,27 +1038,11 @@ export default function Dashboard() {
                                   onEdit={editTodo}
                                 />
                               ))}
-                          </AnimatePresence>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Regular tasks (today and future) */}
-                    <AnimatePresence mode="popLayout">
-                      {todos
-                        .filter((todo) => !todo.isOverdue || todo.completed)
-                        .map((todo) => (
-                          <TodoItem
-                            key={todo.id}
-                            todo={todo}
-                            onToggle={toggleTodo}
-                            onDelete={deleteTodo}
-                            onRescheduleToday={rescheduleToToday}
-                            onReschedule={openRescheduleModal}
-                            onEdit={editTodo}
-                          />
-                        ))}
-                    </AnimatePresence>
+                            </AnimatePresence>
+                          </SortableContext>
+                        </DndContext>
+                      );
+                    })()}
                     <AnimatePresence>
                       {todos.length === 0 && (
                         <motion.div

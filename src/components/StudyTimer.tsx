@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
@@ -10,6 +10,8 @@ import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
 import { Capacitor } from '@capacitor/core';
+import { Trash2, Plus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 // True when running inside the Capacitor Android/iOS shell
 const isNative = Capacitor.isNativePlatform();
@@ -39,6 +41,7 @@ interface Lap {
 }
 
 export default function StudyTimer() {
+  const [user, setUser]: any = useAtom(userAtom);
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -46,7 +49,8 @@ export default function StudyTimer() {
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     if (typeof window === 'undefined') return 50;
     const saved = localStorage.getItem('pomodoroDuration');
-    return saved ? parseInt(saved, 10) : 50;
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    return !isNaN(parsed) && parsed >= 1 && parsed <= 120 ? parsed : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
@@ -54,6 +58,53 @@ export default function StudyTimer() {
   const [laps, setLaps] = useState<Lap[]>([]);
   const { toast } = useToast();
 
+  const [selectedSubject, setSelectedSubject] = useState<string | undefined>();
+  const [newSubject, setNewSubject] = useState('');
+
+  const handleAddSubject = async () => {
+    if (!newSubject.trim() || !user) return;
+    const currentSubjects = user.subjects || [];
+    if (currentSubjects.includes(newSubject.trim())) return;
+
+    const updatedSubjects = [...currentSubjects, newSubject.trim()];
+    
+    try {
+      const res = await apiFetch('/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects: updatedSubjects }),
+      });
+      if (res.ok) {
+        setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
+        setSelectedSubject(newSubject.trim());
+        setNewSubject('');
+      }
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to add subject' });
+    }
+  };
+
+  const handleRemoveSubject = async (subject: string) => {
+    if (!user) return;
+    const currentSubjects = user.subjects || [];
+    const updatedSubjects = currentSubjects.filter(s => s !== subject);
+    
+    try {
+      const res = await apiFetch('/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects: updatedSubjects }),
+      });
+      if (res.ok) {
+        setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
+        if (selectedSubject === subject) {
+          setSelectedSubject(undefined);
+        }
+      }
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to remove subject' });
+    }
+  };
 
   const POMODORO_DURATION = pomodoroDuration * 60;
 
@@ -64,7 +115,7 @@ export default function StudyTimer() {
       const res = await apiFetch('/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutes }),
+        body: JSON.stringify({ duration: minutes, subject: selectedSubject }),
       });
 
       if (res.ok) {
@@ -206,21 +257,19 @@ export default function StudyTimer() {
   };
 
   const saveDuration = () => {
-    if (tempDuration >= 1 && tempDuration <= 120) {
-      setPomodoroDuration(tempDuration);
-      localStorage.setItem('pomodoroDuration', tempDuration.toString());
-      setShowSettings(false);
-      toast({
-        title: 'Timer duration updated',
-        description: `Pomodoro set to ${tempDuration} minutes`
-      });
-    } else {
-      toast({
-        title: 'Invalid duration',
-        description: 'Please enter a value between 1 and 120 minutes',
-        variant: 'destructive',
-      });
-    }
+    const clamped = Math.max(1, Math.min(120, tempDuration));
+    setPomodoroDuration(clamped);
+    localStorage.setItem('pomodoroDuration', clamped.toString());
+    // Notify other components (e.g. FullscreenTimer) of the change
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'pomodoroDuration',
+      newValue: clamped.toString(),
+    }));
+    setShowSettings(false);
+    toast({
+      title: 'Timer duration updated',
+      description: `Pomodoro set to ${clamped} minutes`,
+    });
   };
 
   return (
@@ -309,6 +358,51 @@ export default function StudyTimer() {
                   </p>
                 </div>
 
+                {/* Subject Selector */}
+                <div className="mb-4">
+                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                    <SelectTrigger className="w-full text-sm h-8">
+                      <SelectValue placeholder="Select Subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {user?.subjects?.map(sub => (
+                        <div key={sub} className="flex items-center justify-between w-full pr-2">
+                          <SelectItem value={sub} className="flex-1">{sub}</SelectItem>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-4 w-4 text-red-500 hover:text-red-700 hover:bg-transparent"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleRemoveSubject(sub);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <div className="flex items-center p-2 mt-2 border-t gap-2">
+                        <Input 
+                          placeholder="New subject" 
+                          value={newSubject}
+                          onChange={(e) => setNewSubject(e.target.value)}
+                          className="h-8 text-xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSubject();
+                            }
+                          }}
+                        />
+                        <Button size="sm" onClick={handleAddSubject} className="h-8 shrink-0 px-2">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Progress Bar */}
                 {studyTime > 0 && (
                   <div className="mb-4">
@@ -364,26 +458,31 @@ export default function StudyTimer() {
                       <DialogHeader>
                         <DialogTitle>Timer Settings</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="duration">Duration (minutes)</Label>
-                          <Input
-                            id="duration"
-                            type="number"
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="duration-slider">Focus Duration</Label>
+                            <span className="text-2xl font-bold tabular-nums">
+                              {tempDuration}<span className="text-sm font-normal text-muted-foreground ml-1">min</span>
+                            </span>
+                          </div>
+                          <input
+                            id="duration-slider"
+                            type="range"
                             min="1"
                             max="120"
+                            step="1"
                             value={tempDuration}
-                            onChange={(e) => setTempDuration(parseInt(e.target.value, 10) || 1)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                saveDuration();
-                              }
-                            }}
-                            className="mt-1"
+                            onChange={(e) => setTempDuration(parseInt(e.target.value, 10))}
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary bg-muted"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Set focus duration (1-120 minutes)
-                          </p>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>1 min</span>
+                            <span>30 min</span>
+                            <span>60 min</span>
+                            <span>90 min</span>
+                            <span>120 min</span>
+                          </div>
                         </div>
                         <Button onClick={saveDuration} className="w-full">
                           Save Duration
@@ -424,6 +523,7 @@ export default function StudyTimer() {
               <FullscreenTimer
                 isOpen={showFullscreen}
                 onClose={() => setShowFullscreen(false)}
+                selectedSubject={selectedSubject}
               />
             </Card>
           </motion.div>

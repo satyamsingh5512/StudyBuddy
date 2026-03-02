@@ -35,7 +35,7 @@ import {
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
-import BuddyChat from './BuddyChat';
+
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
@@ -289,9 +289,6 @@ export default function Layout() {
             </div>
           </main>
         </div>
-
-        {/* Floating Widgets */}
-        <BuddyChat />
       </div>
     </UnifiedPageWrapper>
   );

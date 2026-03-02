@@ -48,11 +48,11 @@ export default function Support() {
                             <div className="w-full space-y-4">
                                 <details className="group border rounded-lg bg-card px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
                                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 py-2 font-medium text-foreground outline-none transition-colors hover:text-primary">
-                                        How does the AI study planner work?
+                                        How does the study planner work?
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
                                     </summary>
                                     <p className="mt-2 text-sm text-muted-foreground border-t pt-3 leading-relaxed">
-                                        Our AI analyzes your exam date, syllabus, and study preferences to create a personalized schedule. It adapts daily based on your progress and performance in practice tests.
+                                        Our planner analyzes your exam date, syllabus, and study preferences to create a personalized schedule. It adapts daily based on your progress and performance in practice tests.
                                     </p>
                                 </details>
 

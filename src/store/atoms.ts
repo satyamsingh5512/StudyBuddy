@@ -13,6 +13,7 @@ export interface User {
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
+  subjects?: string[];
 }
 
 export const userAtom = atom<User | null>(null);
