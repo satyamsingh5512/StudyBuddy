@@ -200,7 +200,8 @@ async fn google_callback(
     match exchange_google_code_and_upsert_user(&state, &code, &jar).await {
         Ok((updated_jar, next)) => {
             let redirect_url = format!("{client_url}/auth/google/callback?next={next}");
-            (updated_jar, Redirect::temporary(&redirect_url))
+            // Use 303 See Other to ensure the browser does a GET to the final destination
+            (updated_jar, Redirect::see_other(&redirect_url))
         }
         Err(_) => {
             (jar, Redirect::temporary(&format!("{client_url}/auth?error=google_failed")))
@@ -436,6 +437,8 @@ fn set_auth_cookie(jar: CookieJar, token: String) -> CookieJar {
     cookie.set_http_only(true);
     cookie.set_path("/");
     
+    // In production, use SameSite::None and Secure=true for cross-origin cookies.
+    // Ensure both frontend and backend are on HTTPS.
     let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production";
     if is_prod {
         cookie.set_same_site(SameSite::None);

@@ -49,14 +49,16 @@ async fn main() -> anyhow::Result<()> {
     let app_state = AppState { db: db_client };
 
     // Configure CORS — must use explicit origins (not Any) when credentials: 'include' is used
-    let allowed_origin = std::env::var("ALLOWED_ORIGINS")
+    let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS")
         .unwrap_or_else(|_| "https://sbd.satym.in".to_string());
-    let origin_header: HeaderValue = allowed_origin
-        .parse()
-        .unwrap_or_else(|_| "https://sbd.satym.in".parse().unwrap());
+    
+    let allowed_origins: Vec<HeaderValue> = allowed_origins_raw
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
 
     let cors = CorsLayer::new()
-        .allow_origin(origin_header)
+        .allow_origin(allowed_origins)
         .allow_methods([
             Method::GET,
             Method::POST,
