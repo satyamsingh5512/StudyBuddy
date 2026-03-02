@@ -1,4 +1,9 @@
-use axum::{http::HeaderValue, response::IntoResponse, routing::get, Json, Router};
+use axum::{
+    http::{HeaderValue, Method},
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
 use dotenvy::dotenv;
 use serde_json::json;
 use std::net::SocketAddr;
@@ -52,7 +57,14 @@ async fn main() -> anyhow::Result<()> {
 
     let cors = CorsLayer::new()
         .allow_origin(origin_header)
-        .allow_methods(AllowMethods::any())
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true);
 
