@@ -14,7 +14,7 @@ use axum::{
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use bcrypt::verify;
 use chrono::Utc;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, DateTime as BsonDateTime};
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Arc};
 
@@ -98,6 +98,7 @@ async fn login(
                 message: "Email and password are required".into(),
                 user: None,
                 error: Some("Email and password are required".into()),
+                token: None,
             }),
         ));
     }
@@ -112,6 +113,7 @@ async fn login(
                     message: "Invalid email or password".into(),
                     user: None,
                     error: Some("Invalid email or password".into()),
+                    token: None,
                 }),
             ));
         }
@@ -125,6 +127,7 @@ async fn login(
                     message: "Invalid email or password".into(),
                     user: None,
                     error: Some("Invalid email or password".into()),
+                    token: None,
                 }),
             ));
         }
@@ -135,6 +138,7 @@ async fn login(
                 message: "Invalid email or password".into(),
                 user: None,
                 error: Some("Invalid email or password".into()),
+                token: None,
             }),
         ));
     }
@@ -146,6 +150,7 @@ async fn login(
                 message: "Please verify your email first".into(),
                 user: None,
                 error: Some("Please verify your email first".into()),
+                token: None,
             }),
         ));
     }
@@ -331,10 +336,11 @@ async fn resend_otp(
 
     let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
     let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
+    let otp_expiry_bson = BsonDateTime::from_millis(otp_expiry.timestamp_millis());
 
     let result = users.update_one(
         doc! { "email": &email },
-        doc! { "$set": { "verificationOtp": &otp, "otpExpiry": otp_expiry } },
+        doc! { "$set": { "verificationOtp": &otp, "otpExpiry": otp_expiry_bson } },
     ).await;
 
     match result {
@@ -368,10 +374,11 @@ async fn forgot_password(
 
     let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
     let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
+    let otp_expiry_bson = BsonDateTime::from_millis(otp_expiry.timestamp_millis());
 
     let result = users.update_one(
         doc! { "email": &email },
-        doc! { "$set": { "resetToken": &otp, "resetTokenExpiry": otp_expiry } },
+        doc! { "$set": { "resetToken": &otp, "resetTokenExpiry": otp_expiry_bson } },
     ).await;
 
     match result {
