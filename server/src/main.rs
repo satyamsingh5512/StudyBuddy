@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
     let cors = CorsLayer::new()
         .allow_origin(origin_header)
         .allow_methods(AllowMethods::any())
-        .allow_headers(AllowHeaders::any())
+        .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true);
 
     // Build the application router
