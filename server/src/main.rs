@@ -1,4 +1,4 @@
-use axum::{response::IntoResponse, routing::get, Json, Router};
+use axum::{http::HeaderValue, response::IntoResponse, routing::get, Json, Router};
 use dotenvy::dotenv;
 use serde_json::json;
 use std::net::SocketAddr;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::signal;
 use tower_http::{
     compression::CompressionLayer,
-    cors::{Any, CorsLayer},
+    cors::{AllowHeaders, AllowMethods, CorsLayer},
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -43,11 +43,18 @@ async fn main() -> anyhow::Result<()> {
     let db_client = db::connect().await?;
     let app_state = AppState { db: db_client };
 
-    // Configure CORS
+    // Configure CORS — must use explicit origins (not Any) when credentials: 'include' is used
+    let allowed_origin = std::env::var("ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "https://sbd.satym.in".to_string());
+    let origin_header: HeaderValue = allowed_origin
+        .parse()
+        .unwrap_or_else(|_| "https://sbd.satym.in".parse().unwrap());
+
     let cors = CorsLayer::new()
-        .allow_origin(Any) // In production, restrict this to specific origins
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(origin_header)
+        .allow_methods(AllowMethods::any())
+        .allow_headers(AllowHeaders::any())
+        .allow_credentials(true);
 
     // Build the application router
     let app = Router::new()
