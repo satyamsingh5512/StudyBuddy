@@ -61,6 +61,7 @@ export default function Layout() {
 
   const handleLogout = async () => {
     soundManager.playClick();
+    localStorage.removeItem('auth_token');
     await apiFetch('/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };

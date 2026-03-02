@@ -33,6 +33,13 @@ export default function GoogleAuthCallback() {
     attempted.current = true;
 
     const next = searchParams.get('next') || 'dashboard';
+    const token = searchParams.get('token');
+    
+    // Store token if present (fallback for blocked cookies)
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    }
+
     const targetPath = `/${next}`;
 
     const tryFetchUser = async (attempt: number): Promise<void> => {

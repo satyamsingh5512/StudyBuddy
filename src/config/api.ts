@@ -24,9 +24,17 @@ export const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 export const apiUrl = (path: string) => `${API_URL}${path}`;
 
 export const apiFetch = async (path: string, options?: RequestInit): Promise<Response> => {
+  const token = localStorage.getItem('auth_token');
+  const headers = new Headers(options?.headers);
+  
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
     ...options,
+    headers,
   });
 
   return response;

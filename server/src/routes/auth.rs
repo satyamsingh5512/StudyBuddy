@@ -21,6 +21,11 @@ use std::{env, sync::Arc};
 pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/login", post(login))
+        .route("/signup", post(signup))
+        .route("/verify-otp", post(verify_otp))
+        .route("/resend-otp", post(resend_otp))
+        .route("/forgot-password", post(forgot_password))
+        .route("/reset-password", post(reset_password))
         .route(
             "/me",
             get(get_me).route_layer(axum::middleware::from_fn_with_state(
@@ -42,6 +47,31 @@ pub struct LoginPayload {
     pub password: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct SignupPayload {
+    pub email: String,
+    pub password: String,
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+pub struct VerifyOtpPayload {
+    pub email: String,
+    pub otp: String,
+}
+
+#[derive(Deserialize)]
+pub struct ForgotPasswordPayload {
+    pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordPayload {
+    pub email: String,
+    pub otp: String,
+    pub password: String,
+}
+
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub message: String,
@@ -49,6 +79,8 @@ pub struct AuthResponse {
     pub user: Option<User>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
 }
 
 async fn login(
@@ -121,7 +153,7 @@ async fn login(
     let user_id = user.id.expect("User should have an id");
     let token = create_jwt(&user_id, &user.email, &user.role).unwrap();
 
-    let jar = set_auth_cookie(jar, token);
+    let jar = set_auth_cookie(jar, token.clone());
 
     Ok((
         jar,
@@ -129,8 +161,276 @@ async fn login(
             message: "Login successful".into(),
             user: Some(user),
             error: None,
+            token: Some(token),
         }),
     ))
+}
+
+async fn signup(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SignupPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthResponse>)> {
+    let email = payload.email.to_lowercase();
+    let users = state.db.collection::<User>("users");
+
+    if users.find_one(doc! { "email": &email }).await.unwrap().is_some() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(AuthResponse {
+                message: "Email already exists".into(),
+                user: None,
+                error: Some("Email already exists".into()),
+                token: None,
+            }),
+        ));
+    }
+
+    let hashed_password = bcrypt::hash(payload.password, bcrypt::DEFAULT_COST).unwrap();
+    let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
+    let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
+
+    let mut user = User {
+        id: None,
+        email: email.clone(),
+        password: Some(hashed_password),
+        google_id: None,
+        name: payload.name.clone(),
+        username: format!("user_{}", &uuid::Uuid::new_v4().to_string()[..8]),
+        avatar: None,
+        avatar_type: None,
+        role: "user".to_string(),
+        exam_goal: None,
+        exam_date: None,
+        exam_attempt: None,
+        student_class: None,
+        batch: None,
+        syllabus: None,
+        email_verified: false,
+        verification_otp: Some(otp.clone()),
+        otp_expiry: Some(otp_expiry),
+        reset_token: None,
+        reset_token_expiry: None,
+        onboarding_done: Some(false),
+        total_points: 0,
+        total_study_minutes: 0,
+        streak: 0,
+        subjects: None,
+        refresh_token_hash: None,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+        last_active: Utc::now(),
+        show_profile: true,
+    };
+
+    let result = users.insert_one(&user).await.map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AuthResponse {
+                message: "Database error".into(),
+                user: None,
+                error: Some("Database error".into()),
+                token: None,
+            }),
+        )
+    })?;
+    
+    user.id = Some(result.inserted_id.as_object_id().unwrap());
+
+    // In a real app, send email here. For now, we assume it's "sent".
+    tracing::info!("Verification OTP for {}: {}", email, otp);
+
+    Ok((
+        StatusCode::CREATED,
+        Json(AuthResponse {
+            message: "Signup successful. Please verify your email.".into(),
+            user: Some(user),
+            error: None,
+            token: None,
+        }),
+    ))
+}
+
+async fn verify_otp(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+    Json(payload): Json<VerifyOtpPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthResponse>)> {
+    let email = payload.email.to_lowercase();
+    let users = state.db.collection::<User>("users");
+
+    let user = match users.find_one(doc! { "email": &email }).await {
+        Ok(Some(u)) => u,
+        _ => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(AuthResponse {
+                    message: "User not found".into(),
+                    user: None,
+                    error: Some("User not found".into()),
+                    token: None,
+                }),
+            ));
+        }
+    };
+
+    if user.verification_otp.as_deref() != Some(&payload.otp) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(AuthResponse {
+                message: "Invalid OTP".into(),
+                user: None,
+                error: Some("Invalid OTP".into()),
+                token: None,
+            }),
+        ));
+    }
+
+    if let Some(expiry) = user.otp_expiry {
+        if Utc::now() > expiry {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AuthResponse {
+                    message: "OTP expired".into(),
+                    user: None,
+                    error: Some("OTP expired".into()),
+                    token: None,
+                }),
+            ));
+        }
+    }
+
+    users.update_one(
+        doc! { "email": &email },
+        doc! { "$set": { "emailVerified": true, "verificationOtp": null, "otpExpiry": null } },
+    ).await.ok();
+
+    let user_id = user.id.expect("User should have an id");
+    let token = create_jwt(&user_id, &user.email, &user.role).unwrap();
+    let jar = set_auth_cookie(jar, token.clone());
+
+    let mut updated_user = user;
+    updated_user.email_verified = true;
+
+    Ok((
+        jar,
+        Json(AuthResponse {
+            message: "Email verified successfully".into(),
+            user: Some(updated_user),
+            error: None,
+            token: Some(token),
+        }),
+    ))
+}
+
+async fn resend_otp(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ForgotPasswordPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthResponse>)> {
+    let email = payload.email.to_lowercase();
+    let users = state.db.collection::<User>("users");
+
+    let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
+    let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
+
+    let result = users.update_one(
+        doc! { "email": &email },
+        doc! { "$set": { "verificationOtp": &otp, "otpExpiry": otp_expiry } },
+    ).await;
+
+    match result {
+        Ok(res) if res.matched_count > 0 => {
+            tracing::info!("Resent OTP for {}: {}", email, otp);
+            Ok(Json(AuthResponse {
+                message: "OTP resent successfully".into(),
+                user: None,
+                error: None,
+                token: None,
+            }))
+        }
+        _ => Err((
+            StatusCode::NOT_FOUND,
+            Json(AuthResponse {
+                message: "User not found".into(),
+                user: None,
+                error: Some("User not found".into()),
+                token: None,
+            }),
+        )),
+    }
+}
+
+async fn forgot_password(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ForgotPasswordPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthResponse>)> {
+    let email = payload.email.to_lowercase();
+    let users = state.db.collection::<User>("users");
+
+    let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
+    let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
+
+    let result = users.update_one(
+        doc! { "email": &email },
+        doc! { "$set": { "resetToken": &otp, "resetTokenExpiry": otp_expiry } },
+    ).await;
+
+    match result {
+        Ok(res) if res.matched_count > 0 => {
+            tracing::info!("Reset OTP for {}: {}", email, otp);
+            Ok(Json(AuthResponse {
+                message: "Password reset code sent".into(),
+                user: None,
+                error: None,
+                token: None,
+            }))
+        }
+        _ => Err((
+            StatusCode::NOT_FOUND,
+            Json(AuthResponse {
+                message: "User not found".into(),
+                user: None,
+                error: Some("User not found".into()),
+                token: None,
+            }),
+        )),
+    }
+}
+
+async fn reset_password(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ResetPasswordPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<AuthResponse>)> {
+    let email = payload.email.to_lowercase();
+    let users = state.db.collection::<User>("users");
+
+    let user = match users.find_one(doc! { "email": &email }).await {
+        Ok(Some(u)) => u,
+        _ => return Err((StatusCode::NOT_FOUND, Json(AuthResponse { message: "User not found".into(), user: None, error: Some("User not found".into()), token: None }))),
+    };
+
+    if user.reset_token.as_deref() != Some(&payload.otp) {
+        return Err((StatusCode::BAD_REQUEST, Json(AuthResponse { message: "Invalid reset code".into(), user: None, error: Some("Invalid reset code".into()), token: None })));
+    }
+
+    if let Some(expiry) = user.reset_token_expiry {
+        if Utc::now() > expiry {
+            return Err((StatusCode::BAD_REQUEST, Json(AuthResponse { message: "Reset code expired".into(), user: None, error: Some("Reset code expired".into()), token: None })));
+        }
+    }
+
+    let hashed_password = bcrypt::hash(payload.password, bcrypt::DEFAULT_COST).unwrap();
+
+    users.update_one(
+        doc! { "email": &email },
+        doc! { "$set": { "password": hashed_password, "resetToken": null, "resetTokenExpiry": null } },
+    ).await.ok();
+
+    Ok(Json(AuthResponse {
+        message: "Password reset successful".into(),
+        user: None,
+        error: None,
+        token: None,
+    }))
 }
 
 async fn get_me(Extension(auth_user): Extension<AuthUser>) -> Json<User> {
@@ -198,10 +498,10 @@ async fn google_callback(
     let code = params.code.unwrap();
 
     match exchange_google_code_and_upsert_user(&state, &code, &jar).await {
-        Ok((updated_jar, next)) => {
-            let redirect_url = format!("{client_url}/auth/google/callback?next={next}");
-            // Use 303 See Other to ensure the browser does a GET to the final destination
-            (updated_jar, Redirect::see_other(&redirect_url))
+        Ok((updated_jar, next, token)) => {
+            let redirect_url = format!("{client_url}/auth/google/callback?next={next}&token={token}");
+            // Redirect::to in axum uses 303 See Other by default
+            (updated_jar, Redirect::to(&redirect_url))
         }
         Err(_) => {
             (jar, Redirect::temporary(&format!("{client_url}/auth?error=google_failed")))
@@ -222,6 +522,8 @@ pub struct MobileGooglePayload {
 pub struct MobileAuthResponse {
     pub message: String,
     pub user: User,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
 }
 
 async fn google_mobile(
@@ -258,13 +560,14 @@ async fn google_mobile(
 
     let user_id = user.id.clone().expect("user should have id");
     let token = create_jwt(&user_id, &user.email, &user.role).unwrap();
-    let updated_jar = set_auth_cookie(jar, token);
+    let updated_jar = set_auth_cookie(jar, token.clone());
 
     Ok((
         updated_jar,
         Json(MobileAuthResponse {
             message: "Login successful".into(),
             user,
+            token: Some(token),
         }),
     ))
 }
@@ -282,12 +585,12 @@ struct GoogleUserInfo {
 }
 
 /// Exchange OAuth2 code for tokens, then call userinfo, then upsert user.
-/// Returns the CookieJar with the auth cookie set, and "dashboard" or "onboarding".
+/// Returns the CookieJar with the auth cookie set, "dashboard" or "onboarding", and the JWT token.
 async fn exchange_google_code_and_upsert_user(
     state: &Arc<AppState>,
     code: &str,
     jar: &CookieJar,
-) -> anyhow::Result<(CookieJar, &'static str)> {
+) -> anyhow::Result<(CookieJar, &'static str, String)> {
     let client_id = env::var("GOOGLE_CLIENT_ID")?;
     let client_secret = env::var("GOOGLE_CLIENT_SECRET")?;
     let redirect_uri = env::var("GOOGLE_CALLBACK_URL")
@@ -329,9 +632,9 @@ async fn exchange_google_code_and_upsert_user(
 
     let user_id = user.id.expect("user should have id");
     let token = create_jwt(&user_id, &user.email, &user.role)?;
-    let updated_jar = set_auth_cookie(jar.clone(), token);
+    let updated_jar = set_auth_cookie(jar.clone(), token.clone());
 
-    Ok((updated_jar, next))
+    Ok((updated_jar, next, token))
 }
 
 /// Verify a Google ID token using Google's tokeninfo endpoint.

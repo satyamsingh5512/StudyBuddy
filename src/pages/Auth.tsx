@@ -140,6 +140,10 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Verification failed');
 
+                if (data.token) {
+                    localStorage.setItem('auth_token', data.token);
+                }
+
                 soundManager.playLogin();
                 toast({ title: 'Success!', description: data.message || 'Email verified. You are now logged in.' });
                 setTimeout(() => {
@@ -167,6 +171,11 @@ export default function Auth() {
                     }
                     throw new Error(data.error || 'Login failed');
                 }
+
+                if (data.token) {
+                    localStorage.setItem('auth_token', data.token);
+                }
+
                 soundManager.playLogin();
                 toast({ title: 'Welcome back!', description: 'Login successful' });
                 setTimeout(() => {
@@ -255,6 +264,10 @@ export default function Auth() {
                     const data = await res.json();
 
                     if (!res.ok) throw new Error(data.error || 'Google login failed');
+
+                    if (data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
 
                     // Handle success same as web
                     soundManager.playLogin();

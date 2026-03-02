@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::signal;
 use tower_http::{
     compression::CompressionLayer,
-    cors::{AllowHeaders, AllowMethods, CorsLayer},
+    cors::{AllowHeaders, CorsLayer},
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
