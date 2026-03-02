@@ -1,11 +1,11 @@
 services:
   - type: web
     name: studybuddy-api
-    runtime: node
+    runtime: rust
     plan: free
     region: oregon
-    buildCommand: npm ci --legacy-peer-deps
-    startCommand: npx tsx server/index.ts
+    buildCommand: cd server && cargo build --release
+    startCommand: ./server/target/release/server
     healthCheckPath: /health
     autoDeploy: false
     envVars:
