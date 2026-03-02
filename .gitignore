@@ -63,3 +63,6 @@ prisma/
 *.old
 *.bak
 backups/
+
+# Rust build output
+server/target/
