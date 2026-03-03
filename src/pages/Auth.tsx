@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/components/Logo';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import ThemeToggle from '@/components/ThemeToggle';
-import { API_URL } from '../config/api';
+import { API_URL, apiUrl } from '../config/api';
 import { isNativePlatform } from '../lib/capacitor';
 
 export default function Auth() {
@@ -115,8 +115,18 @@ export default function Auth() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-                console.log('📧 Signup response:', data); // Debug log
+                // If backend returned a token, user is auto-verified — go to dashboard
+                if (data.token) {
+                    localStorage.setItem('auth_token', data.token);
+                    soundManager.playLogin();
+                    toast({ title: 'Welcome!', description: 'Account created successfully' });
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 500);
+                    return;
+                }
 
+                // Fallback: OTP verification flow (for when email sending is implemented)
                 toast({
                     title: 'Account Created',
                     description: data.message || 'Please check your email for the verification code.',
@@ -305,11 +315,8 @@ export default function Auth() {
                 setIsLoading(false);
             }
         } else {
-            // Use the same base as VITE_API_URL but strip the /api suffix
-            const apiBase = import.meta.env.VITE_API_URL
-                ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
-                : '';
-            window.location.href = `${apiBase}/api/auth/google`;
+            const googleAuthUrl = apiUrl('/auth/google');
+            window.location.href = googleAuthUrl;
         }
     };
 

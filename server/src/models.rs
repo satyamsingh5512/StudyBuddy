@@ -2,22 +2,38 @@ use chrono::{DateTime, Utc};
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
+fn default_role() -> String {
+    "user".to_string()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_now() -> DateTime<Utc> {
+    Utc::now()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
+    #[serde(default)]
     pub email: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub google_id: Option<String>,
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub username: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_type: Option<String>,
+    #[serde(default = "default_role")]
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub exam_goal: Option<String>,
@@ -31,6 +47,7 @@ pub struct User {
     pub batch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub syllabus: Option<String>,
+    #[serde(default)]
     pub email_verified: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_otp: Option<String>,
@@ -42,16 +59,23 @@ pub struct User {
     pub reset_token_expiry: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub onboarding_done: Option<bool>,
+    #[serde(default)]
     pub total_points: i32,
+    #[serde(default)]
     pub total_study_minutes: i32,
+    #[serde(default)]
     pub streak: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subjects: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_token_hash: Option<String>,
+    #[serde(default = "default_now")]
     pub created_at: DateTime<Utc>,
+    #[serde(default = "default_now")]
     pub updated_at: DateTime<Utc>,
+    #[serde(default = "default_now")]
     pub last_active: DateTime<Utc>,
+    #[serde(default = "default_true")]
     pub show_profile: bool,
 }
 

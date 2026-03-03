@@ -106,7 +106,20 @@ async fn login(
     let users = state.db.collection::<User>("users");
     let user = match users.find_one(doc! { "email": &email }).await {
         Ok(Some(u)) => u,
-        _ => {
+        Ok(None) => {
+            tracing::debug!("Login failed: no user found with email {}", email);
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(AuthResponse {
+                    message: "Invalid email or password".into(),
+                    user: None,
+                    error: Some("Invalid email or password".into()),
+                    token: None,
+                }),
+            ));
+        }
+        Err(e) => {
+            tracing::error!("Login failed: DB/deserialization error for email {}: {}", email, e);
             return Err((
                 StatusCode::UNAUTHORIZED,
                 Json(AuthResponse {
@@ -191,9 +204,8 @@ async fn signup(
     }
 
     let hashed_password = bcrypt::hash(payload.password, bcrypt::DEFAULT_COST).unwrap();
-    let otp = format!("{:06}", (chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) % 1_000_000).abs());
-    let otp_expiry = Utc::now() + chrono::Duration::minutes(10);
 
+    // Auto-verify since email sending is not yet implemented
     let mut user = User {
         id: None,
         email: email.clone(),
@@ -210,9 +222,9 @@ async fn signup(
         student_class: None,
         batch: None,
         syllabus: None,
-        email_verified: false,
-        verification_otp: Some(otp.clone()),
-        otp_expiry: Some(otp_expiry),
+        email_verified: true,
+        verification_otp: None,
+        otp_expiry: None,
         reset_token: None,
         reset_token_expiry: None,
         onboarding_done: Some(false),
@@ -227,7 +239,8 @@ async fn signup(
         show_profile: true,
     };
 
-    let result = users.insert_one(&user).await.map_err(|_| {
+    let result = users.insert_one(&user).await.map_err(|e| {
+        tracing::error!("Signup DB error for {}: {}", email, e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(AuthResponse {
@@ -241,16 +254,19 @@ async fn signup(
     
     user.id = Some(result.inserted_id.as_object_id().unwrap());
 
-    // In a real app, send email here. For now, we assume it's "sent".
-    tracing::info!("Verification OTP for {}: {}", email, otp);
+    // Generate JWT so user is logged in immediately
+    let user_id = user.id.expect("User should have an id");
+    let token = create_jwt(&user_id, &user.email, &user.role).unwrap();
+
+    tracing::info!("New user registered: {}", email);
 
     Ok((
         StatusCode::CREATED,
         Json(AuthResponse {
-            message: "Signup successful. Please verify your email.".into(),
+            message: "Signup successful".into(),
             user: Some(user),
             error: None,
-            token: None,
+            token: Some(token),
         }),
     ))
 }
@@ -468,7 +484,7 @@ async fn logout(jar: CookieJar) -> Result<impl IntoResponse, StatusCode> {
 async fn google_login() -> impl IntoResponse {
     let client_id = env::var("GOOGLE_CLIENT_ID").unwrap_or_default();
     let redirect_uri = env::var("GOOGLE_CALLBACK_URL")
-        .unwrap_or_else(|_| "https://sbd.satym.in/api/auth/google/callback".into());
+        .unwrap_or_else(|_| "https://studybuddy-api-s1bx.onrender.com/api/auth/google/callback".into());
 
     let url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth\
@@ -586,7 +602,6 @@ async fn google_mobile(
 struct GoogleUserInfo {
     pub sub: String,        // Google unique ID
     pub email: String,
-    pub email_verified: Option<bool>,
     pub name: Option<String>,
     pub picture: Option<String>,
 }
@@ -601,7 +616,7 @@ async fn exchange_google_code_and_upsert_user(
     let client_id = env::var("GOOGLE_CLIENT_ID")?;
     let client_secret = env::var("GOOGLE_CLIENT_SECRET")?;
     let redirect_uri = env::var("GOOGLE_CALLBACK_URL")
-        .unwrap_or_else(|_| "https://sbd.satym.in/api/auth/google/callback".into());
+        .unwrap_or_else(|_| "https://studybuddy-api-s1bx.onrender.com/api/auth/google/callback".into());
 
     let http = reqwest::Client::new();
 
