@@ -29,7 +29,7 @@ Curated news, important dates, exam notifications, and study resources specific 
 Create personalized study schedules with calendar integration and reminders. Share schedules with friends for accountability.
 
 **Authentication**
-Secure login with email-password or Google OAuth. Email verification and password reset functionality.
+Secure login with email-password. Email verification and password reset functionality.
 
 **Cross-Platform**
 Web application with responsive design. Native mobile apps for iOS and Android with offline support and push notifications.

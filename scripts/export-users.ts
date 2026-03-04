@@ -30,7 +30,6 @@ async function exportUsers() {
         name: user.name,
         username: user.username,
         emailVerified: user.emailVerified,
-        googleId: user.googleId,
         avatar: user.avatar,
         avatarType: user.avatarType,
         onboardingDone: user.onboardingDone,
@@ -68,7 +67,6 @@ async function exportUsers() {
     console.log(`📊 Total users: ${users.length}`);
     console.log(`\n📋 Summary:`);
     console.log(`   - Verified users: ${users.filter(u => u.emailVerified).length}`);
-    console.log(`   - Google users: ${users.filter(u => u.googleId).length}`);
     console.log(`   - Email users: ${users.filter(u => u.password).length}`);
     console.log(`   - Completed onboarding: ${users.filter(u => u.onboardingDone).length}`);
 

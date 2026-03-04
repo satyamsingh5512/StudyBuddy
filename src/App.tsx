@@ -21,26 +21,25 @@ const Analytics = lazy(() =>
 
 // Lazy load components for better performance
 const Layout = lazy(() => import('./components/Layout'));
-const Landing = lazy(() => import('./pages/Landing'));
-const Auth = lazy(() => import('./pages/Auth'));
-const Onboarding = lazy(() => import('./pages/Onboarding'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Schedule = lazy(() => import('./pages/Schedule'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Leaderboard = lazy(() => import('./pages/Leaderboard'));
-const Notices = lazy(() => import('./pages/Notices'));
-const Friends = lazy(() => import('./pages/Friends'));
-const Messages = lazy(() => import('./pages/Messages'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const About = lazy(() => import('./pages/About'));
-const Contact = lazy(() => import('./pages/Contact'));
-const Terms = lazy(() => import('./pages/Terms'));
-const Support = lazy(() => import('./pages/Support'));
-const News = lazy(() => import('./pages/News'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const Admin = lazy(() => import('./pages/Admin'));
-const GoogleAuthCallback = lazy(() => import('./pages/GoogleAuthCallback'));
+const Landing = lazy(() => import('./views/Landing'));
+const Auth = lazy(() => import('./views/Auth'));
+const Onboarding = lazy(() => import('./views/Onboarding'));
+const Dashboard = lazy(() => import('./views/Dashboard'));
+const Schedule = lazy(() => import('./views/Schedule'));
+const Reports = lazy(() => import('./views/Reports'));
+const Leaderboard = lazy(() => import('./views/Leaderboard'));
+const Notices = lazy(() => import('./views/Notices'));
+const Friends = lazy(() => import('./views/Friends'));
+const Messages = lazy(() => import('./views/Messages'));
+const Settings = lazy(() => import('./views/Settings'));
+const Privacy = lazy(() => import('./views/Privacy'));
+const About = lazy(() => import('./views/About'));
+const Contact = lazy(() => import('./views/Contact'));
+const Terms = lazy(() => import('./views/Terms'));
+const Support = lazy(() => import('./views/Support'));
+const News = lazy(() => import('./views/News'));
+const ResetPassword = lazy(() => import('./views/ResetPassword'));
+const Admin = lazy(() => import('./views/Admin'));
 
 function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
   if (!user) return '/';
@@ -53,7 +52,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Maintenance Mode Check
-  if (import.meta.env.VITE_MAINTENANCE_MODE === 'true') {
+  if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true') {
     return <Maintenance />;
   }
 
@@ -137,8 +136,6 @@ function App() {
         <Routes>
           {/* Public routes - always accessible */}
           <Route path="/auth" element={<Auth />} />
-          {/* Google OAuth callback — must be public and rendered before auth check */}
-          <Route path="/auth/google/callback" element={<GoogleAuthCallback />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
