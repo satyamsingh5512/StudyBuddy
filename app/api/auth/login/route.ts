@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { createJWT } from '@/lib/jwt';
 import { cookies } from 'next/headers';
 
+const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(value);
+
 export async function POST(request: NextRequest) {
   try {
     const { email: rawEmail, password } = await request.json();
@@ -18,7 +20,9 @@ export async function POST(request: NextRequest) {
     const email = rawEmail.toLowerCase();
     const client = await clientPromise;
     const db = client.db('studybuddy');
-    const user = await db.collection('users').findOne({ email });
+    const user = await db.collection('users').findOne({
+      email: { $regex: `^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    });
 
     if (!user) {
       return NextResponse.json(
@@ -27,15 +31,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (user.password) {
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
-        return NextResponse.json(
-          { message: 'Invalid email or password', error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
+    const storedPassword = typeof user.password === 'string'
+      ? user.password
+      : (typeof user.passwordHash === 'string' ? user.passwordHash : null);
+
+    if (!storedPassword) {
+      return NextResponse.json(
+        { message: 'Invalid email or password', error: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    let isValid = false;
+
+    if (isBcryptHash(storedPassword)) {
+      isValid = await bcrypt.compare(password, storedPassword);
     } else {
+      isValid = password === storedPassword;
+      if (isValid) {
+        const upgradedPassword = await bcrypt.hash(password, 10);
+        await db.collection('users').updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              password: upgradedPassword,
+              updatedAt: new Date(),
+            },
+            $unset: {
+              passwordHash: '',
+            },
+          }
+        );
+        user.password = upgradedPassword;
+      }
+    }
+
+    if (!isValid) {
       return NextResponse.json(
         { message: 'Invalid email or password', error: 'Invalid email or password' },
         { status: 401 }
