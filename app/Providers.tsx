@@ -8,10 +8,8 @@ import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
-import { wakeupServer } from '@/lib/serverWakeup';
 import { useNetworkStatus } from '@/lib/networkStatus';
 import LoadingScreen from '@/components/LoadingScreen';
-import ServerWakeup from '@/components/ServerWakeup';
 import Maintenance from '@/components/Maintenance';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -20,7 +18,6 @@ import { Analytics } from '@vercel/analytics/react';
 export function Providers({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useAtom(userAtom);
   const [isLoading, setIsLoading] = useState(true);
-  const [showWakeup, setShowWakeup] = useState(true);
 
   useNetworkStatus();
 
@@ -30,9 +27,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     const initializeApp = async () => {
       soundManager.initialize();
-
-      await wakeupServer();
-      setShowWakeup(false);
 
       const timeoutId = window.setTimeout(() => {
         setUser(null);
@@ -71,10 +65,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true') {
     return <Maintenance />;
-  }
-
-  if (showWakeup) {
-    return <ServerWakeup />;
   }
 
   if (isLoading) {

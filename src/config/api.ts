@@ -1,22 +1,12 @@
 /**
  * API Configuration
  *
- * Web (Vercel): API is at https://api.satym.in (separate Render service)
- * Native (Capacitor): API is at https://api.satym.in
- * Development: API is at /api (Next.js API Routes) or override with NEXT_PUBLIC_API_URL
+ * Vercel deployment and local development both use Next.js API routes at /api.
+ * Optional override with NEXT_PUBLIC_API_URL if you intentionally host API elsewhere.
  *
  * JWT tokens are stored in HttpOnly cookies (web) — credentials: 'include' handles them.
- * The apiFetch wrapper automatically retries with a token refresh on 401.
  */
-import { isNativePlatform } from '../lib/capacitor';
-
-const isNativeApp = isNativePlatform();
-
-// In development, /api maps to Next.js API Routes
-// In production/native, use the Render-hosted API with /api prefix
-const DEFAULT_API_URL = process.env.NODE_ENV !== 'production' && !isNativeApp
-  ? '/api'
-  : 'https://studybuddy-api-s1bx.onrender.com/api';
+const DEFAULT_API_URL = '/api';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 
