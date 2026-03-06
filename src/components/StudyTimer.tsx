@@ -132,7 +132,7 @@ export default function StudyTimer() {
         description: 'Will sync when connection is restored',
       });
     }
-  }, [toast]);
+  }, [toast, selectedSubject]);
 
   useEffect(() => {
     if (!studying || showFullscreen) return;
@@ -189,7 +189,7 @@ export default function StudyTimer() {
       tickHandle?.remove?.();
       doneHandle?.remove?.();
     };
-  }, [isNative, pomodoroDuration, setStudyTime, setStudying, saveSession, toast]);
+  }, [pomodoroDuration, setStudyTime, setStudying, saveSession, toast]);
 
   const toggleStudying = () => {
     const next = !studying;

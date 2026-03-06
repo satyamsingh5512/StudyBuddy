@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/lib/router';
 
 interface BackgroundElementsProps {
     isDark?: boolean;

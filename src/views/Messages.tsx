@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/router';
 import { ArrowLeft, Send, MoreVertical } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -40,7 +40,7 @@ interface Friend {
 }
 
 export default function Messages() {
-  const { userId } = useParams();
+  const { userId } = useParams() as { userId?: string };
   const navigate = useNavigate();
   const [user] = useAtom(userAtom);
   const [conversations, setConversations] = useState<Conversation[]>([]);

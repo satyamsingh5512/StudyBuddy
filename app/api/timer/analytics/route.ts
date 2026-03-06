@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       date: { $gte: startDate }
     }).toArray();
 
-    const analytics = [];
+    const analytics: any[] = [];
     for (let i = 0; i < days; i++) {
       const currentDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = currentDate.toISOString().split('T')[0];

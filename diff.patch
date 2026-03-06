@@ -1,0 +1,991 @@
+diff --git a/app/[[...slug]]/client.tsx b/app/[[...slug]]/client.tsx
+deleted file mode 100644
+index d7ad5ab..0000000
+--- a/app/[[...slug]]/client.tsx
++++ /dev/null
+@@ -1,21 +0,0 @@
+-'use client';
+-import React, { useEffect } from 'react';
+-import { BrowserRouter } from 'react-router-dom';
+-import { QueryClientProvider } from '@tanstack/react-query';
+-import { queryClient } from '../../src/lib/queryClient';
+-import App from '../../src/App';
+-import { initTheme } from '../../src/lib/theme';
+-
+-export default function ClientApp() {
+-  useEffect(() => {
+-    initTheme();
+-  }, []);
+-
+-  return (
+-    <QueryClientProvider client={queryClient}>
+-      <BrowserRouter>
+-        <App />
+-      </BrowserRouter>
+-    </QueryClientProvider>
+-  );
+-}
+diff --git a/app/[[...slug]]/page.tsx b/app/[[...slug]]/page.tsx
+deleted file mode 100644
+index bd0f96a..0000000
+--- a/app/[[...slug]]/page.tsx
++++ /dev/null
+@@ -1,8 +0,0 @@
+-'use client';
+-import dynamic from 'next/dynamic';
+-
+-const ClientApp = dynamic(() => import('./client'), { ssr: false });
+-
+-export default function Page() {
+-  return <ClientApp />;
+-}
+diff --git a/app/api/auth/login/route.ts b/app/api/auth/login/route.ts
+index c63705b..693cc25 100644
+--- a/app/api/auth/login/route.ts
++++ b/app/api/auth/login/route.ts
+@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
+       maxAge: 30 * 24 * 60 * 60, // 30 days
+     });
+ 
+-    const safeUser = { ...user, _id: userId, id: userId };
++    const safeUser: any = { ...user, _id: userId, id: userId };
+     delete safeUser.password;
+     delete safeUser.verificationOtp;
+     delete safeUser.resetToken;
+diff --git a/app/api/auth/verify-otp/route.ts b/app/api/auth/verify-otp/route.ts
+index b683889..6547d71 100644
+--- a/app/api/auth/verify-otp/route.ts
++++ b/app/api/auth/verify-otp/route.ts
+@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
+       maxAge: 30 * 24 * 60 * 60, // 30 days
+     });
+ 
+-    const updatedUser = { ...user, emailVerified: true, _id: userId, id: userId };
++    const updatedUser: any = { ...user, emailVerified: true, _id: userId, id: userId };
+     delete updatedUser.password;
+     delete updatedUser.verificationOtp;
+     delete updatedUser.resetToken;
+diff --git a/app/api/users/leaderboard/route.ts b/app/api/users/leaderboard/route.ts
+index b427ac8..b7ed642 100644
+--- a/app/api/users/leaderboard/route.ts
++++ b/app/api/users/leaderboard/route.ts
+@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
+       .toArray();
+ 
+     const response = topUsers.map(u => {
+-      const safeUser = { ...u, _id: undefined, id: u._id.toString() };
++      const safeUser: any = { ...u, _id: undefined, id: u._id.toString() };
+       delete safeUser.password;
+       delete safeUser.verificationOtp;
+       delete safeUser.resetToken;
+diff --git a/app/api/users/onboarding/route.ts b/app/api/users/onboarding/route.ts
+index e38ec17..e9ca679 100644
+--- a/app/api/users/onboarding/route.ts
++++ b/app/api/users/onboarding/route.ts
+@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
+       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+     }
+ 
+-    const safeUser = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
++    const safeUser: any = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
+     delete safeUser.password;
+     delete safeUser.verificationOtp;
+     delete safeUser.resetToken;
+diff --git a/app/api/users/profile/route.ts b/app/api/users/profile/route.ts
+index 6b7db9e..e0a1a98 100644
+--- a/app/api/users/profile/route.ts
++++ b/app/api/users/profile/route.ts
+@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
+     const user = await getUserFromRequest(request);
+     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ 
+-    const safeUser = { ...user };
++    const safeUser: any = { ...user };
+     delete safeUser.password;
+     delete safeUser.verificationOtp;
+     delete safeUser.resetToken;
+@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
+     if (payload.subjects !== undefined) updateDoc.subjects = payload.subjects;
+ 
+     if (Object.keys(updateDoc).length === 0) {
+-      const safeUser = { ...user };
++      const safeUser: any = { ...user };
+       delete safeUser.password;
+       return NextResponse.json(safeUser);
+     }
+@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
+       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+     }
+ 
+-    const safeUser = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
++    const safeUser: any = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
+     delete safeUser.password;
+     delete safeUser.verificationOtp;
+     delete safeUser.resetToken;
+diff --git a/app/layout.tsx b/app/layout.tsx
+index e7fee17..ff20559 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -9,6 +9,8 @@ export const viewport = {
+   themeColor: '#6366f1',
+ };
+ 
++export const dynamic = 'force-dynamic';
++
+ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+     <html lang="en" suppressHydrationWarning>
+diff --git a/app/not-found.tsx b/app/not-found.tsx
+index 55edf98..5ced01f 100644
+--- a/app/not-found.tsx
++++ b/app/not-found.tsx
+@@ -1,7 +1,8 @@
++'use client';
+ export default function NotFound() {
+   return (
+     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+       <h1>404 - Page Not Found</h1>
+     </div>
+   );
+-}
++}
+\ No newline at end of file
+diff --git a/next-env.d.ts b/next-env.d.ts
+index 40c3d68..725dd6f 100644
+--- a/next-env.d.ts
++++ b/next-env.d.ts
+@@ -1,5 +1,6 @@
+ /// <reference types="next" />
+ /// <reference types="next/image-types/global" />
++/// <reference types="next/navigation-types/compat/navigation" />
+ 
+ // NOTE: This file should not be edited
+ // see https://nextjs.org/docs/app/building-your-application/configuring/typescript for more information.
+diff --git a/next.config.mjs b/next.config.mjs
+index 88e73ec..f5ce1d1 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -6,7 +6,7 @@ const nextConfig = {
+   },
+   eslint: {
+     ignoreDuringBuilds: true,
+-  }
++  },
+ };
+ 
+ export default nextConfig;
+diff --git a/package-lock.json b/package-lock.json
+index 37f1ecc..e1c4a9d 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -51,7 +51,6 @@
+         "react": "^18.3.1",
+         "react-dom": "^18.3.1",
+         "react-markdown": "^10.1.0",
+-        "react-router-dom": "^6.28.0",
+         "rehype-katex": "^7.0.1",
+         "remark-gfm": "^4.0.1",
+         "remark-math": "^6.0.0",
+@@ -3624,15 +3623,6 @@
+       "integrity": "sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==",
+       "license": "MIT"
+     },
+-    "node_modules/@remix-run/router": {
+-      "version": "1.23.1",
+-      "resolved": "https://registry.npmjs.org/@remix-run/router/-/router-1.23.1.tgz",
+-      "integrity": "sha512-vDbaOzF7yT2Qs4vO6XV1MHcJv+3dgR1sT+l3B8xxOVhUC336prMvqrvsLL/9Dnw2xr6Qhz4J0dmS0llNAbnUmQ==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=14.0.0"
+-      }
+-    },
+     "node_modules/@rtsao/scc": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/@rtsao/scc/-/scc-1.1.0.tgz",
+@@ -12272,38 +12262,6 @@
+         }
+       }
+     },
+-    "node_modules/react-router": {
+-      "version": "6.30.2",
+-      "resolved": "https://registry.npmjs.org/react-router/-/react-router-6.30.2.tgz",
+-      "integrity": "sha512-H2Bm38Zu1bm8KUE5NVWRMzuIyAV8p/JrOaBJAwVmp37AXG72+CZJlEBw6pdn9i5TBgLMhNDgijS4ZlblpHyWTA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@remix-run/router": "1.23.1"
+-      },
+-      "engines": {
+-        "node": ">=14.0.0"
+-      },
+-      "peerDependencies": {
+-        "react": ">=16.8"
+-      }
+-    },
+-    "node_modules/react-router-dom": {
+-      "version": "6.30.2",
+-      "resolved": "https://registry.npmjs.org/react-router-dom/-/react-router-dom-6.30.2.tgz",
+-      "integrity": "sha512-l2OwHn3UUnEVUqc6/1VMmR1cvZryZ3j3NzapC2eUXO1dB0sYp5mvwdjiXhpUbRb21eFow3qSxpP8Yv6oAU824Q==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@remix-run/router": "1.23.1",
+-        "react-router": "6.30.2"
+-      },
+-      "engines": {
+-        "node": ">=14.0.0"
+-      },
+-      "peerDependencies": {
+-        "react": ">=16.8",
+-        "react-dom": ">=16.8"
+-      }
+-    },
+     "node_modules/react-style-singleton": {
+       "version": "2.2.3",
+       "resolved": "https://registry.npmjs.org/react-style-singleton/-/react-style-singleton-2.2.3.tgz",
+diff --git a/package.json b/package.json
+index a76e8fa..1d439ed 100644
+--- a/package.json
++++ b/package.json
+@@ -29,6 +29,7 @@
+     "@dnd-kit/sortable": "^8.0.0",
+     "@dnd-kit/utilities": "^3.2.2",
+     "@google/generative-ai": "^0.24.1",
++    "@prisma/client": "^5.22.0",
+     "@radix-ui/react-avatar": "^1.1.1",
+     "@radix-ui/react-checkbox": "^1.1.2",
+     "@radix-ui/react-dialog": "^1.1.2",
+@@ -43,7 +44,6 @@
+     "@tanstack/react-query": "^5.90.19",
+     "@types/json2csv": "^5.0.7",
+     "@vercel/analytics": "^1.5.0",
+-    "@prisma/client": "^5.22.0",
+     "bcryptjs": "^3.0.3",
+     "class-variance-authority": "^0.7.0",
+     "cloudinary": "^2.9.0",
+@@ -63,7 +63,6 @@
+     "react": "^18.3.1",
+     "react-dom": "^18.3.1",
+     "react-markdown": "^10.1.0",
+-    "react-router-dom": "^6.28.0",
+     "rehype-katex": "^7.0.1",
+     "remark-gfm": "^4.0.1",
+     "remark-math": "^6.0.0",
+@@ -96,8 +95,8 @@
+     "eslint-plugin-react-hooks": "^4.6.0",
+     "eslint-plugin-react-refresh": "^0.4.14",
+     "postcss": "^8.4.47",
+-    "prisma": "^5.22.0",
+     "prettier": "^3.3.3",
++    "prisma": "^5.22.0",
+     "tailwindcss": "^3.4.14"
+   },
+   "description": "AI-powered study companion for competitive exam preparation.",
+diff --git a/scripts/test-email.ts b/scripts/test-email.ts
+index cb8690d..e76c049 100644
+--- a/scripts/test-email.ts
++++ b/scripts/test-email.ts
+@@ -42,7 +42,7 @@ async function testEmail() {
+       subject: 'Test Email - StudyBuddy',
+       html: `
+         <!DOCTYPE html>
+-        <html>
++        <div>
+           <head>
+             <meta charset="utf-8">
+             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+diff --git a/src/App.tsx b/src/App.tsx
+index 404af4e..dd707eb 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,7 +1,6 @@
+-
+ // @ts-nocheck
+-import { Routes, Route, Navigate } from 'react-router-dom';
+ import { useEffect, useState, lazy, Suspense } from 'react';
++import { usePathname, useRouter } from 'next/navigation';
+ import { useAtom } from 'jotai';
+ import { userAtom } from './store/atoms';
+ import LoadingScreen from './components/LoadingScreen';
+@@ -14,12 +13,10 @@ import { wakeupServer } from './lib/serverWakeup';
+ import { useNetworkStatus } from './lib/networkStatus';
+ import Maintenance from './components/Maintenance';
+ 
+-// OPTIMIZATION: Lazy load Analytics (non-critical, loads after hydration)
+ const Analytics = lazy(() =>
+   import('@vercel/analytics/react').then((m) => ({ default: m.Analytics }))
+ );
+ 
+-// Lazy load components for better performance
+ const Layout = lazy(() => import('./components/Layout'));
+ const Landing = lazy(() => import('./views/Landing'));
+ const Auth = lazy(() => import('./views/Auth'));
+@@ -50,50 +47,46 @@ function getRedirectPath(user: unknown, needsOnboarding: boolean): string {
+ function App() {
+   const [user, setUser] = useAtom(userAtom);
+   const [isLoading, setIsLoading] = useState(true);
++  const [showWakeup, setShowWakeup] = useState(true);
++  const pathname = usePathname() || '/';
++  const router = useRouter();
+ 
+-  // Maintenance Mode Check
+   if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true') {
+     return <Maintenance />;
+   }
+ 
+-  // Initialize network status monitoring
+   useNetworkStatus();
+-  const [showWakeup, setShowWakeup] = useState(true);
+ 
+   useEffect(() => {
+     let soundPlayed = false;
+ 
+     const initializeApp = async () => {
+-      // Pre-initialize audio to prevent first-click delay
+       soundManager.initialize();
+ 
+-      // First, wake up the server if needed
+       await wakeupServer();
+       setShowWakeup(false);
+ 
+-      // Add timeout to prevent infinite loading
+       const timeoutId = window.setTimeout(() => {
+         setUser(null);
+         setIsLoading(false);
+-      }, 10000); // 10 second timeout (increased for cold starts)
++      }, 10000);
+ 
+       apiFetch('/auth/me')
+         .then((res) => (res.ok ? res.json() : null))
+         .then((data) => {
+           window.clearTimeout(timeoutId);
+-          // Ensure user data is clean
+-          const cleanUser = data ? {
+-            ...data,
+-            totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : 0,
+-            streak: typeof data.streak === 'number' ? data.streak : 0,
+-          } : null;
++          const cleanUser = data
++            ? {
++                ...data,
++                totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : 0,
++                streak: typeof data.streak === 'number' ? data.streak : 0,
++              }
++            : null;
+           setUser(cleanUser);
+-          // Play login sound when user successfully authenticates
+           if (data && !soundPlayed) {
+             window.setTimeout(() => soundManager.playLogin(), 100);
+             soundPlayed = true;
+           }
+-          // Add a small delay for smooth transition
+           window.setTimeout(() => setIsLoading(false), 500);
+         })
+         .catch(() => {
+@@ -108,6 +101,77 @@ function App() {
+     initializeApp();
+   }, [setUser]);
+ 
++  const needsOnboarding = user && !('onboardingDone' in user && user.onboardingDone);
++  const isMessageThread = pathname.startsWith('/messages/');
++
++  let routeElement = null;
++  let useMainLayout = false;
++  let redirectTo: string | null = null;
++
++  if (pathname === '/') {
++    if (!user) {
++      routeElement = <Landing />;
++    } else {
++      redirectTo = needsOnboarding ? '/onboarding' : '/dashboard';
++    }
++  } else if (pathname === '/auth') {
++    routeElement = <Auth />;
++  } else if (pathname === '/privacy') {
++    routeElement = <Privacy />;
++  } else if (pathname === '/about') {
++    routeElement = <About />;
++  } else if (pathname === '/contact') {
++    routeElement = <Contact />;
++  } else if (pathname === '/terms') {
++    routeElement = <Terms />;
++  } else if (pathname === '/support') {
++    routeElement = <Support />;
++  } else if (pathname === '/reset-password') {
++    routeElement = <ResetPassword />;
++  } else if (pathname === '/onboarding') {
++    if (!user) {
++      redirectTo = '/';
++    } else if (!needsOnboarding) {
++      redirectTo = '/dashboard';
++    } else {
++      routeElement = <Onboarding />;
++    }
++  } else {
++    const protectedRoutes: Record<string, JSX.Element> = {
++      '/dashboard': <Dashboard />,
++      '/schedule': <Schedule />,
++      '/reports': <Reports />,
++      '/leaderboard': <Leaderboard />,
++      '/notices': <Notices />,
++      '/friends': <Friends />,
++      '/messages': <Messages />,
++      '/news': <News />,
++      '/settings': <Settings />,
++      '/admin': <Admin />,
++    };
++
++    const protectedElement = isMessageThread ? <Messages /> : protectedRoutes[pathname];
++
++    if (protectedElement) {
++      if (!user) {
++        redirectTo = '/';
++      } else if (needsOnboarding) {
++        redirectTo = '/onboarding';
++      } else {
++        routeElement = protectedElement;
++        useMainLayout = true;
++      }
++    } else {
++      redirectTo = getRedirectPath(user, Boolean(needsOnboarding));
++    }
++  }
++
++  useEffect(() => {
++    if (!showWakeup && !isLoading && redirectTo && redirectTo !== pathname) {
++      router.replace(redirectTo);
++    }
++  }, [redirectTo, pathname, router, showWakeup, isLoading]);
++
+   if (showWakeup) {
+     return <ServerWakeup />;
+   }
+@@ -116,62 +180,14 @@ function App() {
+     return <LoadingScreen />;
+   }
+ 
+-  // Check if user needs onboarding
+-  const needsOnboarding = user && !('onboardingDone' in user && user.onboardingDone);
+-
+-  const getDefaultRoute = () => {
+-    if (!user)
+-      return (
+-        <Suspense fallback={<LoadingScreen />}>
+-          <Landing />
+-        </Suspense>
+-      );
+-    if (needsOnboarding) return <Navigate to="/onboarding" replace />;
+-    return <Navigate to="/dashboard" replace />;
+-  };
++  if (redirectTo && redirectTo !== pathname) {
++    return <LoadingScreen />;
++  }
+ 
+   return (
+     <ErrorBoundary>
+       <Suspense fallback={<LoadingScreen />}>
+-        <Routes>
+-          {/* Public routes - always accessible */}
+-          <Route path="/auth" element={<Auth />} />
+-          <Route path="/privacy" element={<Privacy />} />
+-          <Route path="/about" element={<About />} />
+-          <Route path="/contact" element={<Contact />} />
+-          <Route path="/terms" element={<Terms />} />
+-          <Route path="/support" element={<Support />} />
+-          <Route path="/reset-password" element={<ResetPassword />} />
+-
+-          {/* Root route */}
+-          <Route path="/" element={getDefaultRoute()} />
+-
+-          {/* Onboarding route - only for authenticated users who need onboarding */}
+-          {user && needsOnboarding && <Route path="/onboarding" element={<Onboarding />} />}
+-
+-          {/* Protected routes - require authentication and completed onboarding */}
+-          {user && !needsOnboarding && (
+-            <Route path="/" element={<Layout />}>
+-              <Route path="dashboard" element={<Dashboard />} />
+-              <Route path="schedule" element={<Schedule />} />
+-              <Route path="reports" element={<Reports />} />
+-              <Route path="leaderboard" element={<Leaderboard />} />
+-              <Route path="notices" element={<Notices />} />
+-              <Route path="friends" element={<Friends />} />
+-              <Route path="messages" element={<Messages />} />
+-              <Route path="messages/:userId" element={<Messages />} />
+-              <Route path="news" element={<News />} />
+-              <Route path="settings" element={<Settings />} />
+-              <Route path="admin" element={<Admin />} />
+-            </Route>
+-          )}
+-
+-          {/* Catch-all redirect */}
+-          <Route
+-            path="*"
+-            element={<Navigate to={getRedirectPath(user, Boolean(needsOnboarding))} replace />}
+-          />
+-        </Routes>
++        {useMainLayout ? <Layout>{routeElement}</Layout> : routeElement}
+       </Suspense>
+       <Toaster />
+       <Suspense fallback={null}>
+diff --git a/src/components/BackgroundElements.tsx b/src/components/BackgroundElements.tsx
+index 7ceaaa0..9d42d52 100644
+--- a/src/components/BackgroundElements.tsx
++++ b/src/components/BackgroundElements.tsx
+@@ -1,6 +1,6 @@
+ import { useMemo } from 'react';
+ import { motion } from 'framer-motion';
+-import { useLocation } from 'react-router-dom';
++import { useLocation } from '@/lib/router';
+ 
+ interface BackgroundElementsProps {
+     isDark?: boolean;
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 1456418..a87b062 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,4 +1,4 @@
+-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
++import { Link, useLocation, useNavigate } from '@/lib/router';
+ import { useState } from 'react';
+ import {
+   LayoutDashboard,
+@@ -14,9 +14,6 @@ import {
+   Menu,
+   X,
+   Newspaper,
+-  Users,
+-  LibraryBig,
+-  BrainCircuit,
+ } from 'lucide-react';
+ import { useAtom } from 'jotai';
+ import { userAtom, studyingAtom } from '@/store/atoms';
+@@ -51,7 +48,11 @@ const navItems = [
+   { path: '/settings', icon: Settings, label: 'Settings' },
+ ];
+ 
+-export default function Layout() {
++interface LayoutProps {
++  children: React.ReactNode;
++}
++
++export default function Layout({ children }: LayoutProps) {
+   const [user] = useAtom(userAtom);
+   const [studying] = useAtom(studyingAtom);
+   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+@@ -74,7 +75,6 @@ export default function Layout() {
+   return (
+     <UnifiedPageWrapper>
+       <div className="min-h-screen flex flex-col md:flex-row">
+-        {/* Mobile Header */}
+         <header className="md:hidden h-14 border-b border-border/50 flex items-center justify-between px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-40 supports-[backdrop-filter]:bg-background/80">
+           <div className="flex items-center gap-2">
+             <Logo className="w-5 h-5" />
+@@ -102,7 +102,6 @@ export default function Layout() {
+           </div>
+         </header>
+ 
+-        {/* Mobile Menu Overlay */}
+         {mobileMenuOpen && (
+           <div
+             className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-30 transition-opacity duration-300"
+@@ -110,7 +109,6 @@ export default function Layout() {
+           />
+         )}
+ 
+-        {/* Sidebar - Desktop & Mobile */}
+         <aside
+           className={`
+           fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 border-r flex flex-col bg-card/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/80
+@@ -140,7 +138,6 @@ export default function Layout() {
+             </Button>
+           </div>
+ 
+-          {/* User Profile - Mobile Only */}
+           <div className="md:hidden p-4 border-b">
+             <div className="flex items-center gap-3">
+               <div className="relative">
+@@ -149,12 +146,10 @@ export default function Layout() {
+                   alt={(user as any)?.username || user?.name}
+                   className="h-10 w-10 rounded-full ring-2 ring-border"
+                 />
+-                {/* Network Status */}
+                 <span
+                   className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
+                     }`}
+                 ></span>
+-                {/* Studying Status */}
+                 {studying && (
+                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
+                 )}
+@@ -174,7 +169,12 @@ export default function Layout() {
+                 const Icon = item.icon;
+                 const isActive = location.pathname === item.path;
+                 return (
+-                  <Link key={item.path} to={item.path} onClick={handleNavClick} className="block w-full">
++                  <Link
++                    key={item.path}
++                    to={item.path}
++                    onClick={handleNavClick}
++                    className="block w-full"
++                  >
+                     <div
+                       className={`
+                       flex items-center gap-3 px-3 py-2.5 mx-1 rounded-md text-sm font-medium
+@@ -185,11 +185,15 @@ export default function Layout() {
+                         }
+                     `}
+                     >
+-                      {/* Active indicator bar */}
+                       {isActive && (
+                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
+                       )}
+-                      <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground transition-colors'}`} />
++                      <Icon
++                        className={`h-[18px] w-[18px] flex-shrink-0 ${isActive
++                            ? 'text-primary'
++                            : 'text-muted-foreground group-hover:text-foreground transition-colors'
++                          }`}
++                      />
+                       {item.label}
+                     </div>
+                   </Link>
+@@ -210,9 +214,7 @@ export default function Layout() {
+           </div>
+         </aside>
+ 
+-        {/* Main Content */}
+         <div className="flex-1 flex flex-col min-w-0">
+-          {/* Desktop Header */}
+           <header className="hidden md:flex h-16 border-b border-border/50 items-center justify-between px-6 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/80">
+             <div className="flex items-center gap-3">
+               {studying && (
+@@ -243,7 +245,6 @@ export default function Layout() {
+                         alt={(user as any)?.username || user?.name}
+                         className="h-8 w-8 rounded-md ring-1 ring-border group-hover:ring-primary/50 transition-all duration-200 object-cover"
+                       />
+-                      {/* Network Status */}
+                       <span
+                         className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-success' : 'bg-destructive'
+                           }`}
+@@ -284,9 +285,7 @@ export default function Layout() {
+ 
+           <main className="flex-1 p-4 md:p-8 overflow-auto">
+             <div className="max-w-[1280px] mx-auto h-full w-full">
+-              <PageTransition>
+-                <Outlet />
+-              </PageTransition>
++              <PageTransition>{children}</PageTransition>
+             </div>
+           </main>
+         </div>
+diff --git a/src/components/Logo.tsx b/src/components/Logo.tsx
+index ea8d657..49512ea 100644
+--- a/src/components/Logo.tsx
++++ b/src/components/Logo.tsx
+@@ -1,4 +1,4 @@
+-import { Link } from 'react-router-dom';
++import { Link } from '@/lib/router';
+ 
+ interface LogoProps {
+     className?: string;
+diff --git a/src/components/PageTransition.tsx b/src/components/PageTransition.tsx
+index da508a3..f5c5490 100644
+--- a/src/components/PageTransition.tsx
++++ b/src/components/PageTransition.tsx
+@@ -1,5 +1,5 @@
+ import { motion, AnimatePresence } from 'framer-motion';
+-import { useLocation } from 'react-router-dom';
++import { useLocation } from '@/lib/router';
+ import { ReactNode } from 'react';
+ 
+ interface PageTransitionProps {
+diff --git a/src/components/landing/HeroSection.tsx b/src/components/landing/HeroSection.tsx
+index f0532e4..6e214a4 100644
+--- a/src/components/landing/HeroSection.tsx
++++ b/src/components/landing/HeroSection.tsx
+@@ -1,5 +1,5 @@
+ import { motion } from "framer-motion";
+-import { Link, useNavigate } from "react-router-dom";
++import { Link, useNavigate } from "@/lib/router";
+ import { ArrowRight, Star } from "lucide-react";
+ import { RotatingText } from "@/components/ui/rotating-text";
+ 
+diff --git a/src/components/landing/PremiumNavbar.tsx b/src/components/landing/PremiumNavbar.tsx
+index 996dd10..b19377d 100644
+--- a/src/components/landing/PremiumNavbar.tsx
++++ b/src/components/landing/PremiumNavbar.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect } from "react";
+ import { motion } from "framer-motion";
+-import { Link, useNavigate } from "react-router-dom";
++import { Link, useNavigate } from "@/lib/router";
+ import { Menu, X, LayoutDashboard } from "lucide-react";
+ import ThemeToggle from "@/components/ThemeToggle";
+ import Logo from "@/components/Logo";
+diff --git a/src/lib/auth.ts b/src/lib/auth.ts
+index 588d4f0..e7b1cac 100644
+--- a/src/lib/auth.ts
++++ b/src/lib/auth.ts
+@@ -21,14 +21,14 @@ export async function getUserFromRequest(request: NextRequest) {
+     const claims = await verifyJWT(token);
+     const client = await clientPromise;
+     const db = client.db('studybuddy');
+-    const user = await db.collection('users').findOne({ _id: new ObjectId(claims.sub) });
++    const user = await db.collection<any>('users').findOne({ _id: new ObjectId(claims.sub) });
+ 
+     if (!user) {
+       return null;
+     }
+ 
+     // Convert _id to string for Next.js serialization
+-    return { ...user, _id: user._id.toString(), id: user._id.toString() };
++    return { ...user, _id: user._id.toString(), id: user._id.toString() } as any;
+   } catch (error) {
+     console.error('Auth Error:', error);
+     return null;
+diff --git a/src/lib/networkStatus.ts b/src/lib/networkStatus.ts
+index b336051..f3df3fc 100644
+--- a/src/lib/networkStatus.ts
++++ b/src/lib/networkStatus.ts
+@@ -1,12 +1,18 @@
+ import { useEffect, useState } from 'react';
+ import { useToast } from '@/components/ui/use-toast';
+ 
++const isBrowser = typeof window !== 'undefined';
++
+ export function useNetworkStatus() {
+-  const [isOnline, setIsOnline] = useState(navigator.onLine);
++  const [isOnline, setIsOnline] = useState(isBrowser ? navigator.onLine : true);
+   const [wasOffline, setWasOffline] = useState(false);
+   const { toast } = useToast();
+ 
+   useEffect(() => {
++    if (!isBrowser) return undefined;
++
++    setIsOnline(navigator.onLine);
++
+     const handleOnline = () => {
+       setIsOnline(true);
+       if (wasOffline) {
+@@ -104,6 +110,7 @@ class OfflineQueue {
+   }
+ 
+   async processQueue() {
++    if (!isBrowser) return;
+     if (!navigator.onLine || this.queue.length === 0) return;
+ 
+     const operations = [...this.queue];
+@@ -126,6 +133,7 @@ class OfflineQueue {
+   }
+ 
+   private saveToStorage() {
++    if (!isBrowser) return;
+     try {
+       localStorage.setItem('offlineQueue', JSON.stringify(this.queue));
+     } catch (error) {
+@@ -134,6 +142,7 @@ class OfflineQueue {
+   }
+ 
+   private loadFromStorage() {
++    if (!isBrowser) return;
+     try {
+       const stored = localStorage.getItem('offlineQueue');
+       if (stored) {
+@@ -146,6 +155,8 @@ class OfflineQueue {
+   }
+ 
+   constructor() {
++    if (!isBrowser) return;
++
+     this.loadFromStorage();
+     
+     // Process queue when coming back online
+@@ -155,4 +166,4 @@ class OfflineQueue {
+   }
+ }
+ 
+-export const offlineQueue = new OfflineQueue();
+\ No newline at end of file
++export const offlineQueue = isBrowser ? new OfflineQueue() : null;
+diff --git a/src/views/About.tsx b/src/views/About.tsx
+index b7b7c1d..566f354 100644
+--- a/src/views/About.tsx
++++ b/src/views/About.tsx
+@@ -1,4 +1,4 @@
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { ArrowLeft, Users, Zap, Heart } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+diff --git a/src/views/Auth.tsx b/src/views/Auth.tsx
+index e0a142e..5a7f4bd 100644
+--- a/src/views/Auth.tsx
++++ b/src/views/Auth.tsx
+@@ -23,6 +23,23 @@ export default function Auth() {
+ 
+     useEffect(() => {
+         soundManager.initialize();
++
++        // Handle OAuth error redirects (e.g., ?error=google_failed)
++        const params = new URLSearchParams(window.location.search);
++        const oauthError = params.get('error');
++        if (oauthError) {
++            const messages: Record<string, string> = {
++                google_denied: 'Google sign-in was cancelled.',
++                google_failed: 'Google sign-in failed. Please try again.',
++            };
++            toast({
++                title: 'Sign-in Error',
++                description: messages[oauthError] || 'An error occurred during sign-in.',
++                variant: 'destructive',
++            });
++            // Clean the URL
++            window.history.replaceState({}, '', window.location.pathname);
++        }
+     }, []);
+ 
+ 
+@@ -439,6 +456,33 @@ export default function Auth() {
+                                                             'Verify Email'
+                                         }
+                                     </button>
++
++                                    {/* Google OAuth Button - only on signin/signup */}
++                                    {(authType === 'signin' || authType === 'signup') && (
++                                        <>
++                                            <div className="relative flex items-center my-1">
++                                                <div className="flex-1 border-t border-border" />
++                                                <span className="px-3 text-xs text-muted-foreground">or</span>
++                                                <div className="flex-1 border-t border-border" />
++                                            </div>
++                                            <button
++                                                type="button"
++                                                onClick={() => { window.location.href = '/api/auth/google'; }}
++                                                className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-background hover:bg-muted transition-all duration-200 text-sm font-medium text-foreground shadow-sm"
++                                            >
++                                                {/* Google SVG Icon */}
++                                                <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
++                                                    <g fill="none" fillRule="evenodd">
++                                                        <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
++                                                        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" />
++                                                        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
++                                                        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335" />
++                                                    </g>
++                                                </svg>
++                                                Continue with Google
++                                            </button>
++                                        </>
++                                    )}
+                                 </motion.form>
+                             </AnimatePresence>
+ 
+diff --git a/src/views/Contact.tsx b/src/views/Contact.tsx
+index fef5d14..92473b8 100644
+--- a/src/views/Contact.tsx
++++ b/src/views/Contact.tsx
+@@ -1,5 +1,5 @@
+ import { useState } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { ArrowLeft, Mail, Send, Copy, Check } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+diff --git a/src/views/Dashboard.tsx b/src/views/Dashboard.tsx
+index 5353e6b..acead57 100644
+--- a/src/views/Dashboard.tsx
++++ b/src/views/Dashboard.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical } from 'lucide-react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import { useAtom } from 'jotai';
+diff --git a/src/views/Friends.tsx b/src/views/Friends.tsx
+index efdf9a5..aadbe14 100644
+--- a/src/views/Friends.tsx
++++ b/src/views/Friends.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useTransition } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import {
+   Search,
+   UserPlus,
+diff --git a/src/views/Messages.tsx b/src/views/Messages.tsx
+index b70c5cb..a9e6b2b 100644
+--- a/src/views/Messages.tsx
++++ b/src/views/Messages.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useRef, useCallback } from 'react';
+-import { useParams, useNavigate } from 'react-router-dom';
++import { useParams, useNavigate } from '@/lib/router';
+ import { ArrowLeft, Send, MoreVertical } from 'lucide-react';
+ import { useAtom } from 'jotai';
+ import { userAtom } from '@/store/atoms';
+@@ -40,7 +40,7 @@ interface Friend {
+ }
+ 
+ export default function Messages() {
+-  const { userId } = useParams();
++  const { userId } = useParams() as { userId?: string };
+   const navigate = useNavigate();
+   const [user] = useAtom(userAtom);
+   const [conversations, setConversations] = useState<Conversation[]>([]);
+diff --git a/src/views/Privacy.tsx b/src/views/Privacy.tsx
+index 743ad93..2fb0e5e 100644
+--- a/src/views/Privacy.tsx
++++ b/src/views/Privacy.tsx
+@@ -1,4 +1,4 @@
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { ArrowLeft } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+diff --git a/src/views/ResetPassword.tsx b/src/views/ResetPassword.tsx
+index e32c3fc..e13edcc 100644
+--- a/src/views/ResetPassword.tsx
++++ b/src/views/ResetPassword.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect } from 'react';
+-import { useNavigate, useSearchParams } from 'react-router-dom';
++import { useNavigate, useSearchParams } from '@/lib/router';
+ import { motion } from 'framer-motion';
+ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+ import { Button } from '@/components/ui/button';
+diff --git a/src/views/Support.tsx b/src/views/Support.tsx
+index 09268b7..a7512b7 100644
+--- a/src/views/Support.tsx
++++ b/src/views/Support.tsx
+@@ -1,4 +1,4 @@
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { ArrowLeft, Search, HelpCircle, Mail, ChevronDown } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+diff --git a/src/views/Terms.tsx b/src/views/Terms.tsx
+index 755ca11..5c32c38 100644
+--- a/src/views/Terms.tsx
++++ b/src/views/Terms.tsx
+@@ -1,4 +1,4 @@
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate } from '@/lib/router';
+ import { ArrowLeft } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+diff --git a/tsconfig.json b/tsconfig.json
+index 45f7233..0060cf9 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -34,10 +34,12 @@
+       {
+         "name": "next"
+       }
+-    ]
++    ],
++    "strictNullChecks": true
+   },
+   "include": [
+     "src",
++    "app",
+     ".next/types/**/*.ts"
+   ],
+   "exclude": [

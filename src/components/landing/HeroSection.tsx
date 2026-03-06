@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "@/lib/router";
 import { ArrowRight, Star } from "lucide-react";
 import { RotatingText } from "@/components/ui/rotating-text";
 

@@ -3,7 +3,7 @@
  *
  * Web (Vercel): API is at https://api.satym.in (separate Render service)
  * Native (Capacitor): API is at https://api.satym.in
- * Development: API is at /api (Vite proxy) or override with VITE_API_URL
+ * Development: API is at /api (Next.js API Routes) or override with NEXT_PUBLIC_API_URL
  *
  * JWT tokens are stored in HttpOnly cookies (web) — credentials: 'include' handles them.
  * The apiFetch wrapper automatically retries with a token refresh on 401.
@@ -12,7 +12,7 @@ import { isNativePlatform } from '../lib/capacitor';
 
 const isNativeApp = isNativePlatform();
 
-// In development, /api is proxied by Vite to localhost:3001
+// In development, /api maps to Next.js API Routes
 // In production/native, use the Render-hosted API with /api prefix
 const DEFAULT_API_URL = process.env.NODE_ENV !== 'production' && !isNativeApp
   ? '/api'

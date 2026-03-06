@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     const response = topUsers.map(u => {
-      const safeUser = { ...u, _id: undefined, id: u._id.toString() };
+      const safeUser: any = { ...u, _id: undefined, id: u._id.toString() };
       delete safeUser.password;
       delete safeUser.verificationOtp;
       delete safeUser.resetToken;

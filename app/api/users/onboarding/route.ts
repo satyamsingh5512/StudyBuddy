@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const safeUser = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
+    const safeUser: any = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
     delete safeUser.password;
     delete safeUser.verificationOtp;
     delete safeUser.resetToken;

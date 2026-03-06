@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';

@@ -85,7 +85,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     } catch (error) {
       console.error('Failed to save session:', error);
     }
-  }, [toast]);
+  }, [toast, selectedSubject]);
 
   useEffect(() => {
     if (!studying || !isOpen) return;

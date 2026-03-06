@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router';
 import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
@@ -597,7 +597,7 @@ export default function Dashboard() {
         setUpdatingTodoId(null);
       }
     },
-    [fetchTodos, toast]
+    [toast]
   );
 
   const rescheduleAllOverdue = useCallback(
@@ -926,7 +926,7 @@ export default function Dashboard() {
       )}
 
       {showAnalytics ? (
-        <AnalyticsDashboard user={user} />
+        <AnalyticsDashboard user={user || undefined} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-xl">

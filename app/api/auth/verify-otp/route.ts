@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
-    const updatedUser = { ...user, emailVerified: true, _id: userId, id: userId };
+    const updatedUser: any = { ...user, emailVerified: true, _id: userId, id: userId };
     delete updatedUser.password;
     delete updatedUser.verificationOtp;
     delete updatedUser.resetToken;

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/lib/router';
 import { ReactNode } from 'react';
 
 interface PageTransitionProps {

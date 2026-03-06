@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
-    const safeUser = { ...user, _id: userId, id: userId };
+    const safeUser: any = { ...user, _id: userId, id: userId };
     delete safeUser.password;
     delete safeUser.verificationOtp;
     delete safeUser.resetToken;

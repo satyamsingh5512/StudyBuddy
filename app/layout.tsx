@@ -1,5 +1,7 @@
 import '../src/index.css';
 
+import { Providers } from './Providers';
+
 export const metadata = {
   title: 'StudyBuddy - AI-Powered Study Platform',
   description: 'AI-Powered Mentoring Platform for Students - Your personal study companion',
@@ -8,6 +10,8 @@ export const metadata = {
 export const viewport = {
   themeColor: '#6366f1',
 };
+
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -37,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <div id="root">{children}</div>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

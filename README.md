@@ -48,3 +48,4 @@ Proprietary software. All rights reserved.
 ## Contact
 
 Visit [sbd.satym.in](https://sbd.satym.in) for support and inquiries.
+# StudyBuddy

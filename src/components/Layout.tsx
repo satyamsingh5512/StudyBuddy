@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from '@/lib/router';
 import { useState } from 'react';
 import {
   LayoutDashboard,
@@ -14,9 +14,6 @@ import {
   Menu,
   X,
   Newspaper,
-  Users,
-  LibraryBig,
-  BrainCircuit,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom } from '@/store/atoms';
@@ -51,7 +48,11 @@ const navItems = [
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-export default function Layout() {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
   const [user] = useAtom(userAtom);
   const [studying] = useAtom(studyingAtom);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -74,7 +75,6 @@ export default function Layout() {
   return (
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col md:flex-row">
-        {/* Mobile Header */}
         <header className="md:hidden h-14 border-b border-border/50 flex items-center justify-between px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-40 supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center gap-2">
             <Logo className="w-5 h-5" />
@@ -102,7 +102,6 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
           <div
             className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-30 transition-opacity duration-300"
@@ -110,7 +109,6 @@ export default function Layout() {
           />
         )}
 
-        {/* Sidebar - Desktop & Mobile */}
         <aside
           className={`
           fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 border-r flex flex-col bg-card/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/80
@@ -140,7 +138,6 @@ export default function Layout() {
             </Button>
           </div>
 
-          {/* User Profile - Mobile Only */}
           <div className="md:hidden p-4 border-b">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -149,12 +146,10 @@ export default function Layout() {
                   alt={(user as any)?.username || user?.name}
                   className="h-10 w-10 rounded-full ring-2 ring-border"
                 />
-                {/* Network Status */}
                 <span
                   className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
                     }`}
                 ></span>
-                {/* Studying Status */}
                 {studying && (
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
                 )}
@@ -174,7 +169,12 @@ export default function Layout() {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 return (
-                  <Link key={item.path} to={item.path} onClick={handleNavClick} className="block w-full">
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleNavClick}
+                    className="block w-full"
+                  >
                     <div
                       className={`
                       flex items-center gap-3 px-3 py-2.5 mx-1 rounded-md text-sm font-medium
@@ -185,11 +185,15 @@ export default function Layout() {
                         }
                     `}
                     >
-                      {/* Active indicator bar */}
                       {isActive && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                       )}
-                      <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground transition-colors'}`} />
+                      <Icon
+                        className={`h-[18px] w-[18px] flex-shrink-0 ${isActive
+                            ? 'text-primary'
+                            : 'text-muted-foreground group-hover:text-foreground transition-colors'
+                          }`}
+                      />
                       {item.label}
                     </div>
                   </Link>
@@ -210,9 +214,7 @@ export default function Layout() {
           </div>
         </aside>
 
-        {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Desktop Header */}
           <header className="hidden md:flex h-16 border-b border-border/50 items-center justify-between px-6 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/80">
             <div className="flex items-center gap-3">
               {studying && (
@@ -243,7 +245,6 @@ export default function Layout() {
                         alt={(user as any)?.username || user?.name}
                         className="h-8 w-8 rounded-md ring-1 ring-border group-hover:ring-primary/50 transition-all duration-200 object-cover"
                       />
-                      {/* Network Status */}
                       <span
                         className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-success' : 'bg-destructive'
                           }`}
@@ -284,9 +285,7 @@ export default function Layout() {
 
           <main className="flex-1 p-4 md:p-8 overflow-auto">
             <div className="max-w-[1280px] mx-auto h-full w-full">
-              <PageTransition>
-                <Outlet />
-              </PageTransition>
+              <PageTransition>{children}</PageTransition>
             </div>
           </main>
         </div>

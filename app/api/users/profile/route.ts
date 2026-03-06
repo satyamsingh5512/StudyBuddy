@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const safeUser = { ...user };
+    const safeUser: any = { ...user };
     delete safeUser.password;
     delete safeUser.verificationOtp;
     delete safeUser.resetToken;
@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
     if (payload.subjects !== undefined) updateDoc.subjects = payload.subjects;
 
     if (Object.keys(updateDoc).length === 0) {
-      const safeUser = { ...user };
+      const safeUser: any = { ...user };
       delete safeUser.password;
       return NextResponse.json(safeUser);
     }
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const safeUser = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
+    const safeUser: any = { ...updatedUser, _id: updatedUser._id.toString(), id: updatedUser._id.toString() };
     delete safeUser.password;
     delete safeUser.verificationOtp;
     delete safeUser.resetToken;

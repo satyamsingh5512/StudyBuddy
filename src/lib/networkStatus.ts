@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
+const isBrowser = typeof window !== 'undefined';
+
 export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(isBrowser ? navigator.onLine : true);
   const [wasOffline, setWasOffline] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!isBrowser) return undefined;
+
+    setIsOnline(navigator.onLine);
+
     const handleOnline = () => {
       setIsOnline(true);
       if (wasOffline) {
@@ -104,6 +110,7 @@ class OfflineQueue {
   }
 
   async processQueue() {
+    if (!isBrowser) return;
     if (!navigator.onLine || this.queue.length === 0) return;
 
     const operations = [...this.queue];
@@ -126,6 +133,7 @@ class OfflineQueue {
   }
 
   private saveToStorage() {
+    if (!isBrowser) return;
     try {
       localStorage.setItem('offlineQueue', JSON.stringify(this.queue));
     } catch (error) {
@@ -134,6 +142,7 @@ class OfflineQueue {
   }
 
   private loadFromStorage() {
+    if (!isBrowser) return;
     try {
       const stored = localStorage.getItem('offlineQueue');
       if (stored) {
@@ -146,6 +155,8 @@ class OfflineQueue {
   }
 
   constructor() {
+    if (!isBrowser) return;
+
     this.loadFromStorage();
     
     // Process queue when coming back online
@@ -155,4 +166,4 @@ class OfflineQueue {
   }
 }
 
-export const offlineQueue = new OfflineQueue();
+export const offlineQueue = isBrowser ? new OfflineQueue() : null;

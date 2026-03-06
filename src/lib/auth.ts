@@ -21,14 +21,14 @@ export async function getUserFromRequest(request: NextRequest) {
     const claims = await verifyJWT(token);
     const client = await clientPromise;
     const db = client.db('studybuddy');
-    const user = await db.collection('users').findOne({ _id: new ObjectId(claims.sub) });
+    const user = await db.collection<any>('users').findOne({ _id: new ObjectId(claims.sub) });
 
     if (!user) {
       return null;
     }
 
     // Convert _id to string for Next.js serialization
-    return { ...user, _id: user._id.toString(), id: user._id.toString() };
+    return { ...user, _id: user._id.toString(), id: user._id.toString() } as any;
   } catch (error) {
     console.error('Auth Error:', error);
     return null;

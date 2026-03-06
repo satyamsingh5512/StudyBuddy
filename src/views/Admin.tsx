@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { useToast } from '../components/ui/use-toast';
@@ -18,11 +18,7 @@ export default function Admin() {
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/admin/stats`, {
         credentials: 'include',
@@ -43,7 +39,11 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const sendDailyStats = async () => {
     if (!confirm('Send daily stats email to all verified users?')) {
