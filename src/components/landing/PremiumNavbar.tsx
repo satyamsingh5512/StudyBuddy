@@ -22,7 +22,6 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
     const navLinks = [
         { id: "home", label: "Home" },
         { id: "features", label: "Features" },
-        { id: "app", label: "App" },
         { id: "join", label: "Join" },
     ];
 

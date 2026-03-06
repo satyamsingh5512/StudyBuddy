@@ -9,19 +9,8 @@ import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
-import { Capacitor } from '@capacitor/core';
 import { Trash2, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-
-// True when running inside the Capacitor Android/iOS shell
-const isNative = Capacitor.isNativePlatform();
-
-// Lazy-load the native plugin only on native platforms
-const getNativeTimer = () => {
-  if (!isNative) return null;
-  try { return (window as any).Capacitor?.Plugins?.StudyTimer ?? null; }
-  catch { return null; }
-};
 
 import FullscreenTimer from './FullscreenTimer';
 import {
@@ -165,48 +154,10 @@ export default function StudyTimer() {
     return () => clearInterval(interval);
   }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
 
-  // ── Native timer event listeners (Android only) ─────────────────────────
-  useEffect(() => {
-    if (!isNative) return;
-    const plugin = getNativeTimer();
-    if (!plugin) return;
-
-    // Sync UI from native tick
-    const tickHandle = plugin.addListener?.('timerTick', ({ secondsLeft }: { secondsLeft: number }) => {
-      setStudyTime(pomodoroDuration * 60 - secondsLeft);
-    });
-
-    // Handle native timer completion
-    const doneHandle = plugin.addListener?.('timerDone', () => {
-      setStudying(false);
-      soundManager.playTimerComplete();
-      saveSession(pomodoroDuration);
-      setStudyTime(0);
-      toast({ title: 'Pomodoro Complete! 🎉', description: `You studied for ${pomodoroDuration} minutes!` });
-    });
-
-    return () => {
-      tickHandle?.remove?.();
-      doneHandle?.remove?.();
-    };
-  }, [pomodoroDuration, setStudyTime, setStudying, saveSession, toast]);
-
   const toggleStudying = () => {
     const next = !studying;
     setStudying(next);
     soundManager.playClick();
-
-    // On native Android, delegate to the foreground service
-    if (isNative) {
-      const plugin = getNativeTimer();
-      if (plugin) {
-        if (next) {
-          plugin.startTimer({ duration: (POMODORO_DURATION - studyTime) });
-        } else {
-          plugin.pauseTimer();
-        }
-      }
-    }
   };
 
   const clearTimer = () => {
@@ -231,11 +182,6 @@ export default function StudyTimer() {
   };
 
   const stopAndSave = async () => {
-    // Stop native service (Android) - dismisses the notification
-    if (isNative) {
-      const plugin = getNativeTimer();
-      plugin?.stopTimer();
-    }
     if (studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
       if (minutes > 0) {

@@ -6,7 +6,6 @@ import { GrainOverlay } from "@/components/ui/grain-overlay";
 import { PremiumNavbar } from "@/components/landing/PremiumNavbar";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { AndroidWaitlistSection } from "@/components/landing/AndroidWaitlistSection";
 import UnifiedPageWrapper from "@/components/UnifiedPageWrapper";
 
 export default function Landing() {
@@ -100,10 +99,6 @@ export default function Landing() {
                     
                     <div id="features" className="w-full max-w-7xl mx-auto px-4 py-24">
                         <FeaturesSection />
-                    </div>
-
-                    <div id="app" className="w-full max-w-4xl mx-auto py-24 px-4">
-                        <AndroidWaitlistSection />
                     </div>
 
                     <div id="join" className="flex flex-col w-full mt-10">

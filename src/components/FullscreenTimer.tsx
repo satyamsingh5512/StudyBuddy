@@ -22,7 +22,6 @@ import {
 } from './ui/dialog';
 import { Label } from './ui/label';
 import FlipClock from './FlipClock';
-import { KeepAwake } from '@capacitor-community/keep-awake';
 
 interface FullscreenTimerProps {
   isOpen: boolean;
@@ -128,14 +127,11 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     if (isOpen) {
       document.addEventListener('keydown', handleKeyPress);
       document.body.style.overflow = 'hidden';
-      // Prevent screen locking while running in fullscreen
-      KeepAwake.keepAwake().catch(console.error);
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
       document.body.style.overflow = 'unset';
-      KeepAwake.allowSleep().catch(console.error);
     };
   }, [isOpen, onClose, toggleStudying]);
 
