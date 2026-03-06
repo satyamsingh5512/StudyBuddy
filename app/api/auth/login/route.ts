@@ -95,10 +95,13 @@ export async function POST(request: NextRequest) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
-    const safeUser = { ...user, _id: userId, id: userId };
-    delete safeUser.password;
-    delete safeUser.verificationOtp;
-    delete safeUser.resetToken;
+    const {
+      password: _password,
+      verificationOtp: _verificationOtp,
+      resetToken: _resetToken,
+      ...safeUserBase
+    } = user as Record<string, unknown>;
+    const safeUser = { ...safeUserBase, _id: userId, id: userId };
 
     return NextResponse.json({ message: 'Login successful', user: safeUser, token });
   } catch (error) {
