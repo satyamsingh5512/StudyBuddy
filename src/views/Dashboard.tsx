@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from '@/lib/router';
 import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +25,9 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragCancelEvent,
+  DragOverlay,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -95,8 +99,7 @@ const difficultyPriorityScore: Record<string, number> = {
 const getTodoPriorityScore = (todo: Todo): number => {
   if (todo.completed) return -100;
 
-  const now = new Date();
-  const today = new Date(now);
+  const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   let dueScore = 0;
@@ -118,6 +121,7 @@ const getTodoPriorityScore = (todo: Todo): number => {
 
 const sortTodosByPriority = (items: Todo[]): Todo[] => {
   const withIndex = items.map((todo, index) => ({ todo, index }));
+
   withIndex.sort((a, b) => {
     const aOverdue = !!a.todo.isOverdue && !a.todo.completed;
     const bOverdue = !!b.todo.isOverdue && !b.todo.completed;
@@ -151,7 +155,7 @@ const SortableTodoItem = memo(
     onEdit: (id: string, updates: Partial<Todo>) => void;
     isDragDisabled?: boolean;
   }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
       id: todo.id,
       disabled: isDragDisabled,
       transition: {
@@ -212,7 +216,7 @@ const SortableTodoItem = memo(
           ${isEditing ? 'bg-secondary/30 ring-1 ring-primary/20' : 'hover:bg-secondary/20'}
           ${isOverdue && !isEditing ? 'opacity-90 bg-destructive/5 dark:bg-destructive/10 border-destructive/20' : ''}
           ${todo.completed && !isEditing ? 'opacity-40' : ''}
-          ${isDragging ? 'shadow-xl ring-1 ring-primary/30 bg-card/95 backdrop-blur-sm scale-[1.01]' : ''}
+          ${isDragging ? 'opacity-20 bg-secondary/20' : ''}
         `}
       >
         <AnimatePresence mode="wait">
@@ -304,6 +308,7 @@ const SortableTodoItem = memo(
               {/* Drag handle */}
               {!isDragDisabled && (
                 <button
+                  ref={setActivatorNodeRef}
                   {...attributes}
                   {...listeners}
                   className="mt-1 p-0.5 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-40 hover:!opacity-70 transition-opacity touch-none flex-shrink-0"
@@ -409,16 +414,26 @@ export default function Dashboard() {
   });
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const hasFetchedOnce = useRef(false);
   const { toast } = useToast();
 
-  // DnD sensors — low activation distance keeps drag responsive without stealing taps
+  // DnD sensors — lower activation distance makes drag pickup feel quicker
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } })
   );
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  }, []);
+
+  const handleDragCancel = useCallback((_event: DragCancelEvent) => {
+    setActiveDragId(null);
+  }, []);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveDragId(null);
     if (!over || active.id === over.id) return;
     setTodos((prev) => {
       const regularTodos = prev.filter((t) => !t.isOverdue || t.completed);
@@ -509,7 +524,9 @@ export default function Dashboard() {
           rescheduledCount: typeof realTodo.rescheduledCount === 'number' ? realTodo.rescheduledCount : 0,
         };
         // Replace temp todo with real one
-        setTodos((prev) => sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo))));
+        setTodos((prev) =>
+          sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo)))
+        );
         toast({
           title: 'Task added for today!',
           description: 'Complete it to earn 2 points',
@@ -750,6 +767,10 @@ export default function Dashboard() {
   const overdueCount = useMemo(() => todos.filter((t) => t.isOverdue && !t.completed).length, [todos]);
   const overdueTodos = useMemo(() => todos.filter((t) => t.isOverdue && !t.completed), [todos]);
   const regularTodos = useMemo(() => todos.filter((t) => !t.isOverdue || t.completed), [todos]);
+  const activeDragTodo = useMemo(
+    () => regularTodos.find((todo) => todo.id === activeDragId) || null,
+    [regularTodos, activeDragId]
+  );
   const todaysTasks = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1068,6 +1089,8 @@ export default function Dashboard() {
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
+                      onDragStart={handleDragStart}
+                      onDragCancel={handleDragCancel}
                       onDragEnd={handleDragEnd}
                     >
                       <SortableContext
@@ -1088,6 +1111,50 @@ export default function Dashboard() {
                           ))}
                         </AnimatePresence>
                       </SortableContext>
+                      {typeof document !== 'undefined' && createPortal(
+                        <DragOverlay
+                          adjustScale={false}
+                          dropAnimation={{
+                            duration: 200,
+                            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                          }}
+                        >
+                          {activeDragTodo ? (
+                            <div className="rounded-lg border border-border/60 bg-card shadow-xl overflow-hidden">
+                              <div className="flex items-start gap-2 p-3">
+                                <div className="mt-1 p-0.5 rounded opacity-60">
+                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="mt-1 flex-shrink-0">
+                                  <Checkbox
+                                    checked={activeDragTodo.completed}
+                                    className="border-border/50 data-[state=checked]:bg-primary"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm ${activeDragTodo.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                    {activeDragTodo.title}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <p className="text-xs text-muted-foreground">{activeDragTodo.subject}</p>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${(difficultyConfig[activeDragTodo.difficulty] ?? difficultyConfig.medium).color}`}>
+                                      {(difficultyConfig[activeDragTodo.difficulty] ?? difficultyConfig.medium).label}
+                                    </span>
+                                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 ${activeDragTodo.isOverdue && !activeDragTodo.completed
+                                      ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
+                                      : 'bg-muted text-muted-foreground'
+                                      }`}>
+                                      <Calendar className="h-3 w-3" />
+                                      {formatScheduledDate(activeDragTodo.scheduledDate)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </DragOverlay>,
+                        document.body
+                      )}
                     </DndContext>
                     <AnimatePresence>
                       {todos.length === 0 && (
