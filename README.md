@@ -31,8 +31,8 @@ Create personalized study schedules with calendar integration and reminders. Sha
 **Authentication**
 Secure login with email-password. Email verification and password reset functionality.
 
-**Cross-Platform**
-Web application with responsive design. Native mobile apps for iOS and Android with offline support and push notifications.
+**Web Platform**
+Web application with responsive design, optimized for desktop and mobile browsers.
 
 **Admin Dashboard**
 User statistics, system monitoring, bulk email capabilities, and activity tracking.
