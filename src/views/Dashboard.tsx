@@ -86,6 +86,52 @@ const difficultyConfig: Record<string, { label: string; color: string }> = {
   hard: { label: 'Hard', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
 };
 
+const difficultyPriorityScore: Record<string, number> = {
+  hard: 3,
+  medium: 2,
+  easy: 1,
+};
+
+const getTodoPriorityScore = (todo: Todo): number => {
+  if (todo.completed) return -100;
+
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  let dueScore = 0;
+  if (todo.scheduledDate) {
+    const due = new Date(todo.scheduledDate);
+    if (!isNaN(due.getTime())) {
+      due.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 0) dueScore = 4;
+      else if (diffDays === 1) dueScore = 3;
+      else if (diffDays <= 3) dueScore = 2;
+      else dueScore = 1;
+    }
+  }
+
+  const difficultyScore = difficultyPriorityScore[todo.difficulty] ?? difficultyPriorityScore.medium;
+  return dueScore * 10 + difficultyScore;
+};
+
+const sortTodosByPriority = (items: Todo[]): Todo[] => {
+  const withIndex = items.map((todo, index) => ({ todo, index }));
+  withIndex.sort((a, b) => {
+    const aOverdue = !!a.todo.isOverdue && !a.todo.completed;
+    const bOverdue = !!b.todo.isOverdue && !b.todo.completed;
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+
+    const scoreDiff = getTodoPriorityScore(b.todo) - getTodoPriorityScore(a.todo);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    return a.index - b.index;
+  });
+
+  return withIndex.map(({ todo }) => todo);
+};
+
 // ─── Sortable TodoItem ───────────────────────────────────────────────────────
 const SortableTodoItem = memo(
   ({
@@ -108,6 +154,10 @@ const SortableTodoItem = memo(
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
       id: todo.id,
       disabled: isDragDisabled,
+      transition: {
+        duration: 180,
+        easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+      },
     });
 
     const style: React.CSSProperties = {
@@ -115,6 +165,7 @@ const SortableTodoItem = memo(
       transition,
       zIndex: isDragging ? 50 : undefined,
       position: isDragging ? 'relative' : undefined,
+      willChange: isDragging ? 'transform' : undefined,
     };
 
     const isOverdue = todo.isOverdue && !todo.completed;
@@ -157,7 +208,7 @@ const SortableTodoItem = memo(
       <div
         ref={setNodeRef}
         style={style}
-        className={`rounded-lg border-b last:border-0 border-border/50 group transition-colors duration-150 bg-transparent overflow-hidden
+        className={`rounded-lg border-b last:border-0 border-border/50 group transition-colors duration-150 bg-transparent overflow-hidden transform-gpu
           ${isEditing ? 'bg-secondary/30 ring-1 ring-primary/20' : 'hover:bg-secondary/20'}
           ${isOverdue && !isEditing ? 'opacity-90 bg-destructive/5 dark:bg-destructive/10 border-destructive/20' : ''}
           ${todo.completed && !isEditing ? 'opacity-40' : ''}
@@ -361,9 +412,9 @@ export default function Dashboard() {
   const hasFetchedOnce = useRef(false);
   const { toast } = useToast();
 
-  // DnD sensors — use PointerSensor with a 5px activation distance so clicks still work normally
+  // DnD sensors — low activation distance keeps drag responsive without stealing taps
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } })
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -394,7 +445,7 @@ export default function Dashboard() {
         id: todo._id?.toString() || todo.id,
         rescheduledCount: typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 0,
       }));
-      setTodos(processedData);
+      setTodos(sortTodosByPriority(processedData));
     }
     if (!hasFetchedOnce.current) {
       hasFetchedOnce.current = true;
@@ -432,7 +483,7 @@ export default function Dashboard() {
     };
 
     // Optimistic update - add immediately
-    setTodos((prev) => [...prev, optimisticTodo]);
+    setTodos((prev) => sortTodosByPriority([...prev, optimisticTodo]));
     setNewTodo('');
     soundManager.playAdd();
 
@@ -458,7 +509,7 @@ export default function Dashboard() {
           rescheduledCount: typeof realTodo.rescheduledCount === 'number' ? realTodo.rescheduledCount : 0,
         };
         // Replace temp todo with real one
-        setTodos((prev) => prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo)));
+        setTodos((prev) => sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo))));
         toast({
           title: 'Task added for today!',
           description: 'Complete it to earn 2 points',
@@ -697,6 +748,8 @@ export default function Dashboard() {
 
   const completedCount = useMemo(() => todos.filter((t) => t.completed).length, [todos]);
   const overdueCount = useMemo(() => todos.filter((t) => t.isOverdue && !t.completed).length, [todos]);
+  const overdueTodos = useMemo(() => todos.filter((t) => t.isOverdue && !t.completed), [todos]);
+  const regularTodos = useMemo(() => todos.filter((t) => !t.isOverdue || t.completed), [todos]);
   const todaysTasks = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -994,9 +1047,7 @@ export default function Dashboard() {
                             </Button>
                           </div>
                           <AnimatePresence mode="popLayout">
-                            {todos
-                              .filter((todo) => todo.isOverdue && !todo.completed)
-                              .map((todo) => (
+                            {overdueTodos.map((todo) => (
                                 <SortableTodoItem
                                   key={todo.id}
                                   todo={todo}
@@ -1014,35 +1065,30 @@ export default function Dashboard() {
                     </AnimatePresence>
 
                     {/* Regular tasks — drag-to-reorder */}
-                    {(() => {
-                      const regularTodos = todos.filter((t) => !t.isOverdue || t.completed);
-                      return (
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={handleDragEnd}
-                        >
-                          <SortableContext
-                            items={regularTodos.map((t) => t.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <AnimatePresence mode="popLayout">
-                              {regularTodos.map((todo) => (
-                                <SortableTodoItem
-                                  key={todo.id}
-                                  todo={todo}
-                                  onToggle={toggleTodo}
-                                  onDelete={deleteTodo}
-                                  onRescheduleToday={rescheduleToToday}
-                                  onReschedule={openRescheduleModal}
-                                  onEdit={editTodo}
-                                />
-                              ))}
-                            </AnimatePresence>
-                          </SortableContext>
-                        </DndContext>
-                      );
-                    })()}
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={regularTodos.map((t) => t.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {regularTodos.map((todo) => (
+                            <SortableTodoItem
+                              key={todo.id}
+                              todo={todo}
+                              onToggle={toggleTodo}
+                              onDelete={deleteTodo}
+                              onRescheduleToday={rescheduleToToday}
+                              onReschedule={openRescheduleModal}
+                              onEdit={editTodo}
+                            />
+                          ))}
+                        </AnimatePresence>
+                      </SortableContext>
+                    </DndContext>
                     <AnimatePresence>
                       {todos.length === 0 && (
                         <motion.div
