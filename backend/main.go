@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -20,7 +21,30 @@ func normalizeOrigin(origin string) string {
 	if trimmed == "" || trimmed == "*" {
 		return ""
 	}
-	return strings.TrimRight(trimmed, "/")
+	trimmed = strings.TrimRight(trimmed, "/")
+
+	// Render/Vercel env values are often entered as bare domains.
+	// Fiber CORS requires full origins (scheme + host).
+	if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") {
+		trimmed = "https://" + trimmed
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		log.Printf("Skipping invalid CORS origin: %q", origin)
+		return ""
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		log.Printf("Skipping unsupported CORS origin scheme: %q", origin)
+		return ""
+	}
+	// CORS origin must not include paths/query/fragment.
+	if parsed.Path != "" && parsed.Path != "/" {
+		log.Printf("Skipping CORS origin with path: %q", origin)
+		return ""
+	}
+
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 func buildAllowedOrigins() string {
