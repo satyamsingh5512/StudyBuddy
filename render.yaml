@@ -1,9 +1,11 @@
 services:
   - type: web
     name: studybuddy-go-backend
-    env: docker
-    dockerfilePath: backend/Dockerfile
-    dockerContext: backend
+    env: go
+    rootDir: backend
+    buildCommand: go mod download && go build -o studybuddy-api main.go
+    startCommand: ./studybuddy-api
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 8080
