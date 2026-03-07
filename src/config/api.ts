@@ -6,9 +6,10 @@
  *
  * JWT tokens are stored in HttpOnly cookies (web) — credentials: 'include' handles them.
  */
-const DEFAULT_API_URL = '/api';
+const PROD_FALLBACK_API_URL = 'https://studybuddy-go-backend.onrender.com/api';
+const DEFAULT_API_URL = process.env.NODE_ENV === 'production' ? PROD_FALLBACK_API_URL : '/api';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, '');
 
 // Helper to build API URLs
 export const apiUrl = (path: string) => `${API_URL}${path}`;
