@@ -25,12 +25,95 @@ var CACHE_DURATION int64 = 3600000 // 1 hour in ms
 
 const defaultGeminiModel = "gemini-1.5-flash"
 
+var allowedNewsCategories = map[string]struct{}{
+	"announcement": {},
+	"syllabus":     {},
+	"notification": {},
+	"tips":         {},
+	"motivation":   {},
+	"strategy":     {},
+	"result":       {},
+}
+
+type generatedNewsItem struct {
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	Category string `json:"category"`
+	Date     string `json:"date"`
+	Source   string `json:"source"`
+}
+
 func getGeminiModel() string {
 	model := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
 	if model == "" {
 		return defaultGeminiModel
 	}
 	return model
+}
+
+func getGeminiAPIKey() string {
+	if key := strings.TrimSpace(os.Getenv("GEMINI_API_KEY")); key != "" {
+		return key
+	}
+	if key := strings.TrimSpace(os.Getenv("GOOGLE_API_KEY")); key != "" {
+		return key
+	}
+	return ""
+}
+
+func normalizeCategory(category string) string {
+	cat := strings.ToLower(strings.TrimSpace(category))
+	if _, ok := allowedNewsCategories[cat]; ok {
+		return cat
+	}
+	return "announcement"
+}
+
+func normalizeNewsItems(raw interface{}) ([]generatedNewsItem, error) {
+	rawBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []generatedNewsItem
+	if err := json.Unmarshal(rawBytes, &items); err != nil {
+		return nil, err
+	}
+
+	nowDate := time.Now().Format("2006-01-02")
+	normalized := make([]generatedNewsItem, 0, len(items))
+
+	for _, item := range items {
+		title := strings.TrimSpace(item.Title)
+		content := strings.TrimSpace(item.Content)
+		if title == "" || content == "" {
+			continue
+		}
+
+		category := normalizeCategory(item.Category)
+		date := strings.TrimSpace(item.Date)
+		if date == "" {
+			date = nowDate
+		}
+		source := strings.TrimSpace(item.Source)
+		if source == "" {
+			source = "StudyBuddy AI"
+		}
+
+		normalized = append(normalized, generatedNewsItem{
+			Title:    title,
+			Content:  content,
+			Category: category,
+			Date:     date,
+			Source:   source,
+		})
+	}
+
+	if len(normalized) == 0 {
+		return nil, errors.New("empty or invalid news payload from Gemini")
+	}
+
+	return normalized, nil
 }
 
 func callGeminiJSON(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
@@ -153,9 +236,9 @@ func GetNews(c *fiber.Ctx) error {
 		}
 	}
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := getGeminiAPIKey()
 	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured"})
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
 	}
 
 	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Return only valid JSON without markdown."
@@ -165,7 +248,7 @@ Return a JSON array with this schema:
   {
     "title": "News headline",
     "content": "2-3 sentence summary",
-    "category": "announcement|syllabus|strategy|motivation|result",
+		"category": "announcement|syllabus|notification|tips|motivation",
     "date": "YYYY-MM-DD",
     "source": "official or reputable source"
   }
@@ -185,16 +268,21 @@ Rules:
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini news response"})
 	}
 
-	newsCache.Store(examTypeUpper, CachedNews{Data: parsedNews, Timestamp: currentTime})
-	return c.JSON(fiber.Map{"news": parsedNews, "cached": false})
+	normalizedNews, err := normalizeNewsItems(parsedNews)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	newsCache.Store(examTypeUpper, CachedNews{Data: normalizedNews, Timestamp: currentTime})
+	return c.JSON(fiber.Map{"news": normalizedNews, "cached": false})
 }
 
 func GetNewsDates(c *fiber.Ctx) error {
 	examTypeUpper := strings.ToUpper(c.Params("examType"))
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := getGeminiAPIKey()
 
 	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured"})
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
 	}
 
 	systemInstruction := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Return only valid JSON without markdown."

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 interface NewsItem {
   title: string;
   content: string;
-  category: 'announcement' | 'syllabus' | 'notification' | 'tips' | 'motivation';
+  category: 'announcement' | 'syllabus' | 'notification' | 'tips' | 'motivation' | 'strategy' | 'result';
   date: string;
   source: string;
 }
@@ -27,6 +27,8 @@ const categoryIcons = {
   notification: TrendingUp,
   tips: Sparkles,
   motivation: Sparkles,
+  strategy: Sparkles,
+  result: TrendingUp,
 };
 
 const categoryColors = {
@@ -35,6 +37,8 @@ const categoryColors = {
   notification: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   tips: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   motivation: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  strategy: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  result: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
 };
 
 const categoryLabels: Record<CategoryType, string> = {
@@ -44,6 +48,14 @@ const categoryLabels: Record<CategoryType, string> = {
   notification: 'Notifications',
   tips: 'Tips',
   motivation: 'Motivation',
+  strategy: 'Strategy',
+  result: 'Results',
+};
+
+const normalizeCategory = (category: string): NewsItem['category'] => {
+  const key = category as NewsItem['category'];
+  if (key in categoryIcons) return key;
+  return 'announcement';
 };
 
 export default function News() {
@@ -136,14 +148,14 @@ export default function News() {
 
   const filteredNews = useMemo(() => {
     if (activeCategory === 'all') return news;
-    return news.filter(item => item.category === activeCategory);
+    return news.filter(item => normalizeCategory(item.category) === activeCategory);
   }, [news, activeCategory]);
 
   const featuredNews = filteredNews[0];
   const remainingNews = filteredNews.slice(1);
 
   const availableCategories = useMemo(() => {
-    const cats = new Set(news.map(n => n.category));
+    const cats = new Set(news.map(n => normalizeCategory(n.category)));
     return ['all', ...Array.from(cats)] as CategoryType[];
   }, [news]);
 
@@ -236,15 +248,19 @@ export default function News() {
             <>
               {/* Featured News Card */}
               {featuredNews && (
+                (() => {
+                  const featuredCategory = normalizeCategory(featuredNews.category);
+                  const FeaturedIcon = categoryIcons[featuredCategory];
+                  return (
                 <div className="glass-card rounded-2xl p-6 border-l-4 border-l-primary">
                   <div className="flex items-start gap-4">
-                    <div className={`p-4 rounded-xl flex-shrink-0 ${categoryColors[featuredNews.category]}`}>
-                      {(() => { const Icon = categoryIcons[featuredNews.category]; return <Icon className="w-7 h-7" />; })()}
+                    <div className={`p-4 rounded-xl flex-shrink-0 ${categoryColors[featuredCategory]}`}>
+                      <FeaturedIcon className="w-7 h-7" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${categoryColors[featuredNews.category]}`}>
-                          {featuredNews.category}
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${categoryColors[featuredCategory]}`}>
+                          {featuredCategory}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {formatDate(featuredNews.date)}
@@ -262,20 +278,23 @@ export default function News() {
                     </div>
                   </div>
                 </div>
+                  );
+                })()
               )}
 
               {/* Remaining News in 2-Column Grid */}
               {remainingNews.length > 0 && (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {remainingNews.map((item, index) => {
-                    const Icon = categoryIcons[item.category];
+                    const itemCategory = normalizeCategory(item.category);
+                    const Icon = categoryIcons[itemCategory];
                     return (
                       <div
                         key={index}
                         className="glass-card rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className={`p-2.5 rounded-lg flex-shrink-0 ${categoryColors[item.category]}`}>
+                          <div className={`p-2.5 rounded-lg flex-shrink-0 ${categoryColors[itemCategory]}`}>
                             <Icon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -291,8 +310,8 @@ export default function News() {
                           {item.content}
                         </p>
                         <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${categoryColors[item.category]}`}>
-                            {item.category}
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${categoryColors[itemCategory]}`}>
+                            {itemCategory}
                           </span>
                           <span className="text-[10px] text-muted-foreground">
                             {item.source}

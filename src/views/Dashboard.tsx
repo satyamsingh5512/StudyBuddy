@@ -136,6 +136,37 @@ const sortTodosByPriority = (items: Todo[]): Todo[] => {
   return withIndex.map(({ todo }) => todo);
 };
 
+const isOverdueByDate = (dateStr: string | undefined, completed: boolean): boolean => {
+  if (!dateStr || completed) return false;
+  const scheduled = new Date(dateStr);
+  if (isNaN(scheduled.getTime())) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  scheduled.setHours(0, 0, 0, 0);
+
+  return scheduled.getTime() < today.getTime();
+};
+
+const normalizeTodoFromApi = (todo: any): Todo => {
+  const scheduledDate = todo.scheduledDate || todo.dueDate;
+  const completed = Boolean(todo.completed);
+
+  return {
+    id: todo._id?.toString() || todo.id,
+    title: todo.title || '',
+    subject: todo.subject || 'General',
+    difficulty: todo.difficulty || 'medium',
+    questionsTarget: typeof todo.questionsTarget === 'number' ? todo.questionsTarget : 10,
+    completed,
+    scheduledDate,
+    createdAt: todo.createdAt,
+    originalScheduledDate: todo.originalScheduledDate,
+    rescheduledCount: typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 0,
+    isOverdue: isOverdueByDate(scheduledDate, completed),
+  };
+};
+
 // ─── Sortable TodoItem ───────────────────────────────────────────────────────
 const SortableTodoItem = memo(
   ({
@@ -454,12 +485,7 @@ export default function Dashboard() {
     const res = await apiFetch('/todos');
     if (res.ok) {
       const data = await res.json();
-      const processedData = data.map((todo: any) => ({
-        ...todo,
-        // MongoDB returns _id — map it to id for the frontend
-        id: todo._id?.toString() || todo.id,
-        rescheduledCount: typeof todo.rescheduledCount === 'number' ? todo.rescheduledCount : 0,
-      }));
+      const processedData = data.map((todo: any) => normalizeTodoFromApi(todo));
       setTodos(sortTodosByPriority(processedData));
     }
     if (!hasFetchedOnce.current) {
@@ -511,18 +537,13 @@ export default function Dashboard() {
           subject: 'General',
           difficulty: 'medium',
           questionsTarget: 10,
-          scheduledDate: today.toISOString(),
+          dueDate: today.toISOString(),
         }),
       });
 
       if (res.ok) {
         const realTodo = await res.json();
-        const processedTodo = {
-          ...realTodo,
-          // Remap MongoDB _id to id
-          id: realTodo._id?.toString() || realTodo.id,
-          rescheduledCount: typeof realTodo.rescheduledCount === 'number' ? realTodo.rescheduledCount : 0,
-        };
+        const processedTodo = normalizeTodoFromApi(realTodo);
         // Replace temp todo with real one
         setTodos((prev) =>
           sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo)))
@@ -1064,7 +1085,7 @@ export default function Dashboard() {
                               className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
                             >
                               <RotateCcw className="h-3 w-3 mr-1" />
-                              Move to Today
+                              Redo Today All
                             </Button>
                           </div>
                           <AnimatePresence mode="popLayout">
