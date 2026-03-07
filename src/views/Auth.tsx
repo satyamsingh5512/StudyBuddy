@@ -24,6 +24,17 @@ export default function Auth() {
     useEffect(() => {
         soundManager.initialize();
 
+        // Handle OAuth success redirect hash (e.g., #google_token=...)
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const googleToken = hashParams.get('google_token');
+        if (googleToken) {
+            localStorage.setItem('auth_token', googleToken);
+            window.history.replaceState({}, '', window.location.pathname + window.location.search);
+            toast({ title: 'Welcome!', description: 'Google sign-in successful.' });
+            window.location.href = '/dashboard';
+            return;
+        }
+
         // Handle OAuth error redirects (e.g., ?error=google_failed)
         const params = new URLSearchParams(window.location.search);
         const oauthError = params.get('error');
@@ -31,6 +42,9 @@ export default function Auth() {
             const messages: Record<string, string> = {
                 google_denied: 'Google sign-in was cancelled.',
                 google_failed: 'Google sign-in failed. Please try again.',
+                google_not_configured: 'Google sign-in is not configured yet.',
+                google_invalid_state: 'Google sign-in session expired. Please try again.',
+                google_unverified_email: 'Google account email is not verified.',
             };
             toast({
                 title: 'Sign-in Error',
@@ -467,7 +481,7 @@ export default function Auth() {
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => { window.location.href = '/api/auth/google'; }}
+                                                onClick={() => { window.location.href = `${API_URL}/auth/google`; }}
                                                 className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-background hover:bg-muted transition-all duration-200 text-sm font-medium text-foreground shadow-sm"
                                             >
                                                 {/* Google SVG Icon */}

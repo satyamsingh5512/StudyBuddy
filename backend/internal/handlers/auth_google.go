@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,16 +22,62 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const googleOAuthStateCookie = "google_oauth_state"
+
+func appClientURL() string {
+	clientURL := strings.TrimSpace(os.Getenv("CLIENT_URL"))
+	if clientURL == "" {
+		clientURL = strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL"))
+	}
+	if clientURL == "" {
+		clientURL = "http://localhost:3000"
+	}
+	return strings.TrimRight(clientURL, "/")
+}
+
+func googleCallbackURL(c *fiber.Ctx) string {
+	callback := strings.TrimSpace(os.Getenv("GOOGLE_CALLBACK_URL"))
+	if callback != "" {
+		return callback
+	}
+	return fmt.Sprintf("%s/api/auth/google/callback", strings.TrimRight(c.BaseURL(), "/"))
+}
+
+func googleErrorRedirect(code string) string {
+	return fmt.Sprintf("%s/auth?error=%s", appClientURL(), code)
+}
+
+func generateOAuthState() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
 func GoogleAuth(c *fiber.Ctx) error {
-	clientId := os.Getenv("GOOGLE_CLIENT_ID")
-	
-	redirectUri := os.Getenv("GOOGLE_CALLBACK_URL")
+	clientId := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID"))
+	if clientId == "" {
+		return c.Redirect(googleErrorRedirect("google_not_configured"))
+	}
+
+	state, err := generateOAuthState()
+	if err != nil {
+		return c.Redirect(googleErrorRedirect("google_failed"))
+	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    state,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HTTPOnly: true,
+		SameSite: "lax",
+		Secure:   c.Protocol() == "https",
+	})
+
+	redirectUri := googleCallbackURL(c)
 	if redirectUri == "" {
-		appUrl := os.Getenv("NEXT_PUBLIC_APP_URL")
-		if appUrl == "" {
-			appUrl = "http://localhost:3000"
-		}
-		redirectUri = fmt.Sprintf("%s/api/auth/google/callback", appUrl)
+		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 
 	params := url.Values{}
@@ -39,43 +87,59 @@ func GoogleAuth(c *fiber.Ctx) error {
 	params.Add("scope", "openid email profile")
 	params.Add("access_type", "offline")
 	params.Add("prompt", "consent")
+	params.Add("state", state)
 
 	googleAuthUrl := fmt.Sprintf("https://accounts.google.com/o/oauth2/v2/auth?%s", params.Encode())
 	return c.Redirect(googleAuthUrl)
 }
 
 func GoogleCallback(c *fiber.Ctx) error {
-	clientUrl := os.Getenv("CLIENT_URL")
-	if clientUrl == "" {
-		clientUrl = os.Getenv("NEXT_PUBLIC_APP_URL")
-		if clientUrl == "" {
-			clientUrl = "http://localhost:3000"
-		}
-	}
-
-	redirectUri := os.Getenv("GOOGLE_CALLBACK_URL")
+	clientURL := appClientURL()
+	redirectUri := googleCallbackURL(c)
 	if redirectUri == "" {
-		redirectUri = fmt.Sprintf("%s/api/auth/google/callback", clientUrl)
+		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 
 	code := c.Query("code")
 	errorParam := c.Query("error")
+	returnedState := c.Query("state")
+	storedState := c.Cookies(googleOAuthStateCookie)
 
 	if errorParam != "" || code == "" {
-		return c.Redirect(fmt.Sprintf("%s/auth?error=google_denied", clientUrl))
+		return c.Redirect(googleErrorRedirect("google_denied"))
+	}
+
+	// Clear state cookie after callback to prevent replay.
+	c.Cookie(&fiber.Cookie{
+		Name:     googleOAuthStateCookie,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		SameSite: "lax",
+		Secure:   c.Protocol() == "https",
+	})
+
+	if returnedState == "" || storedState == "" || returnedState != storedState {
+		return c.Redirect(googleErrorRedirect("google_invalid_state"))
+	}
+
+	clientID := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID"))
+	clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET"))
+	if clientID == "" || clientSecret == "" {
+		return c.Redirect(googleErrorRedirect("google_not_configured"))
 	}
 
 	// Exchange code for token
 	tokenReqBody := url.Values{}
 	tokenReqBody.Add("code", code)
-	tokenReqBody.Add("client_id", os.Getenv("GOOGLE_CLIENT_ID"))
-	tokenReqBody.Add("client_secret", os.Getenv("GOOGLE_CLIENT_SECRET"))
+	tokenReqBody.Add("client_id", clientID)
+	tokenReqBody.Add("client_secret", clientSecret)
 	tokenReqBody.Add("redirect_uri", redirectUri)
 	tokenReqBody.Add("grant_type", "authorization_code")
 
 	tokenResp, err := http.PostForm("https://oauth2.googleapis.com/token", tokenReqBody)
 	if err != nil || tokenResp.StatusCode != 200 {
-		return c.Redirect(fmt.Sprintf("%s/auth?error=google_failed", clientUrl))
+		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 	defer tokenResp.Body.Close()
 
@@ -83,7 +147,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(tokenResp.Body).Decode(&tokenData); err != nil {
-		return c.Redirect(fmt.Sprintf("%s/auth?error=google_failed", clientUrl))
+		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 
 	// Fetch Google profile
@@ -93,7 +157,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 	client := &http.Client{}
 	profileResp, err := client.Do(req)
 	if err != nil || profileResp.StatusCode != 200 {
-		return c.Redirect(fmt.Sprintf("%s/auth?error=google_failed", clientUrl))
+		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 	defer profileResp.Body.Close()
 
@@ -105,7 +169,11 @@ func GoogleCallback(c *fiber.Ctx) error {
 		VerifiedEmail bool   `json:"verified_email"`
 	}
 	if err := json.NewDecoder(profileResp.Body).Decode(&profile); err != nil {
-		return c.Redirect(fmt.Sprintf("%s/auth?error=google_failed", clientUrl))
+		return c.Redirect(googleErrorRedirect("google_failed"))
+	}
+
+	if profile.Email == "" || !profile.VerifiedEmail {
+		return c.Redirect(googleErrorRedirect("google_unverified_email"))
 	}
 
 	usersCollection := config.DB.Collection("users")
@@ -124,7 +192,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		// User exists, update if no googleId
 		var rawUser bson.M
 		_ = usersCollection.FindOne(ctx, bson.M{"_id": user.ID}).Decode(&rawUser)
-		
+
 		if rawUser["googleId"] == nil || rawUser["googleId"] == "" {
 			avatar := rawUser["avatar"]
 			if avatar == nil || avatar == "" {
@@ -180,7 +248,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
-			return c.Redirect(fmt.Sprintf("%s/auth?error=google_failed", clientUrl))
+			return c.Redirect(googleErrorRedirect("google_failed"))
 		}
 		user.ID = res.InsertedID.(primitive.ObjectID)
 		user.Email = profile.Email
@@ -199,7 +267,10 @@ func GoogleCallback(c *fiber.Ctx) error {
 		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
-	tokenString, _ := token.SignedString([]byte(secret))
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return c.Redirect(googleErrorRedirect("google_failed"))
+	}
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "connect.sid",
@@ -207,7 +278,9 @@ func GoogleCallback(c *fiber.Ctx) error {
 		Expires:  time.Now().Add(time.Hour * 24 * 30),
 		HTTPOnly: true,
 		SameSite: "lax",
+		Secure:   c.Protocol() == "https",
 	})
 
-	return c.Redirect(fmt.Sprintf("%s/dashboard", clientUrl))
+	// Redirect through /auth so frontend can persist token for API Authorization header.
+	return c.Redirect(fmt.Sprintf("%s/auth#google_token=%s", clientURL, url.QueryEscape(tokenString)))
 }

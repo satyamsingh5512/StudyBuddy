@@ -28,6 +28,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const initializeApp = async () => {
       soundManager.initialize();
 
+      // If OAuth callback returned a token in hash, persist it before bootstrapping auth state.
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const googleToken = hashParams.get('google_token');
+      if (googleToken) {
+        localStorage.setItem('auth_token', googleToken);
+        window.history.replaceState({}, '', window.location.pathname + window.location.search);
+      }
+
       const timeoutId = window.setTimeout(() => {
         setUser(null);
         setIsLoading(false);
