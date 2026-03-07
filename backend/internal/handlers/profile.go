@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"regexp"
+	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
@@ -15,19 +17,33 @@ type CheckUsernameRequest struct {
 	Username string `json:"username"`
 }
 
-func CheckUsername(c *fiber.Ctx) error {
-	user := c.Locals("user").(models.User)
+var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
+func CheckUsername(c *fiber.Ctx) error {
 	var req CheckUsernameRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+		}
 	}
 
-	if req.Username == "" || len(req.Username) < 3 {
+	username := strings.ToLower(strings.TrimSpace(req.Username))
+	if username == "" {
+		username = strings.ToLower(strings.TrimSpace(c.Params("username")))
+	}
+
+	if username == "" || len(username) < 3 {
 		return c.JSON(fiber.Map{"available": false, "message": "Username too short"})
 	}
+	if len(username) > 20 {
+		return c.JSON(fiber.Map{"available": false, "message": "Username must be less than 20 characters"})
+	}
+	if !usernamePattern.MatchString(username) {
+		return c.JSON(fiber.Map{"available": false, "message": "Only letters, numbers, and underscores allowed"})
+	}
 
-	if req.Username == user.Username {
+	currentUser, hasUser := c.Locals("user").(models.User)
+	if hasUser && username == currentUser.Username {
 		return c.JSON(fiber.Map{"available": true})
 	}
 
@@ -36,12 +52,21 @@ func CheckUsername(c *fiber.Ctx) error {
 	defer cancel()
 
 	var existing bson.M
-	err := usersCollection.FindOne(ctx, bson.M{"username": req.Username}).Decode(&existing)
+	err := usersCollection.FindOne(ctx, bson.M{"username": username}).Decode(&existing)
 	if err == nil {
-		return c.JSON(fiber.Map{"available": false, "message": "Username taken"})
+		suggestions := []string{
+			username + "01",
+			username + "_study",
+			username + "_prep",
+		}
+		return c.JSON(fiber.Map{
+			"available":   false,
+			"message":     "Username taken",
+			"suggestions": suggestions,
+		})
 	}
 
-	return c.JSON(fiber.Map{"available": true})
+	return c.JSON(fiber.Map{"available": true, "message": "Username available"})
 }
 
 type UpdateProfileRequest struct {

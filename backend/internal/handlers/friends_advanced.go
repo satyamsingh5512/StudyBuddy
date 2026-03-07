@@ -38,21 +38,23 @@ func GetFriendRequests(c *fiber.Ctx) error {
 	for _, r := range requests {
 		var requester models.User
 		err := usersColl.FindOne(ctx, bson.M{"_id": r.SenderID}).Decode(&requester)
-
-		var userInfo interface{} = nil
-		if err == nil {
-			userInfo = fiber.Map{
-				"id":       requester.ID.Hex(),
-				"name":     requester.Name,
-				"username": requester.Username,
-			}
+		if err != nil {
+			continue
 		}
 
 		response = append(response, fiber.Map{
-			"id":          r.ID.Hex(),
-			"requesterId": r.SenderID.Hex(),
-			"recipientId": r.ReceiverID.Hex(),
-			"requester":   userInfo,
+			"id": r.ID.Hex(),
+			"sender": fiber.Map{
+				"id":         requester.ID.Hex(),
+				"name":       requester.Name,
+				"username":   requester.Username,
+				"avatar":     requester.Avatar,
+				"avatarType": requester.AvatarType,
+				"examGoal":   requester.ExamGoal,
+				"totalPoints": requester.TotalPoints,
+				"lastActive": requester.LastActive,
+			},
+			"createdAt": r.CreatedAt,
 		})
 	}
 
@@ -129,7 +131,8 @@ func DeleteFriend(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err = collection.DeleteOne(
+	// Primary behavior: allow deleting by friendship request id
+	res, err := collection.DeleteOne(
 		ctx,
 		bson.M{
 			"_id": objID,
@@ -139,9 +142,29 @@ func DeleteFriend(c *fiber.Ctx) error {
 			},
 		},
 	)
-
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal Server Error"})
+	}
+	if res.DeletedCount > 0 {
+		return c.JSON(fiber.Map{"success": true})
+	}
+
+	// Compatibility behavior: if UI sends friend's user id, remove accepted relationship by participants.
+	res, err = collection.DeleteOne(
+		ctx,
+		bson.M{
+			"status": "accepted",
+			"$or": []bson.M{
+				{"senderId": user.ID, "receiverId": objID},
+				{"senderId": objID, "receiverId": user.ID},
+			},
+		},
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal Server Error"})
+	}
+	if res.DeletedCount == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Friend relationship not found"})
 	}
 
 	return c.JSON(fiber.Map{"success": true})
@@ -245,11 +268,10 @@ func GetBlockedUsers(c *fiber.Ctx) error {
 		}
 
 		response = append(response, fiber.Map{
-			"id":          b["_id"].(primitive.ObjectID).Hex(),
-			"blockerId":   b["blockerId"].(primitive.ObjectID).Hex(),
-			"blockedId":   blockedID.Hex(),
-			"blockedUser": userInfo,
-			"createdAt":   b["createdAt"],
+			"id":        b["_id"].(primitive.ObjectID).Hex(),
+			"blockedId": blockedID.Hex(),
+			"blocked":   userInfo,
+			"createdAt": b["createdAt"],
 		})
 	}
 

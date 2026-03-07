@@ -31,6 +31,7 @@ func SetupRoutes(app *fiber.App) {
 	api.Get("/faqs", handlers.GetFAQs)
 	api.Get("/faqs/:examType", handlers.GetFAQs)
 	api.Post("/waitlist", handlers.JoinWaitlist)
+	api.Get("/username/check/:username", handlers.CheckUsername)
 
 	users := api.Group("/users")
 	users.Get("/leaderboard", handlers.GetLeaderboard)
@@ -53,11 +54,13 @@ func SetupRoutes(app *fiber.App) {
 	// Messages
 	messages := protected.Group("/messages")
 	messages.Post("/", handlers.SendMessage)
+	messages.Get("/conversations", handlers.GetConversations)
 	messages.Get("/:userId", handlers.GetMessages)
 
 	// Users
 	protected.Post("/users/onboarding", handlers.CompleteOnboarding)
 	protected.Post("/username/check", handlers.CheckUsername)
+	protected.Get("/username/check/:username", handlers.CheckUsername)
 	protected.Get("/users/profile", handlers.Me)
 	protected.Put("/users/profile", handlers.UpdateProfile)
 
@@ -85,6 +88,7 @@ func SetupRoutes(app *fiber.App) {
 	schedule := protected.Group("/schedule")
 	schedule.Get("/", handlers.GetSchedule)
 	schedule.Post("/", handlers.CreateSchedule)
+	schedule.Put("/:id", handlers.UpdateSchedule)
 	schedule.Delete("/:id", handlers.DeleteSchedule)
 
 	// Friends
@@ -92,8 +96,11 @@ func SetupRoutes(app *fiber.App) {
 	friends.Post("/request", handlers.SendFriendRequest)
 	friends.Get("/requests", handlers.GetFriendRequests)
 	friends.Get("/list", handlers.GetFriends)
+	friends.Get("/search", handlers.SearchUsers)
 	friends.Post("/request/:id/accept", handlers.AcceptFriendRequest)
+	friends.Put("/request/:id/accept", handlers.AcceptFriendRequest)
 	friends.Post("/request/:id/reject", handlers.RejectFriendRequest)
+	friends.Put("/request/:id/reject", handlers.RejectFriendRequest)
 	friends.Delete("/:id", handlers.DeleteFriend)
 	friends.Post("/block", handlers.BlockUser)
 	friends.Get("/blocked", handlers.GetBlockedUsers)

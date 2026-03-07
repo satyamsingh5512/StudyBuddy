@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from './ui/use-toast';
+import { apiFetch } from '@/config/api';
 
 interface ImageUploadProps {
   onUploadComplete: (url: string) => void;
@@ -57,19 +58,17 @@ export default function ImageUpload({
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('avatar', file);
 
-      const endpoint = type === 'profile' ? '/api/upload/profile' : '/api/upload/image';
-      const res = await fetch(endpoint, {
+      const res = await apiFetch('/upload/avatar', {
         method: 'POST',
-        credentials: 'include',
         body: formData,
       });
 
       if (!res.ok) throw new Error('Upload failed');
 
       const data = await res.json();
-      onUploadComplete(data.url);
+      onUploadComplete(data.avatar || data.url);
       toast({
         title: 'Upload successful',
         description: 'Image uploaded successfully',

@@ -6,7 +6,7 @@ import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 
 interface Message {
   id: string;
@@ -56,9 +56,7 @@ export default function Messages() {
 
   const fetchConversations = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/messages/conversations`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/messages/conversations');
       if (response.ok) {
         const data = await response.json();
         setConversations(data);
@@ -70,9 +68,7 @@ export default function Messages() {
 
   const fetchUserDetails = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/list`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/friends/list');
       if (response.ok) {
         const friends = await response.json();
         const friend = friends.find((f: Friend) => f.id === id);
@@ -86,9 +82,7 @@ export default function Messages() {
   const fetchMessages = useCallback(async (id: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/messages/${id}`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch(`/messages/${id}`);
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
@@ -119,10 +113,9 @@ export default function Messages() {
     if (!newMessage.trim() || !userId) return;
 
     try {
-      const response = await fetch(`${API_URL}/messages`, {
+      const response = await apiFetch('/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           receiverId: userId,
           message: newMessage.trim(),

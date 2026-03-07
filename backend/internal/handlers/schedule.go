@@ -98,3 +98,59 @@ func DeleteSchedule(c *fiber.Ctx) error {
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+func UpdateSchedule(c *fiber.Ctx) error {
+	user := c.Locals("user").(models.User)
+	scheduleIDHex := c.Params("id")
+
+	objID, err := primitive.ObjectIDFromHex(scheduleIDHex)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	var req CreateScheduleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	updateDoc := bson.M{"updatedAt": time.Now()}
+	if req.Title != "" {
+		updateDoc["title"] = req.Title
+	}
+	if req.StartTime != "" {
+		if parsed, parseErr := time.Parse(time.RFC3339, req.StartTime); parseErr == nil {
+			updateDoc["startTime"] = parsed
+		}
+	}
+	if req.EndTime != "" {
+		if parsed, parseErr := time.Parse(time.RFC3339, req.EndTime); parseErr == nil {
+			updateDoc["endTime"] = parsed
+		}
+	}
+	if req.Type != "" {
+		updateDoc["type"] = req.Type
+	}
+	if req.Color != "" {
+		updateDoc["color"] = req.Color
+	}
+
+	collection := config.DB.Collection("schedules")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := collection.UpdateOne(
+		ctx,
+		bson.M{"_id": objID, "userId": user.ID},
+		bson.M{"$set": updateDoc},
+	)
+	if err != nil || res.MatchedCount == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Schedule not found"})
+	}
+
+	var updated models.ScheduleEvent
+	if err := collection.FindOne(ctx, bson.M{"_id": objID, "userId": user.ID}).Decode(&updated); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch updated schedule"})
+	}
+
+	return c.JSON(updated)
+}

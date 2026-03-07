@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
 import { Input } from './ui/input';
-import { API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 
 interface UsernameInputProps {
   value: string;
@@ -43,8 +43,16 @@ export default function UsernameInput({ value, onChange, onValidationChange }: U
 
     setChecking(true);
     try {
-      const response = await fetch(`${API_URL}/username/check/${username}`);
-      const data = await response.json();
+      const response = await apiFetch(`/username/check/${encodeURIComponent(username)}`);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setStatus('invalid');
+        setMessage(data.message || data.error || 'Unable to validate username');
+        setSuggestions([]);
+        onValidationChange?.(false);
+        return;
+      }
 
       if (data.available) {
         setStatus('available');

@@ -3,7 +3,7 @@ import { Trash2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 
 interface ScheduleEntry {
   id: string;
@@ -36,24 +36,23 @@ export default function Schedule() {
       const endDate = new Date(selectedDate);
       endDate.setDate(endDate.getDate() + 7);
 
-      const response = await fetch(
-        `${API_URL}/schedule?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
-        { credentials: 'include' }
+      const response = await apiFetch(
+        `/schedule?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
       );
 
       if (response.ok) {
         const data = await response.json();
         // Convert database format to grid format
         const converted = data.map((item: any) => {
-          const date = new Date(item.date);
+          const date = new Date(item.startTime);
           const dayIndex = (date.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-          const hour = parseInt(item.startTime.split(':')[0], 10);
+          const hour = date.getHours();
           return {
             id: item.id,
             day: days[dayIndex],
             hour,
             text: item.title,
-            date: item.date,
+            date: date.toISOString().split('T')[0],
           };
         });
         setSchedule(converted);
@@ -93,21 +92,21 @@ export default function Schedule() {
     } else {
       // Create new entry
       const date = getDateForDayHour(day);
+      const startTime = new Date(`${date}T${hour.toString().padStart(2, '0')}:00:00`).toISOString();
+      const endTime = new Date(`${date}T${(hour + 1).toString().padStart(2, '0')}:00:00`).toISOString();
       console.log('Creating new entry for date:', date);
 
       setCreating(true);
       try {
-        const response = await fetch(`${API_URL}/schedule`, {
+        const response = await apiFetch('/schedule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({
-            date,
-            startTime: `${hour.toString().padStart(2, '0')}:00`,
-            endTime: `${(hour + 1).toString().padStart(2, '0')}:00`,
+            startTime,
+            endTime,
             title: '',
-            subject: '',
-            notes: '',
+            type: 'study',
+            color: '#3b82f6',
           }),
         });
 
@@ -116,12 +115,14 @@ export default function Schedule() {
         if (response.ok) {
           const created = await response.json();
           console.log('Created schedule:', created);
+          const createdDate = new Date(created.startTime);
+          const createdDayIndex = (createdDate.getDay() + 6) % 7;
           setSchedule(prev => [...prev, {
             id: created.id,
-            day,
-            hour,
-            text: '',
-            date,
+            day: days[createdDayIndex],
+            hour: createdDate.getHours(),
+            text: created.title || '',
+            date: createdDate.toISOString().split('T')[0],
           }]);
           setEditingId(created.id);
           setEditText('');
@@ -141,9 +142,8 @@ export default function Schedule() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/schedule/${id}`, {
+      const response = await apiFetch(`/schedule/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
 
       if (response.ok) {
@@ -161,10 +161,9 @@ export default function Schedule() {
   const handleSave = async (id: string) => {
     if (editText.trim()) {
       try {
-        const response = await fetch(`${API_URL}/schedule/${id}`, {
+        const response = await apiFetch(`/schedule/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({ title: editText.trim() }),
         });
 
@@ -190,9 +189,8 @@ export default function Schedule() {
     try {
       // Delete all entries in current view
       await Promise.all(schedule.map(entry =>
-        fetch(`${API_URL}/schedule/${entry.id}`, {
+        apiFetch(`/schedule/${entry.id}`, {
           method: 'DELETE',
-          credentials: 'include',
         })
       ));
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { useToast } from '../components/ui/use-toast';
-import { API_URL } from '../config/api';
+import { apiFetch } from '../config/api';
 
 interface AdminStats {
   totalUsers: number;
@@ -20,9 +20,7 @@ export default function Admin() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/admin/stats`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/admin/stats');
 
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
@@ -52,9 +50,8 @@ export default function Admin() {
 
     setSending(true);
     try {
-      const response = await fetch(`${API_URL}/admin/send-daily-stats`, {
+      const response = await apiFetch('/admin/send-daily-stats', {
         method: 'POST',
-        credentials: 'include',
       });
 
       if (!response.ok) {

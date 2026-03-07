@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { apiFetch, API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import { Switch } from '@/components/ui/switch';
 import { soundManager } from '@/lib/sounds';
 import {
@@ -151,9 +151,8 @@ export default function Settings() {
     try {
       const formData = new FormData();
       formData.append('avatar', selectedFile);
-      const res = await fetch(`${API_URL}/upload/avatar`, {
+      const res = await apiFetch('/upload/avatar', {
         method: 'POST',
-        credentials: 'include',
         body: formData,
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');

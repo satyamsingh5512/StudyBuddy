@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
-import { API_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import { Button } from '@/components/ui/button';
 
 interface NewsItem {
@@ -90,8 +90,8 @@ export default function News() {
 
       // Fetch both in parallel
       const [newsRes, datesRes] = await Promise.all([
-        fetch(`${API_URL}/news/${examType}`, { credentials: 'include' }),
-        fetch(`${API_URL}/news/${examType}/dates`, { credentials: 'include' })
+        apiFetch(`/news/${examType}`),
+        apiFetch(`/news/${examType}/dates`),
       ]);
 
       if (!newsRes.ok) throw new Error('Failed to fetch news');

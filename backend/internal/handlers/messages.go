@@ -10,11 +10,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type SendMessageRequest struct {
 	ReceiverID string  `json:"receiverId"`
 	Content    string  `json:"content"`
+	Message    string  `json:"message"`
 	FileURL    *string `json:"fileUrl,omitempty"`
 }
 
@@ -40,6 +42,12 @@ func SendMessage(c *fiber.Ctx) error {
 
 	if req.ReceiverID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Receiver ID is required"})
+	}
+	if req.Content == "" {
+		req.Content = req.Message
+	}
+	if req.Content == "" && req.FileURL == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Message content is required"})
 	}
 
 	receiverObjID, err := primitive.ObjectIDFromHex(req.ReceiverID)
@@ -71,6 +79,82 @@ func SendMessage(c *fiber.Ctx) error {
 	newMsg.ID = res.InsertedID.(primitive.ObjectID)
 
 	return c.Status(fiber.StatusCreated).JSON(newMsg)
+}
+
+func GetConversations(c *fiber.Ctx) error {
+	user := c.Locals("user").(models.User)
+
+	friendsColl := config.DB.Collection("friend_requests")
+	usersColl := config.DB.Collection("users")
+	messagesColl := config.DB.Collection("direct_messages")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := friendsColl.Find(ctx, bson.M{
+		"status": "accepted",
+		"$or": []bson.M{
+			{"senderId": user.ID},
+			{"receiverId": user.ID},
+		},
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch conversations"})
+	}
+	defer cursor.Close(ctx)
+
+	var links []models.FriendRequest
+	if err = cursor.All(ctx, &links); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse conversations"})
+	}
+
+	response := make([]fiber.Map, 0, len(links))
+	for _, link := range links {
+		otherID := link.SenderID
+		if otherID == user.ID {
+			otherID = link.ReceiverID
+		}
+
+		var otherUser models.User
+		if err := usersColl.FindOne(ctx, bson.M{"_id": otherID}).Decode(&otherUser); err != nil {
+			continue
+		}
+
+		filter := bson.M{
+			"$or": []bson.M{
+				{"senderId": user.ID, "receiverId": otherID},
+				{"senderId": otherID, "receiverId": user.ID},
+			},
+		}
+
+		var lastMessage *Message
+		findOpts := options.FindOne().SetSort(bson.D{{Key: "createdAt", Value: -1}})
+		var msg Message
+		if err := messagesColl.FindOne(ctx, filter, findOpts).Decode(&msg); err == nil {
+			lastMessage = &msg
+		}
+
+		unreadCount, _ := messagesColl.CountDocuments(ctx, bson.M{
+			"senderId":   otherID,
+			"receiverId": user.ID,
+			"read":       false,
+		})
+
+		response = append(response, fiber.Map{
+			"user": fiber.Map{
+				"id":         otherUser.ID.Hex(),
+				"username":   otherUser.Username,
+				"name":       otherUser.Name,
+				"avatar":     otherUser.Avatar,
+				"avatarType": otherUser.AvatarType,
+				"lastActive": otherUser.LastActive,
+			},
+			"lastMessage": lastMessage,
+			"unreadCount": unreadCount,
+		})
+	}
+
+	return c.JSON(response)
 }
 
 func GetMessages(c *fiber.Ctx) error {

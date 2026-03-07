@@ -39,6 +39,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 interface User {
   id: string;
+  friendshipId?: string;
   username: string;
   name: string;
   avatar: string;
@@ -58,7 +59,7 @@ interface FriendRequest {
 
 interface BlockedUser {
   id: string;
-  blocked: User;
+  blocked: User | null;
   createdAt: string;
 }
 
@@ -86,6 +87,7 @@ export default function Friends() {
         // Ensure user data is clean
         const cleanData = data.map((user: any) => ({
           ...user,
+          friendshipId: user.friendshipId || user.id,
           totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
         }));
         setFriends(cleanData);
@@ -106,7 +108,10 @@ export default function Friends() {
         // Ensure user data is clean
         const cleanData = data.map((user: any) => ({
           ...user,
-          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+          sender: {
+            ...user.sender,
+            totalPoints: typeof user.sender?.totalPoints === 'number' ? user.sender.totalPoints : 0,
+          },
         }));
         setRequests(cleanData);
       }
@@ -126,7 +131,12 @@ export default function Friends() {
         // Ensure user data is clean
         const cleanData = data.map((user: any) => ({
           ...user,
-          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+          blocked: user.blocked
+            ? {
+                ...user.blocked,
+                totalPoints: typeof user.blocked.totalPoints === 'number' ? user.blocked.totalPoints : 0,
+              }
+            : null,
         }));
         setBlocked(cleanData);
       }
@@ -155,6 +165,7 @@ export default function Friends() {
         // Ensure user data is clean
         const cleanData = data.map((user: any) => ({
           ...user,
+          friendshipStatus: user.friendshipStatus ? String(user.friendshipStatus).toLowerCase() : null,
           totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
         }));
         setSearchResults(cleanData);
@@ -289,7 +300,7 @@ export default function Friends() {
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">@{user.username}</p>
         <p className="text-xs text-muted-foreground truncate">{user.name}</p>
-        <p className="text-xs text-muted-foreground">{user.examGoal} • {user.totalPoints} pts</p>
+        <p className="text-xs text-muted-foreground">{user.examGoal || 'Study Goal'} • {user.totalPoints} pts</p>
       </div>
       <div className="flex items-center gap-2">{actions}</div>
     </div>
@@ -371,31 +382,34 @@ export default function Friends() {
             {searchResults.length > 0 && (
               <div className="space-y-2">
                 {searchResults.map((user) =>
-                  renderUserCard(
-                    user,
-                    <>
-                      {!user.friendshipStatus && (
-                        <Button
-                          size="sm"
-                          onClick={() => sendFriendRequest(user.id)}
-                          className="flex items-center gap-1"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          Add
-                        </Button>
-                      )}
-                      {user.friendshipStatus === 'PENDING' && (
-                        <Button size="sm" variant="outline" disabled>
-                          {user.isSender ? 'Sent' : 'Pending'}
-                        </Button>
-                      )}
-                      {user.friendshipStatus === 'ACCEPTED' && (
-                        <Button size="sm" variant="outline" disabled>
-                          <UserCheck className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </>
-                  )
+                  (() => {
+                    const status = user.friendshipStatus?.toLowerCase() || null;
+                    return renderUserCard(
+                      user,
+                      <>
+                        {!status && (
+                          <Button
+                            size="sm"
+                            onClick={() => sendFriendRequest(user.id)}
+                            className="flex items-center gap-1"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Add
+                          </Button>
+                        )}
+                        {status === 'pending' && (
+                          <Button size="sm" variant="outline" disabled>
+                            {user.isSender ? 'Sent' : 'Pending'}
+                          </Button>
+                        )}
+                        {status === 'accepted' && (
+                          <Button size="sm" variant="outline" disabled>
+                            <UserCheck className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
               </div>
             )}
@@ -435,7 +449,7 @@ export default function Friends() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => unfriend((friend as any).friendshipId)}
+                        onClick={() => unfriend(friend.friendshipId || friend.id)}
                         className="text-destructive hover:text-destructive"
                       >
                         <UserX className="h-4 w-4" />
@@ -509,9 +523,9 @@ export default function Friends() {
               <p className="text-center text-muted-foreground py-8">No blocked users</p>
             ) : (
               <div className="space-y-2">
-                {blocked.map((block) =>
+                {blocked.filter((block) => !!block.blocked).map((block) =>
                   renderUserCard(
-                    block.blocked,
+                    block.blocked as User,
                     <Button
                       size="sm"
                       variant="outline"

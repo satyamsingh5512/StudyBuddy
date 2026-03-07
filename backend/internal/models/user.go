@@ -12,6 +12,8 @@ type User struct {
 	Password         string             `bson:"password" json:"-"`
 	Name             string             `bson:"name" json:"name"`
 	Username         string             `bson:"username" json:"username"`
+	Avatar           string             `bson:"avatar,omitempty" json:"avatar,omitempty"`
+	AvatarType       string             `bson:"avatarType,omitempty" json:"avatarType,omitempty"`
 	Role             string             `bson:"role" json:"role"`
 	EmailVerified    bool               `bson:"emailVerified" json:"emailVerified"`
 	VerificationOtp  string             `bson:"verificationOtp,omitempty" json:"-"`
