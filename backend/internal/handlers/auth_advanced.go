@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -127,6 +129,10 @@ func ResendOTP(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
 	}
 
+	if err := services.SendVerificationEmail(email, "", otp); err != nil {
+		log.Printf("failed to send resend-otp email to %s: %v", email, err)
+	}
+
 	return c.JSON(fiber.Map{"message": "OTP resent successfully"})
 }
 
@@ -168,6 +174,10 @@ func ForgotPassword(c *fiber.Ctx) error {
 
 	if err != nil || res.MatchedCount == 0 {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
+	}
+
+	if err := services.SendPasswordResetEmail(email, "", otp); err != nil {
+		log.Printf("failed to send password reset email to %s: %v", email, err)
 	}
 
 	return c.JSON(fiber.Map{"message": "Password reset code sent"})

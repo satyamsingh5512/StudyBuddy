@@ -184,9 +184,10 @@ export default function Onboarding() {
       if (res.ok) {
         const updatedUser = await res.json();
         setUser(updatedUser);
+        const displayName = updatedUser?.name || username;
         toast({
-          title: `🎉 Welcome aboard, ${name}!`,
-          description: "Your journey to success starts now. We're thrilled to have you with us!"
+          title: `Welcome, ${displayName}`,
+          description: 'Your profile has been set up successfully. You can now access your dashboard and start planning your study schedule.',
         });
       } else {
         const error = await res.json();

@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -65,6 +67,10 @@ func CompleteOnboarding(c *fiber.Ctx) error {
 	_, err := collection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": bson.M{"onboardingDone": true, "updatedAt": time.Now()}})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
+	}
+
+	if err := services.SendOnboardingWelcomeEmail(user.Email, user.Name); err != nil {
+		log.Printf("failed to send onboarding welcome email to %s: %v", user.Email, err)
 	}
 
 	return c.JSON(fiber.Map{"message": "Onboarding completed"})

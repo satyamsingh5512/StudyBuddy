@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -85,6 +87,9 @@ func Signup(c *fiber.Ctx) error {
 	}
 
 	newUser.ID = result.InsertedID.(primitive.ObjectID)
+	if err := services.SendVerificationEmail(newUser.Email, newUser.Name, otp); err != nil {
+		log.Printf("failed to send signup verification email to %s: %v", newUser.Email, err)
+	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Signup successful. Please verify your email.",
@@ -158,4 +163,3 @@ func Me(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
 	return c.JSON(user)
 }
-
