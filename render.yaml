@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: studybuddy-go-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false # Set this securely in the Render dashboard!
