@@ -5,7 +5,7 @@ An AI-powered study companion for competitive exam preparation. Live at [sbd.sat
 ## Features
 
 **AI Study Assistant**
-Multi-model AI support with Groq Llama 3.3 and Google Gemini. Get personalized study recommendations, task suggestions, and motivational guidance based on your exam goals and progress.
+Google Gemini-powered study support for personalized recommendations, task suggestions, and motivational guidance based on your exam goals and progress.
 
 **Task Management**
 Create and track study tasks with subject categorization, difficulty levels, and question targets. Automatic progress calculation and completion tracking.
@@ -39,7 +39,7 @@ User statistics, system monitoring, bulk email capabilities, and activity tracki
 
 ## Technology Stack
 
-React 18, TypeScript, Node.js, Express, MongoDB, Vercel, Groq API, Google Gemini API, Passport.js, Resend Email
+React 18, TypeScript, Node.js, Express, MongoDB, Vercel, Google Gemini API, Passport.js, Resend Email
 
 ## License
 
