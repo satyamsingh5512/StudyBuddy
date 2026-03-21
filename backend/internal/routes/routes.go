@@ -63,6 +63,7 @@ func SetupRoutes(app *fiber.App) {
 	protected.Get("/username/check/:username", handlers.CheckUsername)
 	protected.Get("/users/profile", handlers.Me)
 	protected.Put("/users/profile", handlers.UpdateProfile)
+	protected.Patch("/users/profile", handlers.UpdateProfile) // Support PATCH for frontend compatibility
 
 	// Admin
 	admin := protected.Group("/admin")
@@ -74,6 +75,7 @@ func SetupRoutes(app *fiber.App) {
 	todos.Get("/", handlers.GetTodos)
 	todos.Post("/", handlers.CreateTodo)
 	todos.Put("/:id", handlers.UpdateTodo)
+	todos.Patch("/:id", handlers.UpdateTodo) // Support PATCH for frontend compatibility
 	todos.Delete("/:id", handlers.DeleteTodo)
 	todos.Post("/reschedule-all-overdue", handlers.RescheduleAllOverdue)
 	todos.Patch("/:id/reschedule", handlers.RescheduleTodo)

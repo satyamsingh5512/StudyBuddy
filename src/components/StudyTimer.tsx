@@ -219,7 +219,8 @@ export default function StudyTimer() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50">
+      {/* RESPONSIVE FIX: Adjusted positioning for mobile */}
       <AnimatePresence mode="wait">
         {!isExpanded ? (
           <motion.div
@@ -237,13 +238,14 @@ export default function StudyTimer() {
             }}
             className="relative cursor-grab active:cursor-grabbing"
           >
+            {/* RESPONSIVE FIX: Touch target min 44x44px */}
             <Button
               onClick={toggleExpanded}
               size="icon"
-              className="h-12 w-12 rounded-full bg-white/80 dark:bg-black/50 backdrop-blur-xl border border-white/20 shadow-sm hover:shadow-md hover:bg-white/90 dark:hover:bg-black/60 transition-all duration-200"
+              className="h-14 w-14 sm:h-12 sm:w-12 rounded-full bg-white/80 dark:bg-black/50 backdrop-blur-xl border border-white/20 shadow-sm hover:shadow-md hover:bg-white/90 dark:hover:bg-black/60 transition-all duration-200"
               title="Open Pomodoro Timer"
             >
-              <Clock className="h-5 w-5 text-foreground" />
+              <Clock className="h-6 w-6 sm:h-5 sm:w-5 text-foreground" />
             </Button>
             {/* Minimal active indicator */}
             {studying && (
@@ -267,8 +269,9 @@ export default function StudyTimer() {
             }}
             className="cursor-grab active:cursor-grabbing"
           >
-            <Card className="w-80 shadow-lg">
-              <CardContent className="p-6">
+            {/* RESPONSIVE FIX: Fluid width for mobile */}
+            <Card className="shadow-lg" style={{ width: 'clamp(280px, 90vw, 320px)' }}>
+              <CardContent className="p-4 sm:p-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -294,12 +297,12 @@ export default function StudyTimer() {
                   </Button>
                 </div>
 
-                {/* Timer Display */}
+                {/* Timer Display - RESPONSIVE FIX: Fluid font size */}
                 <div className="text-center mb-4">
-                  <div className="text-3xl font-mono font-bold mb-1">
+                  <div className="font-mono font-bold mb-1" style={{ fontSize: 'clamp(2rem, 6vw, 3rem)' }}>
                     {studying ? formatTime(studyTime) : (studyTime > 0 ? formatTime(studyTime) : `${pomodoroDuration}:00`)}
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {studying ? 'Studying now' : (studyTime > 0 ? 'Paused' : 'Ready to start')}
                   </p>
                 </div>
@@ -366,13 +369,13 @@ export default function StudyTimer() {
                   </div>
                 )}
 
-                {/* Controls */}
+                {/* Controls - RESPONSIVE FIX: Touch targets min 44x44px, wrap on small screens */}
                 <div className="flex flex-wrap gap-2 justify-center">
                   <Button
                     size="sm"
                     onClick={toggleStudying}
                     variant={studying ? 'default' : 'outline'}
-                    className="flex-1 min-w-[80px]"
+                    className="flex-1 min-w-[80px] min-h-[44px]"
                   >
                     {studying ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                     {studying ? 'Pause' : 'Start'}
@@ -382,7 +385,7 @@ export default function StudyTimer() {
                     size="sm"
                     variant="outline"
                     onClick={() => setShowFullscreen(true)}
-                    className="flex-1 min-w-[80px]"
+                    className="flex-1 min-w-[80px] min-h-[44px]"
                   >
                     <Maximize className="h-4 w-4 mr-2" />
                     Focus
@@ -394,7 +397,7 @@ export default function StudyTimer() {
                         size="sm"
                         variant="outline"
                         onClick={handleOpenSettings}
-                        className="flex-1 min-w-[80px]"
+                        className="flex-1 min-w-[80px] min-h-[44px]"
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Settings
@@ -442,7 +445,7 @@ export default function StudyTimer() {
                       size="sm"
                       variant="outline"
                       onClick={stopAndSave}
-                      className="flex-1 min-w-[80px]"
+                      className="flex-1 min-w-[80px] min-h-[44px]"
                     >
                       <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -457,7 +460,7 @@ export default function StudyTimer() {
                       size="sm"
                       variant="outline"
                       onClick={clearTimer}
-                      className="flex-1 min-w-[80px]"
+                      className="flex-1 min-w-[80px] min-h-[44px]"
                     >
                       <RotateCcw className="h-4 w-4 mr-2" />
                       Clear

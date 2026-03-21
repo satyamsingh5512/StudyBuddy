@@ -105,11 +105,11 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header - RESPONSIVE FIX: Stack on mobile, flex on desktop */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Study Analytics</h2>
-          <p className="text-muted-foreground">Track your learning progress</p>
+          <h2 className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>Study Analytics</h2>
+          <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>Track your learning progress</p>
         </div>
         <div className="flex gap-2">
           {[7, 14, 30].map((days) => (
@@ -118,6 +118,7 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
               variant={timeRange === days ? 'default' : 'outline'}
               size="sm"
               onClick={() => setTimeRange(days)}
+              className="min-h-[44px] min-w-[44px]"
             >
               {days}d
             </Button>
@@ -125,15 +126,15 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Summary Cards - RESPONSIVE FIX: CSS Grid with auto-fit */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))' }}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Study Time</p>
-                <p className="text-2xl font-bold">{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Study Time</p>
+                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
               </div>
             </div>
           </CardContent>
@@ -142,10 +143,10 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
-              <Target className="h-5 w-5 text-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Tasks Completed</p>
-                <p className="text-2xl font-bold">{totalTasks}</p>
+              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Tasks Completed</p>
+                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalTasks}</p>
               </div>
             </div>
           </CardContent>
@@ -154,10 +155,10 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
-              <Activity className="h-5 w-5 text-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Focus Sessions</p>
-                <p className="text-2xl font-bold">{totalSessions}</p>
+              <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Focus Sessions</p>
+                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalSessions}</p>
               </div>
             </div>
           </CardContent>
@@ -166,34 +167,35 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Understanding</p>
-                <p className="text-2xl font-bold">{avgUnderstanding.toFixed(1)}/10</p>
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground">Avg Understanding</p>
+                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{avgUnderstanding.toFixed(1)}/10</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Study Hours Chart - Histogram Style */}
+      {/* Study Hours Chart - Histogram Style - RESPONSIVE FIX */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Daily Study Hours
+            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>Daily Study Hours</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="h-64 flex items-end justify-between gap-2 p-4 bg-muted/30 rounded-lg">
+        <CardContent className="p-4 sm:p-6">
+          {/* RESPONSIVE FIX: Reduced height on mobile, flexible on desktop */}
+          <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
             {analytics.map((day, index) => (
-              <div key={day.date} className="flex flex-col items-center gap-2 flex-1 group">
-                {/* Value Label */}
-                <div className="text-xs font-medium text-muted-foreground">
+              <div key={day.date} className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0">
+                {/* Value Label - RESPONSIVE FIX: Smaller text on mobile */}
+                <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">
                   {day.studyHours > 0 ? `${day.studyHours.toFixed(1)}h` : '0h'}
                 </div>
-                {/* Histogram Bar */}
-                <div className="relative w-full max-w-12 h-44 bg-muted/50 rounded-sm overflow-hidden">
+                {/* Histogram Bar - RESPONSIVE FIX: Flexible height */}
+                <div className="relative w-full max-w-8 sm:max-w-12 bg-muted/50 rounded-sm overflow-hidden" style={{ height: 'clamp(100px, 25vw, 176px)' }}>
                   <div
                     className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
                     style={{
@@ -202,8 +204,8 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
                     }}
                   />
                 </div>
-                {/* Date Label */}
-                <div className="text-xs font-medium text-muted-foreground text-center">
+                {/* Date Label - RESPONSIVE FIX: Smaller text on mobile */}
+                <div className="text-[10px] sm:text-xs font-medium text-muted-foreground text-center truncate w-full">
                   {getDateLabel(day.date).split(' ')[0]}
                 </div>
               </div>
@@ -212,14 +214,14 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </CardContent>
       </Card>
 
-      {/* Combined Progress Overview - Histogram Style */}
+      {/* Combined Progress Overview - Histogram Style - RESPONSIVE FIX */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Daily Progress Overview
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>Daily Progress Overview</span>
           </CardTitle>
-          <div className="flex items-center gap-6 text-sm mt-2">
+          <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm mt-2 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-foreground/80 rounded-sm" />
               <span className="text-muted-foreground">Study Hours</span>
@@ -230,14 +232,14 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="h-64 flex items-end justify-between gap-2 p-4 bg-muted/30 rounded-lg">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
             {analytics.map((day, index) => (
-              <div key={`combined-${day.date}`} className="flex flex-col items-center gap-2 flex-1 group">
-                {/* Dual Histogram Bars */}
-                <div className="flex gap-1 items-end h-44">
+              <div key={`combined-${day.date}`} className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0">
+                {/* Dual Histogram Bars - RESPONSIVE FIX: Flexible height */}
+                <div className="flex gap-0.5 sm:gap-1 items-end" style={{ height: 'clamp(100px, 25vw, 176px)' }}>
                   {/* Study Hours Bar */}
-                  <div className="relative w-4 sm:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
+                  <div className="relative w-3 sm:w-4 md:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
                     <div
                       className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
                       style={{
@@ -247,7 +249,7 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
                     />
                   </div>
                   {/* Tasks Bar */}
-                  <div className="relative w-4 sm:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
+                  <div className="relative w-3 sm:w-4 md:w-5 bg-muted/50 rounded-sm overflow-hidden h-full">
                     <div
                       className="absolute bottom-0 w-full bg-foreground/40 dark:bg-foreground/30 transition-all duration-700 ease-out rounded-sm"
                       style={{
@@ -257,13 +259,13 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
                     />
                   </div>
                 </div>
-                {/* Values */}
-                <div className="text-xs text-center text-muted-foreground">
+                {/* Values - RESPONSIVE FIX: Smaller text on mobile */}
+                <div className="text-[10px] sm:text-xs text-center text-muted-foreground">
                   <div>{day.studyHours.toFixed(1)}h</div>
                   <div>{day.tasksCompleted}t</div>
                 </div>
-                {/* Date Label */}
-                <div className="text-xs font-medium text-muted-foreground text-center">
+                {/* Date Label - RESPONSIVE FIX: Smaller text on mobile */}
+                <div className="text-[10px] sm:text-xs font-medium text-muted-foreground text-center truncate w-full">
                   {getDateLabel(day.date).split(' ')[0]}
                 </div>
               </div>
@@ -272,15 +274,15 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </CardContent>
       </Card>
 
-      {/* Subjects Breakdown - Histogram Style */}
+      {/* Subjects Breakdown - Histogram Style - RESPONSIVE FIX */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Focus Subjects
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>Focus Subjects</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           {(() => {
             const sessionTypeTotals = analytics.reduce((acc, day) => {
               Object.entries(day.sessionTypes).forEach(([type, count]) => {
@@ -294,24 +296,24 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
 
             if (sessionEntries.length === 0) {
               return (
-                <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg p-6">
-                  <Activity className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="font-medium">No subject data available</p>
-                  <p className="text-sm mt-1">Start a focus session with a subject to see your breakdown</p>
+                <div className="text-center py-6 sm:py-8 text-muted-foreground bg-muted/30 rounded-lg p-4 sm:p-6">
+                  <Activity className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>No subject data available</p>
+                  <p className="text-xs sm:text-sm mt-1">Start a focus session with a subject to see your breakdown</p>
                 </div>
               );
             }
 
             return (
-              <div className="h-56 flex items-end justify-center gap-8 p-4 bg-muted/30 rounded-lg">
+              <div className="flex items-end justify-center gap-4 sm:gap-8 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(180px, 35vw, 224px)' }}>
                 {sessionEntries.map(([type, count], index) => (
-                  <div key={type} className="flex flex-col items-center gap-2 group">
-                    {/* Value Label */}
-                    <div className="text-sm font-bold text-foreground">
+                  <div key={type} className="flex flex-col items-center gap-1 sm:gap-2 group">
+                    {/* Value Label - RESPONSIVE FIX: Smaller text on mobile */}
+                    <div className="text-xs sm:text-sm font-bold text-foreground">
                       {count}
                     </div>
-                    {/* Histogram Bar */}
-                    <div className="relative w-14 h-40 bg-muted/50 rounded-sm overflow-hidden">
+                    {/* Histogram Bar - RESPONSIVE FIX: Flexible dimensions */}
+                    <div className="relative bg-muted/50 rounded-sm overflow-hidden" style={{ width: 'clamp(2.5rem, 8vw, 3.5rem)', height: 'clamp(120px, 28vw, 160px)' }}>
                       <div
                         className="absolute bottom-0 w-full bg-foreground/80 dark:bg-foreground/70 transition-all duration-700 ease-out rounded-sm"
                         style={{
@@ -320,8 +322,8 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
                         }}
                       />
                     </div>
-                    {/* Type Label */}
-                    <div className="text-xs font-medium text-muted-foreground capitalize">
+                    {/* Type Label - RESPONSIVE FIX: Smaller text on mobile */}
+                    <div className="text-[10px] sm:text-xs font-medium text-muted-foreground capitalize truncate max-w-[60px] sm:max-w-none">
                       {type}
                     </div>
                   </div>
@@ -341,7 +343,8 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Weekly Summary - RESPONSIVE FIX: CSS Grid with auto-fit */}
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))' }}>
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Most Productive Day</p>
               <p className="text-lg font-semibold">

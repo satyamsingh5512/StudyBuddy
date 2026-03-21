@@ -10,6 +10,9 @@ export default {
       'lg': '1024px',
       'xl': '1280px',
       '2xl': '1536px',
+      /* RESPONSIVE FIX: Extended breakpoints for 4K and ultrawide displays */
+      '3xl': '1920px',
+      '4xl': '2560px',
     },
     extend: {
       colors: {

@@ -76,6 +76,7 @@ export default function Layout({ children }: LayoutProps) {
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col md:flex-row">
         <header className="md:hidden h-14 border-b border-border/50 flex items-center justify-between px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-40 supports-[backdrop-filter]:bg-background/80">
+          {/* RESPONSIVE FIX: Touch targets min 44x44px */}
           <div className="flex items-center gap-2">
             <Logo className="w-5 h-5" />
             <h1 className="font-bold text-sm tracking-tight">StudyBuddy</h1>
@@ -85,7 +86,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              className="h-11 w-11 p-0 text-muted-foreground hover:text-destructive"
               title="Sign out"
             >
               <LogOut className="h-4 w-4" />
@@ -95,7 +96,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="h-8 w-8 p-0"
+              className="h-11 w-11 p-0"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
@@ -179,6 +180,7 @@ export default function Layout({ children }: LayoutProps) {
                       className={`
                       flex items-center gap-3 px-3 py-2.5 mx-1 rounded-md text-sm font-medium
                       transition-all duration-200 ease-out group relative overflow-hidden
+                      min-h-[44px]
                       ${isActive
                           ? 'bg-primary/10 text-primary'
                           : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -283,8 +285,9 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </header>
 
-          <main className="flex-1 p-4 md:p-8 overflow-auto">
-            <div className="max-w-[1280px] mx-auto h-full w-full">
+          <main className="flex-1 overflow-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
+            {/* RESPONSIVE FIX: Fluid max-width and padding */}
+            <div className="mx-auto h-full w-full" style={{ maxWidth: 'min(1280px, 100%)' }}>
               <PageTransition>{children}</PageTransition>
             </div>
           </main>

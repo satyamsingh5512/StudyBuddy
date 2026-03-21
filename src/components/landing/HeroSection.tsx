@@ -26,8 +26,9 @@ export function HeroSection() {
     const navigate = useNavigate();
 
     return (
-        <section className="relative min-h-[90vh] flex flex-col items-center justify-center pt-24 pb-16 overflow-hidden bg-transparent">
-            <div className="container mx-auto px-6 relative z-10 text-center">
+        <section className="relative min-h-[90vh] flex flex-col items-center justify-center pt-20 sm:pt-24 pb-12 sm:pb-16 overflow-hidden bg-transparent">
+            {/* RESPONSIVE FIX: Fluid padding using clamp() */}
+            <div className="container mx-auto relative z-10 text-center" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
@@ -42,45 +43,48 @@ export function HeroSection() {
                         </span>
                     </motion.div>
 
-                    {/* Main Heading */}
+                    {/* Main Heading - RESPONSIVE FIX: clamp() for fluid typography */}
                     <motion.div variants={itemVariants} className="space-y-4">
-                        <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-black dark:text-white leading-[1.05]">
+                        <h1 className="font-bold tracking-tight text-black dark:text-white leading-[1.05]" style={{ fontSize: 'clamp(2.5rem, 8vw, 6rem)' }}>
                             Your all-in-one <br />
                             <span className="italic font-serif font-black">study buddy</span> platform
                         </h1>
                     </motion.div>
 
-                    {/* Rotating Subline */}
+                    {/* Rotating Subline - RESPONSIVE FIX: clamp() for fluid typography */}
                     <motion.div
                         variants={itemVariants}
-                        className="text-5xl md:text-6xl font-serif italic text-black/80 dark:text-zinc-400 rotate-1 flex items-center justify-center gap-4"
+                        className="font-serif italic text-black/80 dark:text-zinc-400 rotate-1 flex items-center justify-center gap-4"
+                        style={{ fontSize: 'clamp(1.75rem, 6vw, 4rem)' }}
                     >
                         <RotatingText
                             words={["effective", "simple", "powerful", "clean"]}
-                            className="text-black/90 dark:text-white min-w-[200px]"
+                            className="text-black/90 dark:text-white"
+                            style={{ minWidth: 'clamp(150px, 30vw, 250px)' }}
                         />
                     </motion.div>
 
-                    {/* Subheading */}
+                    {/* Subheading - RESPONSIVE FIX: clamp() for fluid typography */}
                     <motion.p
                         variants={itemVariants}
-                        className="text-xl text-zinc-600 dark:text-zinc-400 max-w-xl mx-auto font-medium leading-relaxed"
+                        className="text-zinc-600 dark:text-zinc-400 max-w-xl mx-auto font-medium leading-relaxed"
+                        style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}
                     >
                         Acing exams is already challenging enough.
                         Avoid further complications by ditching outdated tools.
                     </motion.p>
 
-                    {/* CTA Buttons */}
+                    {/* CTA Buttons - RESPONSIVE FIX: Touch targets min 44x44px, fluid spacing */}
                     <motion.div
                         variants={itemVariants}
-                        className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4"
+                        className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-4"
                     >
                         <Link to="#features">
-                            <button className="neo-button flex items-center gap-2 rounded-lg">
+                            <button className="neo-button flex items-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
                                 View Features
                             </button>
                         </Link>
-                        <button onClick={() => navigate("/auth")} className="neo-button-primary flex items-center gap-2 rounded-lg">
+                        <button onClick={() => navigate("/auth")} className="neo-button-primary flex items-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
                             Start Studying <Star size={16} fill="currentColor" />
                         </button>
                     </motion.div>
