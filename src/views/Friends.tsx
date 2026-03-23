@@ -529,7 +529,7 @@ export default function Friends() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => unblockUser(block.blocked.id)}
+                      onClick={() => unblockUser(block.blocked!.id)}
                       className="flex items-center gap-1"
                     >
                       <Shield className="h-4 w-4" />

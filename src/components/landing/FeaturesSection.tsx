@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
     BarChart3,
     Palette,
@@ -6,6 +6,74 @@ import {
     Smartphone,
     ArrowUpRight,
 } from "lucide-react";
+
+// Tilt Card Component for 3D hover effect
+function TiltCard({ feature, index }: { feature: any; index: number }) {
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+
+    const mouseXSpring = useSpring(x);
+    const mouseYSpring = useSpring(y);
+
+    const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
+    const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const xPct = mouseX / width - 0.5;
+        const yPct = mouseY / height - 0.5;
+        x.set(xPct);
+        y.set(yPct);
+    };
+
+    const handleMouseLeave = () => {
+        x.set(0);
+        y.set(0);
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, margin: "-10%" }}
+            transition={{ type: "spring", stiffness: 100, damping: 20, delay: index * 0.15 }}
+            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="group relative bg-white/40 dark:bg-black/40 backdrop-blur-xl border-2 border-black/10 dark:border-white/10 shadow-xl rounded-3xl p-6 sm:p-8 hover:shadow-2xl transition-shadow duration-300 will-change-transform cursor-pointer"
+        >
+            <div style={{ transform: "translateZ(30px)" }}>
+                {/* Badge "Sticker" */}
+                <div className={`absolute -top-3 sm:-top-4 right-4 sm:right-6 px-3 sm:px-4 py-1 sm:py-1.5 border-2 border-black dark:border-black ${feature.color} ${feature.darkColor} text-black text-xs font-bold shadow-neo-sm transform rotate-3 group-hover:rotate-6 transition-transform`}>
+                    {feature.badge}
+                </div>
+
+                {/* RESPONSIVE FIX: Touch target min 44x44px */}
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/60 dark:bg-white/10 border-2 border-black/10 dark:border-white/10 flex items-center justify-center mb-4 sm:mb-6 shadow-sm group-hover:bg-primary group-hover:border-primary transition-colors">
+                    <feature.icon size={24} strokeWidth={2.5} className="text-black dark:text-white group-hover:text-primary-foreground sm:w-7 sm:h-7" />
+                </div>
+
+                {/* RESPONSIVE FIX: clamp() for fluid heading */}
+                <h3 className="font-bold text-black dark:text-white mb-3 sm:mb-4 tracking-tight" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>
+                    {feature.title}
+                </h3>
+
+                {/* RESPONSIVE FIX: clamp() for fluid paragraph */}
+                <p className="text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed mb-6 sm:mb-8" style={{ fontSize: 'clamp(0.9375rem, 2vw, 1.125rem)' }}>
+                    {feature.description}
+                </p>
+
+                <div className="flex items-center text-sm font-bold text-primary dark:text-primary group-hover:translate-x-2 transition-transform">
+                    Explore <ArrowUpRight size={18} className="ml-1" />
+                </div>
+            </div>
+        </motion.div>
+    );
+}
 
 const features = [
     {
@@ -67,41 +135,10 @@ export function FeaturesSection() {
                     </p>
                 </motion.div>
 
-                {/* RESPONSIVE FIX: CSS Grid with auto-fit for fluid columns */}
-                <div className="grid gap-6 sm:gap-8 lg:gap-12" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))' }}>
+                {/* RESPONSIVE FIX: CSS Grid with auto-fit for fluid columns, enabling 3D perspective */}
+                <div className="grid gap-6 sm:gap-8 lg:gap-12 perspective-1000" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', perspective: "1000px" }}>
                     {features.map((feature, index) => (
-                        <motion.div
-                            key={feature.title}
-                            initial={{ opacity: 0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: "-50px" }}
-                            transition={{ delay: index * 0.1, duration: 0.6, ease: "easeOut" }}
-                            className="group relative bg-white/40 dark:bg-black/40 backdrop-blur-xl border-2 border-black/10 dark:border-white/10 shadow-xl rounded-3xl p-6 sm:p-8 hover:-translate-y-2 hover:shadow-2xl transition-all duration-300"
-                        >
-                            {/* Badge "Sticker" - RESPONSIVE FIX: Adjusted positioning for mobile */}
-                            <div className={`absolute -top-3 sm:-top-4 right-4 sm:right-6 px-3 sm:px-4 py-1 sm:py-1.5 border-2 border-black dark:border-black ${feature.color} ${feature.darkColor} text-black text-xs font-bold shadow-neo-sm transform rotate-3 group-hover:rotate-6 transition-transform`}>
-                                {feature.badge}
-                            </div>
-
-                            {/* RESPONSIVE FIX: Touch target min 44x44px */}
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/60 dark:bg-white/10 border-2 border-black/10 dark:border-white/10 flex items-center justify-center mb-4 sm:mb-6 shadow-sm group-hover:bg-primary group-hover:border-primary transition-colors">
-                                <feature.icon size={24} strokeWidth={2.5} className="text-black dark:text-white group-hover:text-primary-foreground sm:w-7 sm:h-7" />
-                            </div>
-
-                            {/* RESPONSIVE FIX: clamp() for fluid heading */}
-                            <h3 className="font-bold text-black dark:text-white mb-3 sm:mb-4 tracking-tight" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>
-                                {feature.title}
-                            </h3>
-
-                            {/* RESPONSIVE FIX: clamp() for fluid paragraph */}
-                            <p className="text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed mb-6 sm:mb-8" style={{ fontSize: 'clamp(0.9375rem, 2vw, 1.125rem)' }}>
-                                {feature.description}
-                            </p>
-
-                            <div className="flex items-center text-sm font-bold text-primary dark:text-primary group-hover:translate-x-2 transition-transform cursor-pointer">
-                                Explore <ArrowUpRight size={18} className="ml-1" />
-                            </div>
-                        </motion.div>
+                        <TiltCard key={feature.title} feature={feature} index={index} />
                     ))}
                 </div>
             </div>

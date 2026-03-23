@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Link, useNavigate } from "@/lib/router";
 import { ArrowRight, Star } from "lucide-react";
 import { RotatingText } from "@/components/ui/rotating-text";
@@ -7,33 +8,46 @@ const containerVariants = {
     hidden: {},
     visible: {
         transition: {
-            staggerChildren: 0.12,
+            staggerChildren: 0.15,
             delayChildren: 0.1,
         },
     },
 };
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 28 },
+    hidden: { opacity: 0, y: 30, scale: 0.95 },
     visible: {
         opacity: 1,
         y: 0,
-        transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+        scale: 1,
+        transition: { type: "spring", stiffness: 100, damping: 20, mass: 1 },
     },
 };
 
 export function HeroSection() {
     const navigate = useNavigate();
+    const containerRef = useRef<HTMLElement>(null);
+    const { scrollYProgress } = useScroll({
+        target: containerRef,
+        offset: ["start start", "end start"],
+    });
+
+    // Parallax values
+    const yContent = useTransform(scrollYProgress, [0, 1], [0, 150]);
+    const opacityContent = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+    const yDecor = useTransform(scrollYProgress, [0, 1], [0, 300]);
+    const rotateDecor = useTransform(scrollYProgress, [0, 1], [-12, 45]);
 
     return (
-        <section className="relative min-h-[90vh] flex flex-col items-center justify-center pt-20 sm:pt-24 pb-12 sm:pb-16 overflow-hidden bg-transparent">
+        <section ref={containerRef} className="relative min-h-[90vh] flex flex-col items-center justify-center pt-20 sm:pt-24 pb-12 sm:pb-16 overflow-hidden bg-transparent">
             {/* RESPONSIVE FIX: Fluid padding using clamp() */}
             <div className="container mx-auto relative z-10 text-center" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
                 <motion.div
+                    style={{ y: yContent, opacity: opacityContent }}
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="max-w-4xl mx-auto space-y-8"
+                    className="max-w-4xl mx-auto space-y-8 will-change-transform"
                 >
                     {/* Top Badge */}
                     <motion.div variants={itemVariants} className="flex justify-center">
@@ -57,11 +71,12 @@ export function HeroSection() {
                         className="font-serif italic text-black/80 dark:text-zinc-400 rotate-1 flex items-center justify-center gap-4"
                         style={{ fontSize: 'clamp(1.75rem, 6vw, 4rem)' }}
                     >
-                        <RotatingText
-                            words={["effective", "simple", "powerful", "clean"]}
-                            className="text-black/90 dark:text-white"
-                            style={{ minWidth: 'clamp(150px, 30vw, 250px)' }}
-                        />
+                        <div style={{ minWidth: 'clamp(150px, 30vw, 250px)' }}>
+                            <RotatingText
+                                words={["effective", "simple", "powerful", "clean"]}
+                                className="text-black/90 dark:text-white"
+                            />
+                        </div>
                     </motion.div>
 
                     {/* Subheading - RESPONSIVE FIX: clamp() for fluid typography */}
@@ -93,10 +108,11 @@ export function HeroSection() {
 
             {/* Decorative Scribbles */}
             <motion.div
-                initial={{ opacity: 0, rotate: -20 }}
-                animate={{ opacity: 1, rotate: -12 }}
-                transition={{ delay: 0.8, duration: 0.8 }}
-                className="absolute top-1/4 right-10 w-24 h-24 pointer-events-none hidden lg:block"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                style={{ y: yDecor, rotate: rotateDecor }}
+                transition={{ delay: 0.8, type: "spring", stiffness: 100, damping: 20 }}
+                className="absolute top-1/4 right-10 w-24 h-24 pointer-events-none hidden lg:block will-change-transform"
             >
                 <svg viewBox="0 0 100 100" fill="none" className="stroke-black dark:stroke-white stroke-2 opacity-20 md:opacity-100">
                     <path d="M10 10 Q 50 50 90 10" />

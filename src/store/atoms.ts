@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
 
 export interface User {
   id: string;
@@ -19,3 +20,6 @@ export interface User {
 export const userAtom = atom<User | null>(null);
 export const studyingAtom = atom(false);
 export const studyTimeAtom = atom(0);
+
+// Toggle for heavy animations vs performance
+export const performanceModeAtom = atomWithStorage('studybuddy_performance_mode', false);

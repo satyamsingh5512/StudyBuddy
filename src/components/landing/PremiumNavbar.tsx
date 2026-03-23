@@ -7,6 +7,8 @@ import Logo from "@/components/Logo";
 import { useAtomValue } from "jotai";
 import { userAtom } from "@/store/atoms";
 import { MagneticButton } from "@/components/ui/magnetic-button";
+import PerformanceToggle from "@/components/PerformanceToggle";
+import { AnimatePresence } from "framer-motion";
 
 interface PremiumNavbarProps {
     scrollToId?: (id: string) => void;
@@ -55,11 +57,11 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                         <button
                             key={link.label}
                             onClick={() => scrollToId?.(link.id)}
-                            className="group relative text-sm font-bold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors"
+                            className="group relative text-sm font-bold text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors py-2"
                         >
                             {link.label}
                             <span
-                                className="absolute -bottom-1 left-0 h-0.5 bg-primary transition-all duration-300 w-0 group-hover:w-full"
+                                className="absolute bottom-0 left-0 h-0.5 bg-primary transition-all duration-300 w-0 group-hover:w-full"
                             />
                         </button>
                     ))}
@@ -67,6 +69,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
 
                 {/* CTA Buttons */}
                 <div className="hidden md:flex items-center gap-4">
+                    <PerformanceToggle />
                     <ThemeToggle />
                     {user ? (
                         <Link to="/dashboard">
@@ -90,7 +93,8 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                 </div>
 
                 {/* Mobile Menu Button */}
-                <div className="flex items-center gap-4 md:hidden">
+                <div className="flex items-center gap-2 md:hidden">
+                    <PerformanceToggle />
                     <ThemeToggle />
                     <button
                         className="text-black dark:text-white p-2 border-2 border-black/10 dark:border-white/20 rounded-xl bg-white/50 dark:bg-black/50 backdrop-blur-sm"
@@ -102,47 +106,51 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
             </div>
 
             {/* Mobile Menu */}
-            {isMobileMenuOpen && (
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="md:hidden absolute top-full left-0 right-0 backdrop-blur-xl bg-white/90 dark:bg-black/90 border-b border-black/10 dark:border-white/10 p-6 space-y-6 shadow-2xl"
-                >
-                    {navLinks.map((link) => (
-                        <button
-                            key={link.label}
-                            onClick={() => {
-                                scrollToId?.(link.id);
-                                setIsMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left text-xl font-bold text-black dark:text-white hover:text-primary transition-colors"
-                        >
-                            {link.label}
-                        </button>
-                    ))}
-                    <div className="pt-6 flex flex-col gap-4 border-t border-black/10 dark:border-white/10">
-                        {user ? (
-                            <Link to="/dashboard" className="w-full">
-                                <button className="w-full py-3 neo-button-primary rounded-xl flex items-center justify-center gap-2">
-                                    <LayoutDashboard size={20} />
-                                    Dashboard
-                                </button>
-                            </Link>
-                        ) : (
-                            <>
-                                <Link to="/auth" className="w-full">
-                                    <button className="w-full py-3 neo-button rounded-xl">
-                                        Sign In
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="md:hidden absolute top-full left-0 right-0 backdrop-blur-xl bg-white/90 dark:bg-black/90 border-b border-black/10 dark:border-white/10 p-6 space-y-6 shadow-2xl origin-top"
+                    >
+                        {navLinks.map((link) => (
+                            <button
+                                key={link.label}
+                                onClick={() => {
+                                    scrollToId?.(link.id);
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                className="block w-full text-left text-xl font-bold text-black dark:text-white hover:text-primary transition-colors"
+                            >
+                                {link.label}
+                            </button>
+                        ))}
+                        <div className="pt-6 flex flex-col gap-4 border-t border-black/10 dark:border-white/10">
+                            {user ? (
+                                <Link to="/dashboard" className="w-full">
+                                    <button className="w-full py-3 neo-button-primary rounded-xl flex items-center justify-center gap-2">
+                                        <LayoutDashboard size={20} />
+                                        Dashboard
                                     </button>
                                 </Link>
-                                <button onClick={() => navigate("/auth")} className="w-full py-3 neo-button-primary rounded-xl">
-                                    Get Started
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </motion.div>
-            )}
+                            ) : (
+                                <>
+                                    <Link to="/auth" className="w-full">
+                                        <button className="w-full py-3 neo-button rounded-xl">
+                                            Sign In
+                                        </button>
+                                    </Link>
+                                    <button onClick={() => navigate("/auth")} className="w-full py-3 neo-button-primary rounded-xl">
+                                        Get Started
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </nav>
     );
 }

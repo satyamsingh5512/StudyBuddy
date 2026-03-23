@@ -7,8 +7,11 @@ import { PremiumNavbar } from "@/components/landing/PremiumNavbar";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import UnifiedPageWrapper from "@/components/UnifiedPageWrapper";
+import { useAtomValue } from "jotai";
+import { performanceModeAtom } from "@/store/atoms";
 
 export default function Landing() {
+    const performanceMode = useAtomValue(performanceModeAtom);
     const [isLoaded, setIsLoaded] = useState(false);
     const shaderContainerRef = useRef<HTMLDivElement>(null);
 
@@ -52,41 +55,45 @@ export default function Landing() {
                 <CustomCursor />
                 <GrainOverlay />
 
-                {/* Fixed shader background */}
-                <div
-                    ref={shaderContainerRef}
-                    className={`fixed inset-0 z-0 transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`}
-                    style={{ contain: "strict" }}
-                >
-                    <Shader className="h-full w-full">
-                        <Swirl
-                            colorA="#6C47FF"
-                            colorB="#F59E0B"
-                            speed={0.8}
-                            detail={0.8}
-                            blend={50}
-                            coarseX={40}
-                            coarseY={40}
-                            mediumX={40}
-                            mediumY={40}
-                            fineX={40}
-                            fineY={40}
-                        />
-                        <ChromaFlow
-                            baseColor="#09090B"
-                            upColor="#6C47FF"
-                            downColor="#F59E0B"
-                            leftColor="#10B981"
-                            rightColor="#6C47FF"
-                            intensity={0.9}
-                            radius={1.8}
-                            momentum={25}
-                            maskType="alpha"
-                            opacity={0.97}
-                        />
-                    </Shader>
-                    <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-[2px]" />
-                </div>
+                {/* Fixed shader or fallback background */}
+                {performanceMode ? (
+                    <div className={`fixed inset-0 z-0 bg-gradient-to-br from-[#6C47FF]/10 via-[#F59E0B]/10 to-[#10B981]/10 transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`} />
+                ) : (
+                    <div
+                        ref={shaderContainerRef}
+                        className={`fixed inset-0 z-0 transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+                        style={{ contain: "strict" }}
+                    >
+                        <Shader className="h-full w-full">
+                            <Swirl
+                                colorA="#6C47FF"
+                                colorB="#F59E0B"
+                                speed={0.8}
+                                detail={0.8}
+                                blend={50}
+                                coarseX={40}
+                                coarseY={40}
+                                mediumX={40}
+                                mediumY={40}
+                                fineX={40}
+                                fineY={40}
+                            />
+                            <ChromaFlow
+                                baseColor="#09090B"
+                                upColor="#6C47FF"
+                                downColor="#F59E0B"
+                                leftColor="#10B981"
+                                rightColor="#6C47FF"
+                                intensity={0.9}
+                                radius={1.8}
+                                momentum={25}
+                                maskType="alpha"
+                                opacity={0.97}
+                            />
+                        </Shader>
+                        <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-[2px]" />
+                    </div>
+                )}
 
                 {/* Fixed navbar */}
                 <PremiumNavbar scrollToId={scrollToSection} isLoaded={isLoaded} />
@@ -104,10 +111,11 @@ export default function Landing() {
                     <div id="join" className="flex flex-col w-full mt-10">
                         <div className="flex items-center justify-center p-6 mb-24">
                             <motion.div 
-                                initial={{ opacity: 0, y: 40 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                className="text-center space-y-6 max-w-3xl mx-auto glass-card border-2 border-black/10 dark:border-white/10 p-12 md:p-16 rounded-[2.5rem] shadow-2xl bg-white/40 dark:bg-black/40 backdrop-blur-xl"
+                                initial={{ opacity: 0, scale: 0.95, y: 50 }}
+                                whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                                viewport={{ once: true, margin: "-10%" }}
+                                transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
+                                className="text-center space-y-6 max-w-3xl mx-auto glass-card border-2 border-black/10 dark:border-white/10 p-12 md:p-16 rounded-[2.5rem] shadow-2xl bg-white/40 dark:bg-black/40 backdrop-blur-xl will-change-transform"
                             >
                                 <h2 className="text-4xl md:text-6xl font-bold text-black dark:text-white leading-tight">
                                     Ready to level up<br />your study game?
