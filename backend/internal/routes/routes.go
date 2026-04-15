@@ -111,5 +111,6 @@ func SetupRoutes(app *fiber.App) {
 	// Reports
 	reports := protected.Group("/reports")
 	reports.Get("/", handlers.GetReports)
+	reports.Get("/efficiency", handlers.GetDailyEfficiency)
 	reports.Post("/", handlers.CreateReport)
 }

@@ -20,6 +20,7 @@ export interface User {
 export const userAtom = atom<User | null>(null);
 export const studyingAtom = atom(false);
 export const studyTimeAtom = atom(0);
+export const timerSessionStartAtom = atom<string | null>(null);
 
 // Toggle for heavy animations vs performance
 export const performanceModeAtom = atomWithStorage('studybuddy_performance_mode', false);
