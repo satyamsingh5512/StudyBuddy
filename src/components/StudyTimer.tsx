@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom, userAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom, userAtom, timerSessionStartAtom } from '@/store/atoms';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { formatTime } from '@/lib/utils';
@@ -33,6 +33,7 @@ export default function StudyTimer() {
   const [user, setUser]: any = useAtom(userAtom);
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
+  const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const [isExpanded, setIsExpanded] = useState(false);
   // OPTIMIZATION: Lazy state initialization - only reads localStorage once
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
@@ -97,22 +98,40 @@ export default function StudyTimer() {
 
   const POMODORO_DURATION = pomodoroDuration * 60;
 
-  const saveSession = useCallback(async (minutes: number) => {
-    if (minutes < 1) return;
+  const saveSession = useCallback(async ({
+    minutes,
+    startTime,
+    endTime,
+  }: {
+    minutes: number;
+    startTime?: string;
+    endTime?: string;
+  }) => {
+    if (minutes < 0) return;
+    if (!startTime && minutes < 1) return;
 
     try {
       const res = await apiFetch('/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duration: minutes, subject: selectedSubject }),
+        body: JSON.stringify({
+          duration: minutes,
+          subject: selectedSubject,
+          ...(startTime ? { startTime } : {}),
+          ...(endTime ? { endTime } : {}),
+        }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        toast({
-          title: 'Session saved!',
-          description: data.message || `+${minutes} points earned`,
-        });
+        if (minutes > 0) {
+          const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+          toast({
+            title: 'Session saved!',
+            description: data.message || `+${pointsEarned} points earned`,
+          });
+        }
+        window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
       }
     } catch (error) {
       console.error('Failed to save session:', error);
@@ -137,7 +156,10 @@ export default function StudyTimer() {
           soundManager.playTimerComplete();
           // Save the session and award points
           const minutes = Math.floor(newTime / 60);
-          saveSession(minutes);
+          const endTime = new Date().toISOString();
+          const startTime = timerSessionStart || new Date(Date.now() - (newTime * 1000)).toISOString();
+          saveSession({ minutes, startTime, endTime });
+          setTimerSessionStart(null);
           // Show completion message
           toast({
             title: 'Pomodoro Complete! 🎉',
@@ -152,17 +174,32 @@ export default function StudyTimer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
+  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
 
   const toggleStudying = () => {
     const next = !studying;
+    if (next && !timerSessionStart) {
+      setTimerSessionStart(new Date().toISOString());
+    }
     setStudying(next);
     soundManager.playClick();
   };
 
-  const clearTimer = () => {
+  const clearTimer = async () => {
+    if (timerSessionStart || studyTime > 0) {
+      const minutes = Math.floor(studyTime / 60);
+      const endTime = new Date().toISOString();
+      const startTime = timerSessionStart || new Date(Date.now() - (studyTime * 1000)).toISOString();
+      await saveSession({
+        minutes,
+        startTime,
+        endTime,
+      });
+    }
+
     setStudying(false);
     setStudyTime(0);
+    setTimerSessionStart(null);
     setLaps([]);
     soundManager.playClick();
     toast({ title: 'Timer cleared', description: 'All progress reset' });
@@ -182,15 +219,26 @@ export default function StudyTimer() {
   };
 
   const stopAndSave = async () => {
-    if (studyTime > 0) {
+    if (timerSessionStart || studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
-      if (minutes > 0) {
-        await saveSession(minutes);
-      }
+      const endTime = new Date().toISOString();
+      const startTime = timerSessionStart || new Date(Date.now() - (studyTime * 1000)).toISOString();
+      await saveSession({
+        minutes,
+        startTime,
+        endTime,
+      });
       setStudying(false);
       setStudyTime(0);
+      setTimerSessionStart(null);
       setLaps([]);
+      return;
     }
+
+    setStudying(false);
+    setStudyTime(0);
+    setTimerSessionStart(null);
+    setLaps([]);
   };
 
   const toggleExpanded = () => {
