@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from '@/lib/router';
-import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical, Gauge } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -49,6 +49,23 @@ interface Todo {
   isOverdue?: boolean;
   rescheduledCount?: number;
   originalScheduledDate?: string;
+}
+
+interface DailyEfficiency {
+  date: string;
+  scheduledTasks: number;
+  completedTasks: number;
+  taskCompletionPct: number;
+  timerStarts: number;
+  timerCompletedSessions: number;
+  timerUsedMinutes: number;
+  timerTimeTakenMinutes: number;
+  timerStartCompletionPct: number;
+  timerUsagePct: number;
+  timerMinutesPct: number;
+  abandonedTimerStarts: number;
+  strictPenaltyPoints: number;
+  overallEfficiencyPct: number;
 }
 
 // Helper to format date nicely
@@ -436,6 +453,8 @@ SortableTodoItem.displayName = 'SortableTodoItem';
 export default function Dashboard() {
   const [user] = useAtom(userAtom);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [dailyEfficiency, setDailyEfficiency] = useState<DailyEfficiency | null>(null);
+  const [efficiencyLoading, setEfficiencyLoading] = useState(true);
   const [newTodo, setNewTodo] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -456,6 +475,20 @@ export default function Dashboard() {
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveDragId(String(event.active.id));
+  }, []);
+
+  const fetchDailyEfficiency = useCallback(async () => {
+    try {
+      setEfficiencyLoading(true);
+      const res = await apiFetch('/reports/efficiency');
+      if (!res.ok) return;
+      const data = await res.json();
+      setDailyEfficiency(data);
+    } catch (error) {
+      console.error('Failed to fetch daily efficiency:', error);
+    } finally {
+      setEfficiencyLoading(false);
+    }
   }, []);
 
   const handleDragCancel = useCallback((_event: DragCancelEvent) => {
@@ -488,15 +521,25 @@ export default function Dashboard() {
       const processedData = data.map((todo: any) => normalizeTodoFromApi(todo));
       setTodos(sortTodosByPriority(processedData));
     }
+    fetchDailyEfficiency();
     if (!hasFetchedOnce.current) {
       hasFetchedOnce.current = true;
       setInitialLoading(false);
     }
-  }, []);
+  }, [fetchDailyEfficiency]);
 
   useEffect(() => {
     fetchTodos();
   }, [fetchTodos]);
+
+  useEffect(() => {
+    const handleTimerSaved = () => {
+      fetchDailyEfficiency();
+    };
+
+    window.addEventListener('studybuddy:timer-session-saved', handleTimerSaved);
+    return () => window.removeEventListener('studybuddy:timer-session-saved', handleTimerSaved);
+  }, [fetchDailyEfficiency]);
 
   const addTodo = useCallback(async () => {
     if (!newTodo.trim()) {
@@ -548,6 +591,7 @@ export default function Dashboard() {
         setTodos((prev) =>
           sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo)))
         );
+        fetchDailyEfficiency();
         toast({
           title: 'Task added for today!',
           description: 'Complete it to earn 2 points',
@@ -566,7 +610,7 @@ export default function Dashboard() {
         variant: 'destructive',
       });
     }
-  }, [newTodo, toast]);
+  }, [newTodo, toast, fetchDailyEfficiency]);
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
@@ -637,6 +681,7 @@ export default function Dashboard() {
         });
 
         if (res.ok) {
+          fetchDailyEfficiency();
           toast({ title: 'Task deleted' });
         } else {
           // Revert on failure
@@ -649,7 +694,7 @@ export default function Dashboard() {
         toast({ title: 'Failed to delete task', variant: 'destructive' });
       }
     },
-    [todos, toast]
+    [todos, toast, fetchDailyEfficiency]
   );
 
   const rescheduleToToday = useCallback(
@@ -676,6 +721,7 @@ export default function Dashboard() {
           }));
 
           const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
+          fetchDailyEfficiency();
           toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
         } else {
           toast({ title: 'Failed to reschedule', variant: 'destructive' });
@@ -686,7 +732,7 @@ export default function Dashboard() {
         setUpdatingTodoId(null);
       }
     },
-    [toast]
+    [toast, fetchDailyEfficiency]
   );
 
   const rescheduleAllOverdue = useCallback(
@@ -928,6 +974,40 @@ export default function Dashboard() {
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
                   Completed today
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overall Efficiency Card */}
+        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/10">
+          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 border border-border/50 bg-background/50 rounded-lg group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors duration-300">
+                  <Gauge className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                </div>
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Efficiency
+                </div>
+              </div>
+              <div className="mt-auto">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-primary transition-colors">
+                    {efficiencyLoading ? '--' : `${Math.round(dailyEfficiency?.overallEfficiencyPct || 0)}%`}
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
+                  {efficiencyLoading
+                    ? 'Calculating daily score...'
+                    : `${dailyEfficiency?.completedTasks || 0}/${dailyEfficiency?.scheduledTasks || 0} tasks • ${dailyEfficiency?.timerUsedMinutes || 0}/${Math.round(dailyEfficiency?.timerTimeTakenMinutes || 0)} min`}
+                </p>
+                {!efficiencyLoading && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {dailyEfficiency?.abandonedTimerStarts || 0} abandoned starts • -{(dailyEfficiency?.strictPenaltyPoints || 0).toFixed(1)} penalty
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
