@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"studybuddy-backend/internal/config"
@@ -28,12 +29,36 @@ func SaveTimerSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	startTime, _ := time.Parse(time.RFC3339, req.StartTime)
-	endTime, _ := time.Parse(time.RFC3339, req.EndTime)
+	durationMinutes := req.Duration
+	if durationMinutes < 0 {
+		durationMinutes = 0
+	}
+	// Backward compatibility: older clients may send duration in seconds.
+	if durationMinutes > 300 {
+		durationMinutes = int(math.Round(float64(durationMinutes) / 60.0))
+	}
+
+	startTime := time.Now()
+	if req.StartTime != "" {
+		if parsed, err := time.Parse(time.RFC3339, req.StartTime); err == nil {
+			startTime = parsed
+		}
+	}
+
+	endTime := time.Now()
+	if req.EndTime != "" {
+		if parsed, err := time.Parse(time.RFC3339, req.EndTime); err == nil {
+			endTime = parsed
+		}
+	}
+
+	if endTime.Before(startTime) {
+		endTime = startTime.Add(time.Duration(durationMinutes) * time.Minute)
+	}
 
 	session := models.Session{
 		UserID:    user.ID,
-		Duration:  req.Duration,
+		Duration:  durationMinutes,
 		Subject:   req.Subject,
 		StartTime: startTime,
 		EndTime:   endTime,
@@ -51,14 +76,20 @@ func SaveTimerSession(c *fiber.Ctx) error {
 
 	session.ID = res.InsertedID.(primitive.ObjectID)
 
+	pointsEarned := durationMinutes
+
 	// Update user total stats
 	usersCollection := config.DB.Collection("users")
 	usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
-		"$inc": bson.M{"totalStudyMinutes": req.Duration / 60, "totalPoints": (req.Duration / 60) * 10},
+		"$inc": bson.M{"totalStudyMinutes": durationMinutes, "totalPoints": pointsEarned},
 		"$set": bson.M{"lastActive": time.Now()},
 	})
 
-	return c.Status(fiber.StatusCreated).JSON(session)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message":     "Session saved",
+		"pointsEarned": pointsEarned,
+		"session":     session,
+	})
 }
 
 func GetTimerAnalytics(c *fiber.Ctx) error {
