@@ -7,7 +7,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom, timerSessionStartAtom } from '@/store/atoms';
 import { Button } from './ui/button';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
@@ -32,6 +32,7 @@ interface FullscreenTimerProps {
 export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: FullscreenTimerProps) {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
+  const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
     const parsed = saved ? parseInt(saved, 10) : NaN;
@@ -59,27 +60,49 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   const POMODORO_DURATION = pomodoroDuration * 60;
 
   const toggleStudying = useCallback(() => {
-    setStudying(!studying);
+    const next = !studying;
+    if (next && !timerSessionStart) {
+      setTimerSessionStart(new Date().toISOString());
+    }
+    setStudying(next);
     soundManager.playClick();
-  }, [studying, setStudying]);
+  }, [studying, setStudying, timerSessionStart, setTimerSessionStart]);
 
-  const saveSession = useCallback(async (minutes: number) => {
-    if (minutes < 1) return;
+  const saveSession = useCallback(async ({
+    minutes,
+    startTime,
+    endTime,
+  }: {
+    minutes: number;
+    startTime?: string;
+    endTime?: string;
+  }) => {
+    if (minutes < 0) return;
+    if (!startTime && minutes < 1) return;
 
     try {
       // In fullscreen mode, we might not have selectedSubject locally, but we can pass a default or keep it undefined
       const res = await apiFetch('/timer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duration: minutes, subject: selectedSubject }),
+        body: JSON.stringify({
+          duration: minutes,
+          subject: selectedSubject,
+          ...(startTime ? { startTime } : {}),
+          ...(endTime ? { endTime } : {}),
+        }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        toast({
-          title: 'Session saved!',
-          description: data.message || `+${minutes} points earned`,
-        });
+        if (minutes > 0) {
+          const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+          toast({
+            title: 'Session saved!',
+            description: data.message || `+${pointsEarned} points earned`,
+          });
+        }
+        window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
       }
     } catch (error) {
       console.error('Failed to save session:', error);
@@ -97,7 +120,10 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
           setStudying(false);
           soundManager.playTimerComplete();
           const minutes = Math.floor(newTime / 60);
-          saveSession(minutes);
+          const endTime = new Date().toISOString();
+          const startTime = timerSessionStart || new Date(Date.now() - (newTime * 1000)).toISOString();
+          saveSession({ minutes, startTime, endTime });
+          setTimerSessionStart(null);
           toast({
             title: 'Pomodoro Complete! 🎉',
             description: `Excellent focus! You studied for ${pomodoroDuration} minutes.`,
@@ -110,7 +136,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession]);
+  }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
 
   // Handle escape key to exit fullscreen and keep awake logic
   useEffect(() => {
@@ -136,14 +162,25 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   }, [isOpen, onClose, toggleStudying]);
 
   const stopAndSave = () => {
-    if (studyTime > 0) {
+    if (timerSessionStart || studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
-      if (minutes > 0) {
-        saveSession(minutes);
-      }
+      const endTime = new Date().toISOString();
+      const startTime = timerSessionStart || new Date(Date.now() - (studyTime * 1000)).toISOString();
+      saveSession({
+        minutes,
+        startTime,
+        endTime,
+      });
       setStudying(false);
       setStudyTime(0);
+      setTimerSessionStart(null);
+      onClose();
+      return;
     }
+
+    setStudying(false);
+    setStudyTime(0);
+    setTimerSessionStart(null);
     onClose();
   };
 
