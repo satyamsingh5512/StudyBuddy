@@ -80,6 +80,8 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     if (minutes < 0) return;
     if (!startTime && minutes < 1) return;
 
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     try {
       // In fullscreen mode, we might not have selectedSubject locally, but we can pass a default or keep it undefined
       const res = await apiFetch('/timer/session', {
@@ -90,6 +92,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
           subject: selectedSubject,
           ...(startTime ? { startTime } : {}),
           ...(endTime ? { endTime } : {}),
+          ...(timezone ? { timezone } : {}),
         }),
       });
 
@@ -97,14 +100,16 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
         const data = await res.json();
         const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
         const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+        const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
 
-        if (pointsEarned !== 0 || durationSaved !== 0) {
+        if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
           setUser((prev: any) => {
             if (!prev) return prev;
             return {
               ...prev,
               totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
               totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+              ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
             };
           });
         }

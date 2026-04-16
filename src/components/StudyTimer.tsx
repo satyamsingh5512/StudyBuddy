@@ -110,6 +110,8 @@ export default function StudyTimer() {
     if (minutes < 0) return;
     if (!startTime && minutes < 1) return;
 
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     try {
       const res = await apiFetch('/timer/session', {
         method: 'POST',
@@ -119,6 +121,7 @@ export default function StudyTimer() {
           subject: selectedSubject,
           ...(startTime ? { startTime } : {}),
           ...(endTime ? { endTime } : {}),
+          ...(timezone ? { timezone } : {}),
         }),
       });
 
@@ -126,14 +129,16 @@ export default function StudyTimer() {
         const data = await res.json();
         const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
         const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+        const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
 
-        if (pointsEarned !== 0 || durationSaved !== 0) {
+        if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
           setUser((prev: any) => {
             if (!prev) return prev;
             return {
               ...prev,
               totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
               totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+              ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
             };
           });
         }
