@@ -124,8 +124,21 @@ export default function StudyTimer() {
 
       if (res.ok) {
         const data = await res.json();
+        const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+        const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+
+        if (pointsEarned !== 0 || durationSaved !== 0) {
+          setUser((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
+              totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+            };
+          });
+        }
+
         if (minutes > 0) {
-          const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
           toast({
             title: 'Session saved!',
             description: data.message || `+${pointsEarned} points earned`,
@@ -140,7 +153,7 @@ export default function StudyTimer() {
         description: 'Will sync when connection is restored',
       });
     }
-  }, [toast, selectedSubject]);
+  }, [setUser, toast, selectedSubject]);
 
   useEffect(() => {
     if (!studying || showFullscreen) return;
@@ -499,7 +512,7 @@ export default function StudyTimer() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H9a1 1 0 01-1-1v-4z" />
                       </svg>
-                      Stop
+                      Save & Exit
                     </Button>
                   )}
 

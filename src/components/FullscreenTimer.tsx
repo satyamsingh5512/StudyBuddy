@@ -3,11 +3,10 @@ import { createPortal } from 'react-dom';
 import {
   Play,
   Pause,
-  X,
   Settings
 } from 'lucide-react';
 import { useAtom } from 'jotai';
-import { studyingAtom, studyTimeAtom, timerSessionStartAtom } from '@/store/atoms';
+import { studyingAtom, studyTimeAtom, timerSessionStartAtom, userAtom } from '@/store/atoms';
 import { Button } from './ui/button';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
@@ -33,6 +32,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
   const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
+  const [, setUser] = useAtom(userAtom);
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     const saved = localStorage.getItem('pomodoroDuration');
     const parsed = saved ? parseInt(saved, 10) : NaN;
@@ -95,8 +95,21 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
 
       if (res.ok) {
         const data = await res.json();
+        const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+        const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+
+        if (pointsEarned !== 0 || durationSaved !== 0) {
+          setUser((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
+              totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+            };
+          });
+        }
+
         if (minutes > 0) {
-          const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
           toast({
             title: 'Session saved!',
             description: data.message || `+${pointsEarned} points earned`,
@@ -107,7 +120,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     } catch (error) {
       console.error('Failed to save session:', error);
     }
-  }, [toast, selectedSubject]);
+  }, [setUser, toast, selectedSubject]);
 
   useEffect(() => {
     if (!studying || !isOpen) return;
@@ -138,11 +151,34 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     return () => clearInterval(interval);
   }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
 
+  const stopAndSave = useCallback(async () => {
+    const currentStudyTime = studyTime;
+    const currentSessionStart = timerSessionStart;
+    setStudying(false);
+
+    if (currentSessionStart || currentStudyTime > 0) {
+      const minutes = Math.floor(currentStudyTime / 60);
+      const endTime = new Date().toISOString();
+      const startTime = currentSessionStart || new Date(Date.now() - (currentStudyTime * 1000)).toISOString();
+      await saveSession({
+        minutes,
+        startTime,
+        endTime,
+      });
+    }
+
+    setStudyTime(0);
+    setTimerSessionStart(null);
+    onClose();
+  }, [onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
+
   // Handle escape key to exit fullscreen and keep awake logic
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        e.preventDefault();
+        void stopAndSave();
+        return;
       }
       if (e.key === ' ' && isOpen) {
         e.preventDefault();
@@ -159,30 +195,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       document.removeEventListener('keydown', handleKeyPress);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose, toggleStudying]);
-
-  const stopAndSave = () => {
-    if (timerSessionStart || studyTime > 0) {
-      const minutes = Math.floor(studyTime / 60);
-      const endTime = new Date().toISOString();
-      const startTime = timerSessionStart || new Date(Date.now() - (studyTime * 1000)).toISOString();
-      saveSession({
-        minutes,
-        startTime,
-        endTime,
-      });
-      setStudying(false);
-      setStudyTime(0);
-      setTimerSessionStart(null);
-      onClose();
-      return;
-    }
-
-    setStudying(false);
-    setStudyTime(0);
-    setTimerSessionStart(null);
-    onClose();
-  };
+  }, [isOpen, stopAndSave, toggleStudying]);
 
   const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
 
@@ -259,8 +272,14 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
               </div>
             </DialogContent>
           </Dialog>
-          <Button size="icon" variant="ghost" onClick={onClose} className="min-h-[44px] min-w-[44px]">
-            <X className="h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={() => {
+              void stopAndSave();
+            }}
+            className="min-h-[44px]"
+          >
+            Save &amp; Exit
           </Button>
         </div>
       </div>
@@ -314,7 +333,9 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
           {studyTime > 0 && (
             <Button
               variant="outline"
-              onClick={stopAndSave}
+              onClick={() => {
+                void stopAndSave();
+              }}
               className="px-4 sm:px-6 min-h-[44px]"
             >
               Save & Exit
@@ -326,7 +347,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
         <div className="text-[10px] sm:text-xs text-muted-foreground text-center">
           <div className="flex items-center gap-3 sm:gap-4">
             <span>Space - Play/Pause</span>
-            <span>Esc - Exit</span>
+            <span>Esc - Save &amp; Exit</span>
           </div>
         </div>
       </div>
