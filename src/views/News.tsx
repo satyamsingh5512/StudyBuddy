@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
-import { apiFetch } from '@/config/api';
+import { apiFetchJSON } from '@/config/api';
 import { Button } from '@/components/ui/button';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface NewsItem {
   title: string;
@@ -60,79 +61,45 @@ const normalizeCategory = (category: string): NewsItem['category'] => {
 
 export default function News() {
   const user = useAtomValue(userAtom);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [dates, setDates] = useState<ImportantDate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [datesLoading, setDatesLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [cached, setCached] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryType>('all');
-
   const examType = user?.examGoal || 'JEE';
+  const queryClient = useQueryClient();
 
-  const loadData = useCallback(async (forceRefresh = false) => {
-    const CACHE_DURATION = 5 * 60 * 60 * 1000; // 5 hours
-    const cacheKey = `news_cache_${examType}`;
+  // Fetch news
+  const {
+    data: newsData,
+    isLoading: loading,
+    error,
+    refetch: refetchNews,
+    isFetching,
+    isStale,
+  } = useQuery({
+    queryKey: ['news', examType],
+    queryFn: () => apiFetchJSON(`/news/${examType}`),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+  });
 
-    // Try to load from cache first
-    if (!forceRefresh) {
-      const cachedData = localStorage.getItem(cacheKey);
-      if (cachedData) {
-        try {
-          const { news: cachedNews, dates: cachedDates, timestamp } = JSON.parse(cachedData);
-          if (Date.now() - timestamp < CACHE_DURATION) {
-            setNews(cachedNews);
-            setDates(cachedDates);
-            setCached(true);
-            setLoading(false);
-            setDatesLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error('Cache parse error', e);
-          localStorage.removeItem(cacheKey);
-        }
-      }
-    }
+  // Fetch news dates
+  const {
+    data: datesData,
+    isLoading: datesLoading,
+    refetch: refetchDates,
+  } = useQuery({
+    queryKey: ['newsDates', examType],
+    queryFn: () => apiFetchJSON(`/news/${examType}/dates`),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+  });
 
-    try {
-      setLoading(true);
-      if (forceRefresh) setDatesLoading(true);
-      setError('');
-
-      // Fetch both in parallel
-      const [newsRes, datesRes] = await Promise.all([
-        apiFetch(`/news/${examType}`),
-        apiFetch(`/news/${examType}/dates`),
-      ]);
-
-      if (!newsRes.ok) throw new Error('Failed to fetch news');
-
-      const newsData = await newsRes.json();
-      const datesData = datesRes.ok ? await datesRes.json() : { dates: [] };
-
-      setNews(newsData.news);
-      setDates(datesData.dates || []);
-      setCached(false);
-
-      // Save to cache
-      localStorage.setItem(cacheKey, JSON.stringify({
-        news: newsData.news,
-        dates: datesData.dates || [],
-        timestamp: Date.now()
-      }));
-
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setDatesLoading(false);
-    }
-  }, [examType]);
-
-  useEffect(() => {
-    loadData();
-  }, [examType, loadData]);
+  const news = newsData?.news || [];
+  const dates = datesData?.dates || [];
+  // React Query handles caching and deduplication
+  const cached = isStale;
 
   const formatDate = (dateStr: string) => {
     try {
@@ -173,12 +140,12 @@ export default function News() {
           </p>
         </div>
         <Button
-          onClick={() => loadData(true)}
-          disabled={loading}
+          onClick={() => { refetchNews(); refetchDates(); }}
+          disabled={loading || datesLoading}
           variant="outline"
           className="flex items-center gap-2"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${(loading || datesLoading) ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
@@ -204,23 +171,6 @@ export default function News() {
       {/* Category Filters */}
       {!loading && news.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          {availableCategories.map((cat) => (
-            <Button
-              key={cat}
-              variant={activeCategory === cat ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setActiveCategory(cat)}
-              className="capitalize"
-            >
-              {categoryLabels[cat]}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* News Feed */}
-        <div className="lg:col-span-2 space-y-6">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -234,61 +184,89 @@ export default function News() {
           ) : error ? (
             <div className="glass-card rounded-2xl p-8 text-center border-destructive/50">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-              <p className="text-destructive font-medium">{error}</p>
-              <Button onClick={() => loadData(true)} variant="destructive" className="mt-4">
+              <p className="text-destructive font-medium">{error.message || String(error)}</p>
+              <Button onClick={() => { refetchNews(); refetchDates(); }} variant="destructive" className="mt-4">
                 Try Again
               </Button>
-            </div>
-          ) : filteredNews.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center">
-              <Newspaper className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground font-medium">No news available for this category</p>
             </div>
           ) : (
             <>
               {/* Featured News Card */}
-              {featuredNews && (
-                (() => {
-                  const featuredCategory = normalizeCategory(featuredNews.category);
-                  const FeaturedIcon = categoryIcons[featuredCategory];
-                  return (
-                <div className="glass-card rounded-2xl p-6 border-l-4 border-l-primary">
-                  <div className="flex items-start gap-4">
-                    <div className={`p-4 rounded-xl flex-shrink-0 ${categoryColors[featuredCategory]}`}>
-                      <FeaturedIcon className="w-7 h-7" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${categoryColors[featuredCategory]}`}>
-                          {featuredCategory}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(featuredNews.date)}
-                        </span>
+              {filteredNews.length > 0 && (() => {
+                const featuredNews = filteredNews[0];
+                const remainingNews = filteredNews.slice(1);
+                const featuredCategory = normalizeCategory(featuredNews.category);
+                const FeaturedIcon = categoryIcons[featuredCategory];
+                return (
+                  <div className="glass-card rounded-2xl p-6 border-l-4 border-l-primary">
+                    <div className="flex items-start gap-4">
+                      <div className={`p-4 rounded-xl flex-shrink-0 ${categoryColors[featuredCategory]}`}>
+                        <FeaturedIcon className="w-7 h-7" />
                       </div>
-                      <h2 className="text-xl font-bold mb-2 leading-tight">
-                        {featuredNews.title}
-                      </h2>
-                      <p className="text-muted-foreground leading-relaxed mb-3">
-                        {featuredNews.content}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Source: {featuredNews.source}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${categoryColors[featuredCategory]}`}>
+                            {featuredCategory}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(featuredNews.date)}
+                          </span>
+                        </div>
+                        <h2 className="text-xl font-bold mb-2 leading-tight">
+                          {featuredNews.title}
+                        </h2>
+                        <p className="text-muted-foreground leading-relaxed mb-3">
+                          {featuredNews.content}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Source: {featuredNews.source}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                  );
-                })()
-              )}
+                );
+              })()}
 
               {/* Remaining News in 2-Column Grid */}
-              {remainingNews.length > 0 && (
+              {filteredNews.length > 1 && (
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {remainingNews.map((item, index) => {
+                  {filteredNews.slice(1).map((item, index) => {
                     const itemCategory = normalizeCategory(item.category);
                     const Icon = categoryIcons[itemCategory];
                     return (
+                      <div
+                        key={index}
+                        className="glass-card rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
+                      >
+                        <div className={`p-2.5 rounded-lg flex-shrink-0 ${categoryColors[itemCategory]}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(item.date)}
+                          </span>
+                          <h3 className="font-semibold text-sm leading-tight mt-0.5 line-clamp-2">
+                            {item.title}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
+                          {item.content}
+                        </p>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${categoryColors[itemCategory]}`}>
+                            {itemCategory}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {item.source}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
                       <div
                         key={index}
                         className="glass-card rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"

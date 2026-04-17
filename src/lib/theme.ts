@@ -2,8 +2,6 @@ export type Theme = 'light' | 'dark';
 
 const THEME_STORAGE_KEY = 'theme';
 const THEME_CHANGE_EVENT = 'studybuddy-theme-change';
-const THEME_TRANSITION_CLASS = 'theme-transitioning';
-const THEME_TRANSITION_DURATION_MS = 220;
 
 let transitionTimeoutId: number | null = null;
 
@@ -11,21 +9,8 @@ function getSystemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function applyTheme(theme: Theme, withTransition: boolean) {
+function applyTheme(theme: Theme) {
   const root = document.documentElement;
-
-  if (withTransition) {
-    root.classList.add(THEME_TRANSITION_CLASS);
-
-    if (transitionTimeoutId !== null) {
-      window.clearTimeout(transitionTimeoutId);
-    }
-
-    transitionTimeoutId = window.setTimeout(() => {
-      root.classList.remove(THEME_TRANSITION_CLASS);
-      transitionTimeoutId = null;
-    }, THEME_TRANSITION_DURATION_MS);
-  }
 
   root.classList.toggle('dark', theme === 'dark');
   root.dataset.theme = theme;
@@ -62,19 +47,19 @@ export function setTheme(theme: Theme, options: SetThemeOptions = {}) {
     }
   }
 
-  applyTheme(theme, withTransition);
+  applyTheme(theme);
 }
 
 export function toggleTheme(): Theme {
   const current = getTheme();
   const next = current === 'dark' ? 'light' : 'dark';
-  setTheme(next, { persist: true, withTransition: true });
+  setTheme(next, true);
   return next;
 }
 
 // Initialize theme on load
 export function initTheme() {
-  setTheme(getTheme(), { persist: false, withTransition: false });
+  setTheme(getTheme(), false);
 }
 
 export function subscribeToThemeChange(callback: (theme: Theme) => void) {
