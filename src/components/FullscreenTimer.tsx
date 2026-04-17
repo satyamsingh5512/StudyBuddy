@@ -28,6 +28,9 @@ interface FullscreenTimerProps {
   selectedSubject?: string;
 }
 
+const BREAK_DURATION_SECONDS = 10 * 60;
+const LONG_SESSION_BREAK_THRESHOLD_SECONDS = 60 * 60;
+
 export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: FullscreenTimerProps) {
   const [studying, setStudying] = useAtom(studyingAtom);
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
@@ -40,6 +43,9 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
   const [showSettings, setShowSettings] = useState(false);
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [breakTimeLeft, setBreakTimeLeft] = useState(BREAK_DURATION_SECONDS);
+  const [hasShownBreakRecommendation, setHasShownBreakRecommendation] = useState(false);
 
   // Keep duration in sync when StudyTimer (or any tab) changes it
   useEffect(() => {
@@ -60,13 +66,40 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   const POMODORO_DURATION = pomodoroDuration * 60;
 
   const toggleStudying = useCallback(() => {
+    if (isOnBreak) return;
+
     const next = !studying;
     if (next && !timerSessionStart) {
       setTimerSessionStart(new Date().toISOString());
     }
     setStudying(next);
     soundManager.playClick();
-  }, [studying, setStudying, timerSessionStart, setTimerSessionStart]);
+  }, [isOnBreak, studying, setStudying, timerSessionStart, setTimerSessionStart]);
+
+  const startBreak = useCallback(() => {
+    if (isOnBreak) return;
+
+    setStudying(false);
+    setIsOnBreak(true);
+    setBreakTimeLeft(BREAK_DURATION_SECONDS);
+    toast({
+      title: 'Break started',
+      description: '10-minute break started. Break time has no penalty.',
+    });
+    soundManager.playClick();
+  }, [isOnBreak, setStudying, toast]);
+
+  const endBreakEarly = useCallback(() => {
+    if (!isOnBreak) return;
+
+    setIsOnBreak(false);
+    setBreakTimeLeft(BREAK_DURATION_SECONDS);
+    toast({
+      title: 'Break ended',
+      description: 'Back to focus mode whenever you are ready.',
+    });
+    soundManager.playClick();
+  }, [isOnBreak, toast]);
 
   const saveSession = useCallback(async ({
     minutes,
@@ -128,7 +161,45 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   }, [setUser, toast, selectedSubject]);
 
   useEffect(() => {
-    if (!studying || !isOpen) return;
+    if (!isOpen || !isOnBreak) return;
+
+    const breakInterval = setInterval(() => {
+      setBreakTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsOnBreak(false);
+          toast({
+            title: 'Break complete',
+            description: 'Nice reset. Press play when you are ready to focus again.',
+          });
+          return BREAK_DURATION_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(breakInterval);
+  }, [isOpen, isOnBreak, toast]);
+
+  useEffect(() => {
+    if (!isOpen || isOnBreak || hasShownBreakRecommendation) return;
+
+    if (studyTime >= LONG_SESSION_BREAK_THRESHOLD_SECONDS) {
+      setHasShownBreakRecommendation(true);
+      toast({
+        title: 'Break recommended',
+        description: 'You have focused for over 60 minutes. Consider a 10-minute break.',
+      });
+    }
+  }, [studyTime, isOpen, isOnBreak, hasShownBreakRecommendation, toast]);
+
+  useEffect(() => {
+    if (studyTime === 0 && hasShownBreakRecommendation) {
+      setHasShownBreakRecommendation(false);
+    }
+  }, [studyTime, hasShownBreakRecommendation]);
+
+  useEffect(() => {
+    if (!studying || !isOpen || isOnBreak) return;
 
     const interval = setInterval(() => {
       setStudyTime((prev) => {
@@ -154,14 +225,16 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, isOpen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
+  }, [studying, isOpen, isOnBreak, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
 
   const stopAndSave = useCallback(async () => {
     const currentStudyTime = studyTime;
     const currentSessionStart = timerSessionStart;
     setStudying(false);
 
-    if (currentSessionStart || currentStudyTime > 0) {
+    const shouldSaveSession = currentStudyTime > 0 || (!!currentSessionStart && !isOnBreak);
+
+    if (shouldSaveSession) {
       const minutes = Math.floor(currentStudyTime / 60);
       const endTime = new Date().toISOString();
       const startTime = currentSessionStart || new Date(Date.now() - (currentStudyTime * 1000)).toISOString();
@@ -172,10 +245,13 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       });
     }
 
+    setIsOnBreak(false);
+    setBreakTimeLeft(BREAK_DURATION_SECONDS);
+    setHasShownBreakRecommendation(false);
     setStudyTime(0);
     setTimerSessionStart(null);
     onClose();
-  }, [onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
+  }, [isOnBreak, onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
 
   // Handle escape key to exit fullscreen and keep awake logic
   useEffect(() => {
@@ -187,7 +263,16 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       }
       if (e.key === ' ' && isOpen) {
         e.preventDefault();
+        if (isOnBreak) return;
         toggleStudying();
+      }
+      if ((e.key === 'b' || e.key === 'B') && isOpen) {
+        e.preventDefault();
+        if (isOnBreak) {
+          endBreakEarly();
+        } else {
+          startBreak();
+        }
       }
     };
 
@@ -200,9 +285,11 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       document.removeEventListener('keydown', handleKeyPress);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, stopAndSave, toggleStudying]);
+  }, [isOpen, isOnBreak, stopAndSave, toggleStudying, startBreak, endBreakEarly]);
 
-  const progress = Math.min((studyTime / POMODORO_DURATION) * 100, 100);
+  const activeDurationSeconds = isOnBreak ? BREAK_DURATION_SECONDS : POMODORO_DURATION;
+  const elapsedSeconds = isOnBreak ? BREAK_DURATION_SECONDS - breakTimeLeft : studyTime;
+  const progress = Math.min((elapsedSeconds / activeDurationSeconds) * 100, 100);
 
   const saveDuration = () => {
     const clamped = Math.max(1, Math.min(120, tempDuration));
@@ -231,7 +318,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       {/* Header - RESPONSIVE FIX: Fluid padding and text */}
       <div className="absolute top-4 sm:top-6 left-0 right-0 flex items-center justify-between" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
         <div className="text-xs sm:text-sm text-muted-foreground">
-          Focus Session • {pomodoroDuration} min
+          {isOnBreak ? 'Break Time • 10 min (no penalty)' : `Focus Session • ${pomodoroDuration} min`}
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -293,7 +380,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto" style={{ gap: 'clamp(2rem, 6vw, 3rem)', paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
         {/* Flip Clock Timer - RESPONSIVE FIX: Scale for mobile */}
         <div className="scale-[0.6] sm:scale-75 md:scale-90 lg:scale-100 my-4 sm:my-8">
-          <FlipClock timeInSeconds={POMODORO_DURATION - studyTime} isCountingDown={true} />
+          <FlipClock timeInSeconds={isOnBreak ? breakTimeLeft : POMODORO_DURATION - studyTime} isCountingDown={true} />
         </div>
 
         {/* Progress Bar under clock - RESPONSIVE FIX: Fluid width */}
@@ -304,7 +391,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
               style={{ width: `${progress}%` }}
             />
           </div>
-          {studyTime > 0 && (
+          {(studyTime > 0 || isOnBreak) && (
             <div className="text-sm tracking-wider text-muted-foreground mt-3 text-center uppercase">
               {Math.floor(progress)}% complete
             </div>
@@ -314,14 +401,21 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
         {/* Status - RESPONSIVE FIX: Fluid text */}
         <div className="text-center space-y-2">
           <h2 className="font-semibold" style={{ fontSize: 'clamp(1.125rem, 3vw, 1.5rem)' }}>
-            {studying ? 'Focus Mode Active' : 'Ready to Focus'}
+            {isOnBreak ? 'Break Mode Active' : studying ? 'Focus Mode Active' : 'Ready to Focus'}
           </h2>
           <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
-            {studying
+            {isOnBreak
+              ? 'Take a reset. Break time is penalty-free.'
+              : studying
               ? 'Stay focused and avoid distractions'
               : 'Press space or click play to begin'
             }
           </p>
+          {studyTime >= LONG_SESSION_BREAK_THRESHOLD_SECONDS && !isOnBreak && (
+            <p className="text-xs font-medium text-amber-500">
+              You crossed 60 minutes. A 10-minute break is recommended.
+            </p>
+          )}
         </div>
 
         {/* Controls - RESPONSIVE FIX: Touch targets min 44x44px */}
@@ -331,9 +425,28 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
             onClick={toggleStudying}
             className="rounded-full min-h-[56px] min-w-[56px] sm:min-h-[64px] sm:min-w-[64px]"
             variant={studying ? "destructive" : "default"}
+            disabled={isOnBreak}
           >
             {studying ? <Pause className="h-5 w-5 sm:h-6 sm:w-6" /> : <Play className="h-5 w-5 sm:h-6 sm:w-6" />}
           </Button>
+
+          {isOnBreak ? (
+            <Button
+              variant="secondary"
+              onClick={endBreakEarly}
+              className="px-4 sm:px-6 min-h-[44px]"
+            >
+              End Break Early
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={startBreak}
+              className="px-4 sm:px-6 min-h-[44px]"
+            >
+              Take 10m Break
+            </Button>
+          )}
 
           {studyTime > 0 && (
             <Button
@@ -352,6 +465,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
         <div className="text-[10px] sm:text-xs text-muted-foreground text-center">
           <div className="flex items-center gap-3 sm:gap-4">
             <span>Space - Play/Pause</span>
+            <span>B - Toggle Break</span>
             <span>Esc - Save &amp; Exit</span>
           </div>
         </div>
