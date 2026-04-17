@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';
+
 import { userAtom } from '@/store/atoms';
 import { apiFetchJSON } from '@/config/api';
 import { Button } from '@/components/ui/button';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface NewsItem {
   title: string;
@@ -20,6 +21,14 @@ interface ImportantDate {
   description: string;
 }
 
+interface NewsResponse {
+  news: NewsItem[];
+}
+
+interface NewsDatesResponse {
+  dates: ImportantDate[];
+}
+
 type CategoryType = 'all' | NewsItem['category'];
 
 const categoryIcons = {
@@ -30,7 +39,7 @@ const categoryIcons = {
   motivation: Sparkles,
   strategy: Sparkles,
   result: TrendingUp,
-};
+} as const;
 
 const categoryColors = {
   announcement: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -40,7 +49,7 @@ const categoryColors = {
   motivation: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   strategy: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   result: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-};
+} as const;
 
 const categoryLabels: Record<CategoryType, string> = {
   all: 'All',
@@ -63,43 +72,40 @@ export default function News() {
   const user = useAtomValue(userAtom);
   const [activeCategory, setActiveCategory] = useState<CategoryType>('all');
   const examType = user?.examGoal || 'JEE';
-  const queryClient = useQueryClient();
 
-  // Fetch news
   const {
     data: newsData,
     isLoading: loading,
+    isFetching: newsFetching,
     error,
     refetch: refetchNews,
-    isFetching,
-    isStale,
-  } = useQuery({
+  } = useQuery<NewsResponse, Error>({
     queryKey: ['news', examType],
-    queryFn: () => apiFetchJSON(`/news/${examType}`),
+    queryFn: () => apiFetchJSON<NewsResponse>(`/news/${examType}`),
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: true,
   });
 
-  // Fetch news dates
   const {
     data: datesData,
     isLoading: datesLoading,
+    isFetching: datesFetching,
     refetch: refetchDates,
-  } = useQuery({
+  } = useQuery<NewsDatesResponse, Error>({
     queryKey: ['newsDates', examType],
-    queryFn: () => apiFetchJSON(`/news/${examType}/dates`),
+    queryFn: () => apiFetchJSON<NewsDatesResponse>(`/news/${examType}/dates`),
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: true,
   });
 
-  const news = newsData?.news || [];
-  const dates = datesData?.dates || [];
-  // React Query handles caching and deduplication
-  const cached = isStale;
+  const news = newsData?.news ?? [];
+  const dates = datesData?.dates ?? [];
+  const isRefreshing = newsFetching || datesFetching;
+  const showCachedIndicator = !loading && !isRefreshing && news.length > 0;
 
   const formatDate = (dateStr: string) => {
     try {
@@ -115,20 +121,23 @@ export default function News() {
 
   const filteredNews = useMemo(() => {
     if (activeCategory === 'all') return news;
-    return news.filter(item => normalizeCategory(item.category) === activeCategory);
+    return news.filter((item) => normalizeCategory(item.category) === activeCategory);
   }, [news, activeCategory]);
 
   const featuredNews = filteredNews[0];
   const remainingNews = filteredNews.slice(1);
 
   const availableCategories = useMemo(() => {
-    const cats = new Set(news.map(n => normalizeCategory(n.category)));
+    const cats = new Set(news.map((n) => normalizeCategory(n.category)));
     return ['all', ...Array.from(cats)] as CategoryType[];
   }, [news]);
 
+  const handleRefresh = async () => {
+    await Promise.all([refetchNews(), refetchDates()]);
+  };
+
   return (
     <div className="space-y-6 pb-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
@@ -140,18 +149,18 @@ export default function News() {
           </p>
         </div>
         <Button
-          onClick={() => { refetchNews(); refetchDates(); }}
-          disabled={loading || datesLoading}
+          onClick={handleRefresh}
+          disabled={loading || datesLoading || isRefreshing}
           variant="outline"
           className="flex items-center gap-2"
         >
-          <RefreshCw className={`w-4 h-4 ${(loading || datesLoading) ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {cached && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground" title="Showing cached news. Click Refresh to get the latest updates.">
+      {showCachedIndicator && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground" title="Showing cached data and refreshing in the background when needed.">
           <div className="relative group cursor-help">
             <div className="p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -161,16 +170,31 @@ export default function News() {
               </svg>
             </div>
             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-popover border border-border rounded-lg shadow-lg text-xs text-popover-foreground whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-              Showing cached news (updates every few hours)
+              Using cached data (auto-refresh handled by React Query)
               <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-border"></div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Category Filters */}
       {!loading && news.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
+          {availableCategories.map((cat) => (
+            <Button
+              key={cat}
+              variant={activeCategory === cat ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveCategory(cat)}
+              className="capitalize"
+            >
+              {categoryLabels[cat]}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -184,17 +208,19 @@ export default function News() {
           ) : error ? (
             <div className="glass-card rounded-2xl p-8 text-center border-destructive/50">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-              <p className="text-destructive font-medium">{error.message || String(error)}</p>
-              <Button onClick={() => { refetchNews(); refetchDates(); }} variant="destructive" className="mt-4">
+              <p className="text-destructive font-medium">{error.message || 'Failed to load news.'}</p>
+              <Button onClick={handleRefresh} variant="destructive" className="mt-4">
                 Try Again
               </Button>
             </div>
+          ) : filteredNews.length === 0 ? (
+            <div className="glass-card rounded-2xl p-12 text-center">
+              <Newspaper className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground font-medium">No news available for this category</p>
+            </div>
           ) : (
             <>
-              {/* Featured News Card */}
-              {filteredNews.length > 0 && (() => {
-                const featuredNews = filteredNews[0];
-                const remainingNews = filteredNews.slice(1);
+              {featuredNews && (() => {
                 const featuredCategory = normalizeCategory(featuredNews.category);
                 const FeaturedIcon = categoryIcons[featuredCategory];
                 return (
@@ -208,67 +234,25 @@ export default function News() {
                           <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${categoryColors[featuredCategory]}`}>
                             {featuredCategory}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(featuredNews.date)}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{formatDate(featuredNews.date)}</span>
                         </div>
-                        <h2 className="text-xl font-bold mb-2 leading-tight">
-                          {featuredNews.title}
-                        </h2>
-                        <p className="text-muted-foreground leading-relaxed mb-3">
-                          {featuredNews.content}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Source: {featuredNews.source}
-                        </p>
+                        <h2 className="text-xl font-bold mb-2 leading-tight">{featuredNews.title}</h2>
+                        <p className="text-muted-foreground leading-relaxed mb-3">{featuredNews.content}</p>
+                        <p className="text-xs text-muted-foreground">Source: {featuredNews.source}</p>
                       </div>
                     </div>
                   </div>
                 );
               })()}
 
-              {/* Remaining News in 2-Column Grid */}
-              {filteredNews.length > 1 && (
+              {remainingNews.length > 0 && (
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {filteredNews.slice(1).map((item, index) => {
+                  {remainingNews.map((item, index) => {
                     const itemCategory = normalizeCategory(item.category);
                     const Icon = categoryIcons[itemCategory];
                     return (
                       <div
-                        key={index}
-                        className="glass-card rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
-                      >
-                        <div className={`p-2.5 rounded-lg flex-shrink-0 ${categoryColors[itemCategory]}`}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(item.date)}
-                          </span>
-                          <h3 className="font-semibold text-sm leading-tight mt-0.5 line-clamp-2">
-                            {item.title}
-                          </h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                          {item.content}
-                        </p>
-                        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${categoryColors[itemCategory]}`}>
-                            {itemCategory}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {item.source}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-                      <div
-                        key={index}
+                        key={`${item.title}-${index}`}
                         className="glass-card rounded-xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
                       >
                         <div className="flex items-start gap-3 mb-3">
@@ -276,24 +260,16 @@ export default function News() {
                             <Icon className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(item.date)}
-                            </span>
-                            <h3 className="font-semibold text-sm leading-tight mt-0.5 line-clamp-2">
-                              {item.title}
-                            </h3>
+                            <span className="text-xs text-muted-foreground">{formatDate(item.date)}</span>
+                            <h3 className="font-semibold text-sm leading-tight mt-0.5 line-clamp-2">{item.title}</h3>
                           </div>
                         </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-                          {item.content}
-                        </p>
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-3">{item.content}</p>
                         <div className="flex items-center justify-between pt-2 border-t border-border/50">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${categoryColors[itemCategory]}`}>
                             {itemCategory}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {item.source}
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">{item.source}</span>
                         </div>
                       </div>
                     );
@@ -304,16 +280,13 @@ export default function News() {
           )}
         </div>
 
-        {/* Important Dates Sidebar */}
         <div className="lg:col-span-1">
           <div className="glass-card rounded-2xl p-6 sticky top-6">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Calendar className="w-5 h-5 text-primary" />
               </div>
-              <h2 className="text-lg font-bold">
-                Important Dates
-              </h2>
+              <h2 className="text-lg font-bold">Important Dates</h2>
             </div>
 
             {datesLoading ? (
@@ -331,33 +304,27 @@ export default function News() {
             ) : dates.length === 0 ? (
               <div className="text-center py-8">
                 <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground text-sm">
-                  No upcoming dates
-                </p>
+                <p className="text-muted-foreground text-sm">No upcoming dates</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {dates.map((date, index) => (
                   <div
-                    key={index}
+                    key={`${date.event}-${index}`}
                     className="group flex items-start gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors"
                   >
                     <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex flex-col items-center justify-center text-primary border border-primary/20 group-hover:scale-105 transition-transform">
-                      <span className="text-[10px] font-bold uppercase">{new Date(date.date).toLocaleString('default', { month: 'short' })}</span>
+                      <span className="text-[10px] font-bold uppercase">
+                        {new Date(date.date).toLocaleString('default', { month: 'short' })}
+                      </span>
                       <span className="text-lg font-bold leading-none">{new Date(date.date).getDate()}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm mb-0.5 line-clamp-2 leading-tight group-hover:text-primary transition-colors">
                         {date.event}
                       </h4>
-                      {date.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {date.description}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {new Date(date.date).getFullYear()}
-                      </p>
+                      {date.description && <p className="text-xs text-muted-foreground line-clamp-1">{date.description}</p>}
+                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(date.date).getFullYear()}</p>
                     </div>
                   </div>
                 ))}
