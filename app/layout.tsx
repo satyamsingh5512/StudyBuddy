@@ -9,7 +9,10 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: '#6366f1',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
 };
 
 export const dynamic = 'force-dynamic';
@@ -31,11 +34,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{
             __html: `
               (function () {
-                const theme = localStorage.getItem('theme') ||
-                  (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
+                const root = document.documentElement;
+                let theme = 'light';
+
+                try {
+                  const storedTheme = localStorage.getItem('theme');
+                  if (storedTheme === 'dark' || storedTheme === 'light') {
+                    theme = storedTheme;
+                  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                  }
+                } catch (error) {
+                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                  }
                 }
+
+                root.classList.toggle('dark', theme === 'dark');
+                root.dataset.theme = theme;
+                root.style.colorScheme = theme;
               })();
             `,
           }}

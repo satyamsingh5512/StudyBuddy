@@ -124,17 +124,21 @@
         @apply border-border;
     }
 
-    /* Smooth theme transitions */
-    *,
-    *::before,
-    *::after {
-        transition-property: color, background-color, border-color, fill, stroke;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        transition-duration: 150ms;
+    html {
+        color-scheme: light;
     }
 
-    .theme-transitioning * {
-        transition: none !important;
+    html.dark {
+        color-scheme: dark;
+    }
+
+    :root.theme-transitioning,
+    :root.theme-transitioning *,
+    :root.theme-transitioning *::before,
+    :root.theme-transitioning *::after {
+        transition-property: color, background-color, border-color, fill, stroke, box-shadow;
+        transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+        transition-duration: 220ms;
     }
 
     body {
@@ -291,13 +295,13 @@
 }
 @layer base {
   /* Light Mode Background */
-  body:not(.dark) {
+    html:not(.dark) body {
     background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, rgba(201, 218, 255, 0.5) 100%);
     background-color: #fff;
   }
 
   /* Dark Mode Background */
-  .dark body {
+    html.dark body {
     background-image: none;
     background-color: #09090b;
   }
