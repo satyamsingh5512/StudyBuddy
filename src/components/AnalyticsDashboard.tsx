@@ -26,6 +26,45 @@ interface AnalyticsDashboardProps {
   user?: { totalStudyMinutes: number };
 }
 
+const toFiniteNumber = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+};
+
+const toSafeDate = (value: unknown, fallbackDate: Date): string => {
+  const fallback = fallbackDate.toISOString().split('T')[0];
+
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback;
+  }
+
+  return parsed.toISOString().split('T')[0];
+};
+
 export default function AnalyticsDashboard({ className, user }: AnalyticsDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,24 +73,39 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
   const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiFetch(`/timer/analytics?days=${timeRange}`);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await apiFetch(`/timer/analytics?days=${timeRange}&timezone=${encodeURIComponent(timezone)}`);
       if (res.ok) {
-        const data = await res.json();
-        // Ensure analytics data is clean
-        const cleanData = data.map((day: any) => ({
-          ...day,
-          studyHours: typeof day.studyHours === 'number' ? day.studyHours : 0,
-          tasksCompleted: typeof day.tasksCompleted === 'number' ? day.tasksCompleted : 0,
-          understanding: typeof day.understanding === 'number' ? day.understanding : 0,
-          sessions: typeof day.sessions === 'number' ? day.sessions : 0,
-          sessionTypes: day.sessionTypes && typeof day.sessionTypes === 'object' ? 
-            Object.fromEntries(
-              Object.entries(day.sessionTypes).map(([key, value]) => [
-                key, 
-                typeof value === 'number' ? value : 0
-              ])
-            ) : {},
-        }));
+        const payload = await res.json();
+        const rows = Array.isArray(payload) ? payload : [];
+
+        const cleanData = rows
+          .map((day: any, index: number): AnalyticsData => {
+            const fallbackDate = new Date();
+            fallbackDate.setHours(0, 0, 0, 0);
+            fallbackDate.setDate(fallbackDate.getDate() - (rows.length - 1 - index));
+
+            const rawSessionTypes = day && typeof day.sessionTypes === 'object' && day.sessionTypes !== null
+              ? day.sessionTypes
+              : {};
+
+            return {
+              date: toSafeDate(day?.date, fallbackDate),
+              studyHours: Math.max(0, toFiniteNumber(day?.studyHours)),
+              tasksCompleted: Math.max(0, Math.round(toFiniteNumber(day?.tasksCompleted))),
+              understanding: Math.max(0, Math.min(10, toFiniteNumber(day?.understanding))),
+              sessions: Math.max(0, Math.round(toFiniteNumber(day?.sessions))),
+              sessionTypes: Object.fromEntries(
+                Object.entries(rawSessionTypes).map(([key, value]) => {
+                  const safeKey = key.trim() || 'General';
+                  const safeValue = Math.max(0, Math.round(toFiniteNumber(value)));
+                  return [safeKey, safeValue];
+                })
+              ),
+            };
+          })
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
         setAnalytics(cleanData);
       }
     } catch (error) {
@@ -65,18 +119,33 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  useEffect(() => {
+    const onTimerSaved = () => {
+      fetchAnalytics();
+    };
+
+    window.addEventListener('studybuddy:timer-session-saved', onTimerSaved);
+    return () => {
+      window.removeEventListener('studybuddy:timer-session-saved', onTimerSaved);
+    };
+  }, [fetchAnalytics]);
+
   const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
   const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
   const totalSessions = analytics.reduce((sum, day) => sum + day.sessions, 0);
   const avgUnderstanding = analytics.length > 0
     ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length
     : 0;
+  const hasStudyActivity = analytics.some((day) => day.studyHours > 0);
+  const hasProgressActivity = analytics.some((day) => day.studyHours > 0 || day.tasksCompleted > 0);
 
   const maxHours = Math.max(...analytics.map(d => d.studyHours), 1);
   const maxTasks = Math.max(...analytics.map(d => d.tasksCompleted), 1);
 
   const getDateLabel = (dateStr: string) => {
     const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -186,6 +255,11 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
+          {!hasStudyActivity && (
+            <div className="mb-3 rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+              No study activity recorded in this range yet. Start a timer session to populate this chart.
+            </div>
+          )}
           {/* RESPONSIVE FIX: Reduced height on mobile, flexible on desktop */}
           <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
             {analytics.map((day, index) => (
@@ -233,6 +307,11 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
+          {!hasProgressActivity && (
+            <div className="mb-3 rounded-md border border-dashed border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+              No completed study or task activity found in this range yet.
+            </div>
+          )}
           <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
             {analytics.map((day, index) => (
               <div key={`combined-${day.date}`} className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0">
