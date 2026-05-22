@@ -86,13 +86,6 @@ func SetupRoutes(app *fiber.App) {
 	timer.Post("/session", handlers.SaveTimerSession)
 	timer.Get("/analytics", handlers.GetTimerAnalytics)
 
-	// Schedule
-	schedule := protected.Group("/schedule")
-	schedule.Get("/", handlers.GetSchedule)
-	schedule.Post("/", handlers.CreateSchedule)
-	schedule.Put("/:id", handlers.UpdateSchedule)
-	schedule.Delete("/:id", handlers.DeleteSchedule)
-
 	// Friends
 	friends := protected.Group("/friends")
 	friends.Post("/request", handlers.SendFriendRequest)
