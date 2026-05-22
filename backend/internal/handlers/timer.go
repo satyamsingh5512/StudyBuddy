@@ -228,6 +228,7 @@ func SaveTimerSession(c *fiber.Ctx) error {
 	collection := config.DB.Collection("timer_sessions")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	_, _ = reconcileUserStats(ctx, &user, location, now)
 
 	res, err := collection.InsertOne(ctx, session)
 	if err != nil {
@@ -243,6 +244,7 @@ func SaveTimerSession(c *fiber.Ctx) error {
 	updateSet := bson.M{"lastActive": now, "updatedAt": now}
 
 	if durationMinutes > 0 {
+		updateSet["lastStudyAt"] = now
 		sessionDayStart, nextDayStart := localDayBounds(now, location)
 
 		// Only the first non-zero saved session for the user's local day can change streak.
@@ -314,6 +316,7 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 	startOfToday := dayStartInLocation(now, loc)
 	rangeStart := startOfToday.AddDate(0, 0, -(days - 1))
 	rangeEnd := startOfToday.Add(24 * time.Hour)
+	activityStart := rangeStart
 
 	analyticsByDay := make(map[string]*TimerAnalyticsDay, days)
 	orderedDays := make([]*TimerAnalyticsDay, 0, days)
@@ -332,6 +335,13 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	_, _ = reconcileUserStats(ctx, &user, loc, now)
+	if user.StatsResetAt != nil && !user.StatsResetAt.IsZero() {
+		resetStart := dayStartInLocation(*user.StatsResetAt, loc)
+		if resetStart.After(activityStart) {
+			activityStart = resetStart
+		}
+	}
 
 	timerCollection := config.DB.Collection("timer_sessions")
 	timerCursor, err := timerCollection.Find(ctx, bson.M{
@@ -339,13 +349,13 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 		"$or": []bson.M{
 			{
 				"startTime": bson.M{
-					"$gte": rangeStart,
+					"$gte": activityStart,
 					"$lt":  rangeEnd,
 				},
 			},
 			{
 				"createdAt": bson.M{
-					"$gte": rangeStart,
+					"$gte": activityStart,
 					"$lt":  rangeEnd,
 				},
 			},
@@ -396,7 +406,7 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 		"userId":    user.ID,
 		"completed": true,
 		"dueDate": bson.M{
-			"$gte": rangeStart,
+			"$gte": activityStart,
 			"$lt":  rangeEnd,
 		},
 	})
@@ -428,7 +438,7 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 	reportsCursor, err := reportsCollection.Find(ctx, bson.M{
 		"userId": user.ID,
 		"date": bson.M{
-			"$gte": rangeStart,
+			"$gte": activityStart,
 			"$lt":  rangeEnd,
 		},
 	})
