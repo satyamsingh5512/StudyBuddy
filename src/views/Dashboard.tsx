@@ -456,6 +456,7 @@ export default function Dashboard() {
   const [dailyEfficiency, setDailyEfficiency] = useState<DailyEfficiency | null>(null);
   const [efficiencyLoading, setEfficiencyLoading] = useState(true);
   const [newTodo, setNewTodo] = useState('');
+  const [newTodoDifficulty, setNewTodoDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [initialLoading, setInitialLoading] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ open: boolean; todoId: string | null }>({
@@ -558,7 +559,7 @@ export default function Dashboard() {
       id: `temp-${Date.now()}`,
       title: newTodo.trim(),
       subject: 'General',
-      difficulty: 'medium',
+      difficulty: newTodoDifficulty,
       questionsTarget: 10,
       completed: false,
       scheduledDate: today.toISOString(),
@@ -578,7 +579,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           title: newTodo.trim(),
           subject: 'General',
-          difficulty: 'medium',
+          difficulty: newTodoDifficulty,
           questionsTarget: 10,
           dueDate: today.toISOString(),
         }),
@@ -610,7 +611,7 @@ export default function Dashboard() {
         variant: 'destructive',
       });
     }
-  }, [newTodo, toast, fetchDailyEfficiency]);
+  }, [newTodo, newTodoDifficulty, toast, fetchDailyEfficiency]);
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
@@ -1134,6 +1135,18 @@ export default function Dashboard() {
                 <Button onClick={addTodo} size="icon" variant="ghost" title="Add task" className="absolute right-0 hover:bg-transparent hover:text-primary">
                   <Plus className="h-4 w-4" />
                 </Button>
+              </div>
+              <div className="w-40">
+                <Select value={newTodoDifficulty} onValueChange={(value) => setNewTodoDifficulty(value as 'easy' | 'medium' | 'hard')}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
