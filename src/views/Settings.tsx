@@ -27,6 +27,9 @@ export default function Settings() {
     user?.examDate ? new Date(user.examDate).toISOString().split('T')[0] : ''
   );
   const [showProfile, setShowProfile] = useState((user as any)?.showProfile !== false);
+  const [statsResetAt, setStatsResetAt] = useState(
+    (user as any)?.statsResetAt ? new Date((user as any).statsResetAt).toISOString().split('T')[0] : ''
+  );
   const [soundsEnabled, setSoundsEnabled] = useState(soundManager.isEnabled());
   const [uiSounds, setUiSounds] = useState(soundManager.isEnabled('ui'));
   const [notificationSounds, setNotificationSounds] = useState(soundManager.isEnabled('notifications'));
@@ -72,6 +75,7 @@ export default function Settings() {
         examGoal,
         examDate: new Date(examDate),
         showProfile,
+        statsResetAt: statsResetAt ? new Date(`${statsResetAt}T00:00:00`) : null,
       }),
     });
 
@@ -210,6 +214,18 @@ export default function Settings() {
               value={examDate}
               onChange={(e) => setExamDate(e.target.value)}
             />
+          </div>
+          <div>
+            <Label htmlFor="statsResetAt">Stats Reset Date</Label>
+            <Input
+              id="statsResetAt"
+              type="date"
+              value={statsResetAt}
+              onChange={(e) => setStatsResetAt(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              From this date, your points, study minutes, efficiency tracking, and streak are reset.
+            </p>
           </div>
           <Button onClick={saveSettings}>Save Settings</Button>
         </CardContent>
