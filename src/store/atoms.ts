@@ -11,6 +11,8 @@ export interface User {
   onboardingDone?: boolean;
   examGoal: string;
   examDate: string;
+  statsResetAt?: string;
+  lastStudyAt?: string;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
