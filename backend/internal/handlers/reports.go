@@ -119,12 +119,6 @@ func normalizeDurationMinutes(duration int) int {
 	return duration
 }
 
-func dayStartInLocation(t time.Time, loc *time.Location) time.Time {
-	local := t.In(loc)
-	y, m, d := local.Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, loc)
-}
-
 func collectDailyEfficiencyRaw(
 	ctx context.Context,
 	userID primitive.ObjectID,
@@ -313,11 +307,20 @@ func GetDailyEfficiency(c *fiber.Ctx) error {
 	startOfToday := dayStartInLocation(now, loc)
 	rangeStart := startOfToday.AddDate(0, 0, -(days - 1))
 	rangeEnd := startOfToday.Add(24 * time.Hour)
+	activityStart := rangeStart
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	_, _ = reconcileUserStats(ctx, &user, loc, now)
 
-	rawByDay, err := collectDailyEfficiencyRaw(ctx, user.ID, rangeStart, rangeEnd, loc)
+	if user.StatsResetAt != nil && !user.StatsResetAt.IsZero() {
+		resetStart := dayStartInLocation(*user.StatsResetAt, loc)
+		if resetStart.After(activityStart) {
+			activityStart = resetStart
+		}
+	}
+
+	rawByDay, err := collectDailyEfficiencyRaw(ctx, user.ID, activityStart, rangeEnd, loc)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to calculate efficiency"})
 	}
