@@ -72,10 +72,13 @@ func CheckUsername(c *fiber.Ctx) error {
 type UpdateProfileRequest struct {
 	Name         *string   `json:"name,omitempty"`
 	ExamGoal     *string   `json:"examGoal,omitempty"`
+	ExamDate     *time.Time `json:"examDate,omitempty"`
 	StudentClass *string   `json:"studentClass,omitempty"`
 	Batch        *string   `json:"batch,omitempty"`
 	Syllabus     *string   `json:"syllabus,omitempty"`
 	Subjects     *[]string `json:"subjects,omitempty"`
+	ShowProfile  *bool     `json:"showProfile,omitempty"`
+	StatsResetAt *time.Time `json:"statsResetAt,omitempty"`
 }
 
 func UpdateProfile(c *fiber.Ctx) error {
@@ -93,6 +96,9 @@ func UpdateProfile(c *fiber.Ctx) error {
 	if req.ExamGoal != nil {
 		updateDoc["examGoal"] = *req.ExamGoal
 	}
+	if req.ExamDate != nil {
+		updateDoc["examDate"] = *req.ExamDate
+	}
 	if req.StudentClass != nil {
 		updateDoc["studentClass"] = *req.StudentClass
 	}
@@ -104,6 +110,13 @@ func UpdateProfile(c *fiber.Ctx) error {
 	}
 	if req.Subjects != nil {
 		updateDoc["subjects"] = *req.Subjects
+	}
+	if req.ShowProfile != nil {
+		updateDoc["showProfile"] = *req.ShowProfile
+	}
+	if req.StatsResetAt != nil {
+		updateDoc["statsResetAt"] = *req.StatsResetAt
+		updateDoc["statsResetAppliedAt"] = nil
 	}
 
 	if len(updateDoc) == 0 {
