@@ -24,7 +24,11 @@ type User struct {
 	TotalPoints      int                `bson:"totalPoints" json:"totalPoints"`
 	TotalStudyMins   int                `bson:"totalStudyMinutes" json:"totalStudyMinutes"`
 	Streak           int                `bson:"streak" json:"streak"`
+	LastStudyAt      *time.Time         `bson:"lastStudyAt,omitempty" json:"lastStudyAt,omitempty"`
+	StatsResetAt     *time.Time         `bson:"statsResetAt,omitempty" json:"statsResetAt,omitempty"`
+	StatsResetAppliedAt *time.Time      `bson:"statsResetAppliedAt,omitempty" json:"statsResetAppliedAt,omitempty"`
 	ExamGoal         string             `bson:"examGoal,omitempty" json:"examGoal,omitempty"`
+	ExamDate         *time.Time         `bson:"examDate,omitempty" json:"examDate,omitempty"`
 	StudentClass     string             `bson:"studentClass,omitempty" json:"studentClass,omitempty"`
 	Batch            string             `bson:"batch,omitempty" json:"batch,omitempty"`
 	Syllabus         string             `bson:"syllabus,omitempty" json:"syllabus,omitempty"`
