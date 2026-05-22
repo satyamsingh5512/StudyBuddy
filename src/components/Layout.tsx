@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from '@/lib/router';
 import { useState } from 'react';
 import {
   LayoutDashboard,
-  Calendar,
   FileText,
   Trophy,
   Bell,
@@ -38,7 +37,6 @@ import { soundManager } from '@/lib/sounds';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/schedule', icon: Calendar, label: 'Schedule' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/news', icon: Newspaper, label: 'News' },
