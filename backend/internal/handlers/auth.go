@@ -161,5 +161,13 @@ func Login(c *fiber.Ctx) error {
 
 func Me(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _ = reconcileUserStats(ctx, &user, time.Now().Location(), time.Now())
+
+	var freshUser models.User
+	if err := config.DB.Collection("users").FindOne(ctx, bson.M{"_id": user.ID}).Decode(&freshUser); err == nil {
+		return c.JSON(freshUser)
+	}
 	return c.JSON(user)
 }
