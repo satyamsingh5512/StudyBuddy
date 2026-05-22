@@ -36,8 +36,12 @@ func GetTodos(c *fiber.Ctx) error {
 }
 
 type CreateTodoRequest struct {
-	Title   string     `json:"title"`
-	DueDate *time.Time `json:"dueDate"`
+	Title          string     `json:"title"`
+	Subject        string     `json:"subject"`
+	Difficulty     string     `json:"difficulty"`
+	QuestionsTarget int       `json:"questionsTarget"`
+	DueDate        *time.Time `json:"dueDate"`
+	ScheduledDate  *time.Time `json:"scheduledDate"`
 }
 
 func CreateTodo(c *fiber.Ctx) error {
@@ -51,10 +55,30 @@ func CreateTodo(c *fiber.Ctx) error {
 	todo := models.Todo{
 		UserID:    user.ID,
 		Title:     req.Title,
+		Subject:   req.Subject,
+		Difficulty: req.Difficulty,
+		QuestionsTarget: req.QuestionsTarget,
 		Completed: false,
 		DueDate:   req.DueDate,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+	}
+	if todo.Subject == "" {
+		todo.Subject = "General"
+	}
+	if todo.Difficulty == "" {
+		todo.Difficulty = "medium"
+	}
+	if todo.QuestionsTarget <= 0 {
+		todo.QuestionsTarget = 10
+	}
+	if req.ScheduledDate != nil {
+		todo.ScheduledDate = req.ScheduledDate
+		todo.DueDate = req.ScheduledDate
+	}
+	if todo.DueDate != nil {
+		todo.ScheduledDate = todo.DueDate
+		todo.OriginalScheduledDate = todo.DueDate
 	}
 
 	collection := config.DB.Collection("todos")
@@ -80,9 +104,13 @@ func UpdateTodo(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Title     *string    `json:"title"`
-		Completed *bool      `json:"completed"`
-		DueDate   *time.Time `json:"dueDate"`
+		Title          *string    `json:"title"`
+		Subject        *string    `json:"subject"`
+		Difficulty     *string    `json:"difficulty"`
+		QuestionsTarget *int      `json:"questionsTarget"`
+		Completed      *bool      `json:"completed"`
+		DueDate        *time.Time `json:"dueDate"`
+		ScheduledDate  *time.Time `json:"scheduledDate"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -96,8 +124,22 @@ func UpdateTodo(c *fiber.Ctx) error {
 	if req.Completed != nil {
 		updateFields["completed"] = *req.Completed
 	}
+	if req.Subject != nil {
+		updateFields["subject"] = *req.Subject
+	}
+	if req.Difficulty != nil {
+		updateFields["difficulty"] = *req.Difficulty
+	}
+	if req.QuestionsTarget != nil {
+		updateFields["questionsTarget"] = *req.QuestionsTarget
+	}
 	if req.DueDate != nil {
 		updateFields["dueDate"] = *req.DueDate
+		updateFields["scheduledDate"] = *req.DueDate
+	}
+	if req.ScheduledDate != nil {
+		updateFields["dueDate"] = *req.ScheduledDate
+		updateFields["scheduledDate"] = *req.ScheduledDate
 	}
 
 	collection := config.DB.Collection("todos")
@@ -193,7 +235,7 @@ func RescheduleAllOverdue(c *fiber.Ctx) error {
 	res, err := collection.UpdateMany(
 		ctx,
 		bson.M{"_id": bson.M{"$in": overdueIds}},
-		bson.M{"$set": bson.M{"dueDate": scheduleTo, "updatedAt": time.Now()}},
+		bson.M{"$set": bson.M{"dueDate": scheduleTo, "scheduledDate": scheduleTo, "updatedAt": time.Now()}, "$inc": bson.M{"rescheduledCount": 1}},
 	)
 
 	if err != nil {
@@ -247,7 +289,7 @@ func RescheduleTodo(c *fiber.Ctx) error {
 	_, err = collection.UpdateOne(
 		ctx,
 		bson.M{"_id": objID, "userId": user.ID},
-		bson.M{"$set": bson.M{"dueDate": newScheduledDate, "updatedAt": time.Now()}},
+		bson.M{"$set": bson.M{"dueDate": newScheduledDate, "scheduledDate": newScheduledDate, "updatedAt": time.Now()}, "$inc": bson.M{"rescheduledCount": 1}},
 	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reschedule"})
@@ -288,7 +330,7 @@ func RescheduleToToday(c *fiber.Ctx) error {
 	_, err = collection.UpdateOne(
 		ctx,
 		bson.M{"_id": objID, "userId": user.ID},
-		bson.M{"$set": bson.M{"dueDate": today, "updatedAt": time.Now()}},
+		bson.M{"$set": bson.M{"dueDate": today, "scheduledDate": today, "updatedAt": time.Now()}, "$inc": bson.M{"rescheduledCount": 1}},
 	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reschedule"})
