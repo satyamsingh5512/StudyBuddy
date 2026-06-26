@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ['class'],
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}', './app/**/*.{js,ts,jsx,tsx}'],
   theme: {
     screens: {
       'xs': '475px',
@@ -72,6 +72,16 @@ export default {
         "neo-dark": "4px 4px 0px 0px #757373",
         "neo-sm-dark": "2px 2px 0px 0px #757373",
         "neo-lg-dark": "8px 8px 0px 0px #757373",
+        /* iOS / glassmorphic soft shadows */
+        "glass": "0 8px 32px -8px rgba(17, 12, 46, 0.12), 0 2px 8px -2px rgba(17, 12, 46, 0.06)",
+        "glass-lg": "0 24px 64px -16px rgba(17, 12, 46, 0.20), 0 8px 24px -8px rgba(17, 12, 46, 0.10)",
+        "glass-sm": "0 2px 12px -4px rgba(17, 12, 46, 0.10)",
+        "ios": "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px -4px rgba(0,0,0,0.10)",
+      },
+      backdropBlur: {
+        xs: '2px',
+        '2xl': '40px',
+        '3xl': '64px',
       },
       keyframes: {
         'accordion-down': {
