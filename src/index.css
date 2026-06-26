@@ -40,12 +40,17 @@
         /* #3B82F6 */
         --info-foreground: 0 0% 98%;
 
-        --border: 0 0% 0%;
-        /* Formss Border */
+        --border: 240 6% 90%;
+        /* iOS-style hairline border */
         --input: 240 6% 90%;
         --ring: 251 100% 64%;
 
-        --radius: 0.5rem;
+        --radius: 0.875rem;
+        /* Glassmorphic surface tokens (light) */
+        --glass-bg: 255 255 255;
+        --glass-opacity: 0.72;
+        --glass-border: 255 255 255;
+        --glass-border-opacity: 0.45;
 
         /* RESPONSIVE FIX: Fluid spacing system for all screen sizes */
         --space-xs: clamp(0.25rem, 1vw, 0.5rem);
@@ -66,6 +71,17 @@
         --text-4xl: clamp(2.25rem, 6vw, 3rem);
         --text-5xl: clamp(3rem, 7vw, 4rem);
         --text-6xl: clamp(3.75rem, 8vw, 5rem);
+
+        /* Color tokens for SVG GradientBackground component */
+        --color-primary: #6C47FF;
+        --color-secondary: #e2e8f0;
+        --color-accent: #F59E0B;
+        --color-destructive: #EF4444;
+        --color-chart-1: #3B82F6;
+        --color-chart-2: #10B981;
+        --color-chart-3: #8B5CF6;
+        --color-chart-4: #EC4899;
+        --color-chart-5: #F97316;
     }
 
     .dark {
@@ -112,10 +128,27 @@
         /* #3B82F6 */
         --info-foreground: 0 0% 98%;
 
-        --border: 0 0% 100%;
-        /* Formss Border */
+        --border: 240 4% 18%;
+        /* iOS-style hairline border (dark) */
         --input: 240 3.7% 15.9%;
         --ring: 240 4.9% 83.9%;
+
+        /* Glassmorphic surface tokens (dark) */
+        --glass-bg: 24 24 27;
+        --glass-opacity: 0.55;
+        --glass-border: 255 255 255;
+        --glass-border-opacity: 0.08;
+
+        /* Color tokens for SVG GradientBackground component (dark mode) */
+        --color-primary: #6C47FF;
+        --color-secondary: #27272a;
+        --color-accent: #F59E0B;
+        --color-destructive: #7f1d1d;
+        --color-chart-1: #3B82F6;
+        --color-chart-2: #10B981;
+        --color-chart-3: #8B5CF6;
+        --color-chart-4: #EC4899;
+        --color-chart-5: #F97316;
     }
 }
 
@@ -199,14 +232,46 @@
     }
 
     .glass-card {
-        @apply backdrop-blur-xl border border-white/10 shadow-xl;
-        background-color: rgba(255, 255, 255, 0.7);
+        @apply backdrop-blur-xl border shadow-glass;
+        background-color: rgba(var(--glass-bg) / var(--glass-opacity));
+        border-color: rgba(var(--glass-border) / var(--glass-border-opacity));
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        backdrop-filter: blur(20px) saturate(180%);
     }
 
     .dark .glass-card {
-        @apply border-white/5;
-        background-color: rgba(24, 24, 27, 0.6);
-        /* --card with lower opacity */
+        background-color: rgba(var(--glass-bg) / var(--glass-opacity));
+        border-color: rgba(var(--glass-border) / var(--glass-border-opacity));
+    }
+
+    /* iOS-style frosted glass surfaces */
+    .glass {
+        background-color: rgba(var(--glass-bg) / var(--glass-opacity));
+        border: 1px solid rgba(var(--glass-border) / var(--glass-border-opacity));
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        backdrop-filter: blur(20px) saturate(180%);
+    }
+
+    .glass-strong {
+        background-color: rgba(var(--glass-bg) / 0.85);
+        border: 1px solid rgba(var(--glass-border) / var(--glass-border-opacity));
+        -webkit-backdrop-filter: blur(28px) saturate(200%);
+        backdrop-filter: blur(28px) saturate(200%);
+    }
+
+    .glass-subtle {
+        background-color: rgba(var(--glass-bg) / 0.4);
+        border: 1px solid rgba(var(--glass-border) / var(--glass-border-opacity));
+        -webkit-backdrop-filter: blur(12px) saturate(150%);
+        backdrop-filter: blur(12px) saturate(150%);
+    }
+
+    /* iOS-style inner highlight on hover */
+    .ios-hover {
+        @apply transition-all duration-300 ease-out;
+    }
+    .ios-hover:hover {
+        @apply -translate-y-0.5 shadow-glass-lg;
     }
 
     /* Micro-interactions: Card Lift */
@@ -270,6 +335,42 @@
     background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite linear;
+}
+
+/* iOS-style skeleton shimmer (light + dark aware) */
+.skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(var(--muted));
+}
+
+.skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.35) 50%,
+        transparent 100%
+    );
+    animation: skeleton-sweep 1.6s infinite;
+}
+
+.dark .skeleton-shimmer::after {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        transparent 100%
+    );
+}
+
+@keyframes skeleton-sweep {
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 /* RESPONSIVE FIX: Disable animations for users who prefer reduced motion */
