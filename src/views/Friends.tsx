@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SkeletonList } from '@/components/Skeleton';
 import { apiFetch } from '@/config/api';
 import { getAvatarUrl } from '@/lib/avatar';
 
@@ -428,7 +429,9 @@ export default function Friends() {
             <CardTitle className="text-lg">My Friends</CardTitle>
           </CardHeader>
           <CardContent>
-            {friends.length === 0 ? (
+            {loading && friends.length === 0 ? (
+              <SkeletonList count={5} />
+            ) : friends.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No friends yet. Search for users to add!
               </p>
