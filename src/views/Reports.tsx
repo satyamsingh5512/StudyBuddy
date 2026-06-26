@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { SkeletonPage } from '@/components/Skeleton';
 import { apiFetch } from '@/config/api';
 
 interface Report {
@@ -49,6 +50,7 @@ export default function Reports() {
     averageTimerUsagePct: 0,
   });
   const [trendLoading, setTrendLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
 
@@ -87,8 +89,10 @@ export default function Reports() {
   }, []);
 
   useEffect(() => {
-    fetchReports();
-    fetchDailyEfficiency();
+    (async () => {
+      await Promise.all([fetchReports(), fetchDailyEfficiency()]);
+      setLoading(false);
+    })();
   }, [fetchReports, fetchDailyEfficiency]);
 
   useEffect(() => {
@@ -153,6 +157,9 @@ export default function Reports() {
         </Button>
       </div>
 
+      {loading && <SkeletonPage rows={4} />}
+      {!loading && (
+        <>
       <Card>
         <CardHeader>
           <CardTitle>Overall Efficiency</CardTitle>
@@ -344,6 +351,8 @@ export default function Reports() {
           </Card>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }
