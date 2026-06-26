@@ -172,6 +172,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [authStep, setAuthStep] = useState("email");
+  const [mode, setMode] = useState<'signup' | 'signin'>('signup');
   const [modalStatus, setModalStatus] = useState<'closed' | 'loading' | 'error' | 'success'>('closed');
   const [modalErrorMessage, setModalErrorMessage] = useState('');
   const confettiRef = useRef<ConfettiRef>(null);
@@ -180,6 +181,8 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
   const isPasswordValid = password.length >= 8;
   const isConfirmPasswordValid = confirmPassword.length >= 8;
   const isOtpValid = otp.trim().length === 6;
+  // Sign-in accepts any non-empty password; sign-up enforces the 8-char minimum.
+  const passwordStepReady = mode === 'signup' ? isPasswordValid : password.length > 0;
   
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
@@ -272,11 +275,61 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
     }
   };
 
+  const toggleMode = () => {
+    setMode((m) => (m === 'signup' ? 'signin' : 'signup'));
+    setAuthStep('email');
+    setPassword('');
+    setConfirmPassword('');
+    setOtp('');
+    setModalStatus('closed');
+    setModalErrorMessage('');
+  };
+
+  const handleSignIn = async () => {
+    if (modalStatus !== 'closed') return;
+    if (!isEmailValid || password.length === 0) return;
+
+    setModalStatus('loading');
+    try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email: email.trim(), password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            // Backend resends a code for unverified accounts — jump to verify step.
+            if (data.code === 'EMAIL_NOT_VERIFIED') {
+                setModalStatus('closed');
+                setAuthStep('verify');
+                return;
+            }
+            throw new Error(data.error || 'Login failed. Check your details and try again.');
+        }
+
+        if (data.token) localStorage.setItem('auth_token', data.token);
+
+        fireSideCanons();
+        setModalStatus('success');
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 1800);
+    } catch (err: any) {
+        setModalErrorMessage(err.message || 'Login failed.');
+        setModalStatus('error');
+    }
+  };
+
   const handleProgressStep = () => {
     if (authStep === 'email') {
         if (isEmailValid) setAuthStep("password");
     } else if (authStep === 'password') {
-        if (isPasswordValid) setAuthStep("confirmPassword");
+        if (mode === 'signup') {
+            if (isPasswordValid) setAuthStep("confirmPassword");
+        } else if (password.length > 0) {
+            handleSignIn();
+        }
     }
   };
 
@@ -373,7 +426,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
             <fieldset disabled={modalStatus !== 'closed'} className="relative z-10 flex flex-col items-center gap-8 w-[280px] mx-auto p-4">
                 <AnimatePresence mode="wait">
                     {authStep === "email" && <motion.div key="email-content" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center gap-4">
-                        <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground whitespace-nowrap">Get started with Us</p></div></BlurFade>
+                        <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground whitespace-nowrap">{mode === 'signup' ? 'Get started with Us' : 'Welcome back'}</p></div></BlurFade>
                         <BlurFade delay={0.25 * 2}><p className="text-sm font-medium text-muted-foreground">Continue with</p></BlurFade>
                         <BlurFade delay={0.25 * 3}><div className="flex items-center justify-center gap-4 w-full">
                             <GlassButton type="button" onClick={handleGoogleAuth} contentClassName="flex items-center justify-center gap-2" size="sm"><GoogleIcon /><span className="font-semibold text-foreground">Continue with Google</span></GlassButton>
@@ -381,8 +434,8 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
                         <BlurFade delay={0.25 * 4} className="w-[300px]"><div className="flex items-center w-full gap-2 py-2"><hr className="w-full border-border"/><span className="text-xs font-semibold text-muted-foreground">OR</span><hr className="w-full border-border"/></div></BlurFade>
                     </motion.div>}
                     {authStep === "password" && <motion.div key="password-title" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center text-center gap-4">
-                        <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">Create your password</p></div></BlurFade>
-                        <BlurFade delay={0.25 * 1}><p className="text-sm font-medium text-muted-foreground">Your password must be at least 8 characters long.</p></BlurFade>
+                        <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">{mode === 'signup' ? 'Create your password' : 'Enter your password'}</p></div></BlurFade>
+                        <BlurFade delay={0.25 * 1}><p className="text-sm font-medium text-muted-foreground">{mode === 'signup' ? 'Your password must be at least 8 characters long.' : 'Enter your password to sign in.'}</p></BlurFade>
                     </motion.div>}
                      {authStep === "confirmPassword" && <motion.div key="confirm-title" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center text-center gap-4">
                          <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">One Last Step</p></div></BlurFade>
@@ -419,15 +472,16 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
                                         <div className="glass-input-wrap w-full"><div className="glass-input">
                                             <span className="glass-input-text-area"></span>
                                             <div className="relative z-10 flex-shrink-0 flex items-center justify-center w-10 pl-2">
-                                                {isPasswordValid ? <button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-foreground/80 hover:text-foreground transition-colors p-2 rounded-full">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button> : <Lock className="h-5 w-5 text-foreground/80 flex-shrink-0" />}
+                                                {password.length > 0 ? <button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)} className="text-foreground/80 hover:text-foreground transition-colors p-2 rounded-full">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button> : <Lock className="h-5 w-5 text-foreground/80 flex-shrink-0" />}
                                             </div>
                                             <input ref={passwordInputRef} type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKeyDown} className="relative z-10 h-full w-0 flex-grow bg-transparent text-foreground placeholder:text-foreground/60 focus:outline-none" />
-                                            <div className={cn( "relative z-10 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out", isPasswordValid ? "w-10 pr-1" : "w-0" )}><GlassButton type="button" onClick={handleProgressStep} size="icon" aria-label="Submit password" contentClassName="text-foreground/80 hover:text-foreground"><ArrowRight className="w-5 h-5" /></GlassButton></div>
+                                            <div className={cn( "relative z-10 flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out", passwordStepReady ? "w-10 pr-1" : "w-0" )}><GlassButton type="button" onClick={handleProgressStep} size="icon" aria-label={mode === 'signup' ? 'Submit password' : 'Sign in'} contentClassName="text-foreground/80 hover:text-foreground"><ArrowRight className="w-5 h-5" /></GlassButton></div>
                                         </div></div>
                                     </div>
                                     <BlurFade inView delay={0.2}><button type="button" onClick={handleGoBack} className="mt-4 flex items-center gap-2 text-sm text-foreground/70 hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /> Go back</button></BlurFade>
                                 </BlurFade>}
                             </AnimatePresence>
+                            {authStep === 'email' && <BlurFade delay={0.25 * 6} inView className="w-full"><div className="flex justify-center pt-1"><button type="button" onClick={toggleMode} className="text-sm font-medium text-foreground/70 hover:text-foreground transition-colors">{mode === 'signup' ? 'Already have an account? Sign in' : 'New here? Create an account'}</button></div></BlurFade>}
                         </motion.div>}
                     </AnimatePresence>
                     <AnimatePresence>
