@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Newspaper,
+  StickyNote,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom } from '@/store/atoms';
@@ -38,6 +39,7 @@ import { soundManager } from '@/lib/sounds';
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/reports', icon: FileText, label: 'Reports' },
+  { path: '/notes', icon: StickyNote, label: 'Notepad' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/news', icon: Newspaper, label: 'News' },
   { path: '/notices', icon: Bell, label: 'Notices' },
