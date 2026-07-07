@@ -53,13 +53,13 @@ export function setTheme(theme: Theme, options: SetThemeOptions = {}) {
 export function toggleTheme(): Theme {
   const current = getTheme();
   const next = current === 'dark' ? 'light' : 'dark';
-  setTheme(next, true);
+  setTheme(next, { persist: true });
   return next;
 }
 
 // Initialize theme on load
 export function initTheme() {
-  setTheme(getTheme(), false);
+  setTheme(getTheme(), { persist: false });
 }
 
 export function subscribeToThemeChange(callback: (theme: Theme) => void) {
