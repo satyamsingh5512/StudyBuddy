@@ -106,4 +106,12 @@ func SetupRoutes(app *fiber.App) {
 	reports.Get("/", handlers.GetReports)
 	reports.Get("/efficiency", handlers.GetDailyEfficiency)
 	reports.Post("/", handlers.CreateReport)
+
+	// Notes (notepad)
+	notes := protected.Group("/notes")
+	notes.Get("/", handlers.GetNotes)
+	notes.Post("/", handlers.CreateNote)
+	notes.Put("/:id", handlers.UpdateNote)
+	notes.Patch("/:id", handlers.UpdateNote) // Support PATCH for frontend compatibility
+	notes.Delete("/:id", handlers.DeleteNote)
 }
