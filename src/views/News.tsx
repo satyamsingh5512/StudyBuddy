@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
-import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { Newspaper, Calendar, TrendingUp, AlertCircle, Sparkles, RefreshCw, Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';
 
 import { userAtom } from '@/store/atoms';
 import { apiFetchJSON } from '@/config/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface NewsItem {
   title: string;
@@ -71,6 +72,8 @@ const normalizeCategory = (category: string): NewsItem['category'] => {
 export default function News() {
   const user = useAtomValue(userAtom);
   const [activeCategory, setActiveCategory] = useState<CategoryType>('all');
+  const [queryInput, setQueryInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const examType = user?.examGoal || 'JEE';
 
   const {
@@ -102,10 +105,47 @@ export default function News() {
     refetchOnWindowFocus: true,
   });
 
+  const {
+    data: searchData,
+    isFetching: searchFetching,
+    error: searchError,
+    refetch: refetchSearch,
+  } = useQuery<NewsResponse, Error>({
+    queryKey: ['newsSearch', examType, activeSearch],
+    queryFn: () =>
+      apiFetchJSON<NewsResponse>(`/news/${examType}/search`, {
+        method: 'POST',
+        body: JSON.stringify({ query: activeSearch }),
+      }),
+    enabled: activeSearch.trim().length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  const isSearching = activeSearch.trim().length > 0;
   const news = newsData?.news ?? [];
+  const searchResults = searchData?.news ?? [];
+  const sourceNews = isSearching ? searchResults : news;
   const dates = datesData?.dates ?? [];
+  const feedLoading = isSearching ? searchFetching : loading;
+  const feedError = isSearching ? searchError : error;
   const isRefreshing = newsFetching || datesFetching;
-  const showCachedIndicator = !loading && !isRefreshing && news.length > 0;
+  const showCachedIndicator = !isSearching && !loading && !isRefreshing && news.length > 0;
+
+  const handleSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const q = queryInput.trim();
+    if (!q) return;
+    setActiveSearch(q);
+    setActiveCategory('all');
+  };
+
+  const clearSearch = () => {
+    setActiveSearch('');
+    setQueryInput('');
+    setActiveCategory('all');
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -120,17 +160,17 @@ export default function News() {
   };
 
   const filteredNews = useMemo(() => {
-    if (activeCategory === 'all') return news;
-    return news.filter((item) => normalizeCategory(item.category) === activeCategory);
-  }, [news, activeCategory]);
+    if (activeCategory === 'all') return sourceNews;
+    return sourceNews.filter((item) => normalizeCategory(item.category) === activeCategory);
+  }, [sourceNews, activeCategory]);
 
   const featuredNews = filteredNews[0];
   const remainingNews = filteredNews.slice(1);
 
   const availableCategories = useMemo(() => {
-    const cats = new Set(news.map((n) => normalizeCategory(n.category)));
+    const cats = new Set(sourceNews.map((n) => normalizeCategory(n.category)));
     return ['all', ...Array.from(cats)] as CategoryType[];
-  }, [news]);
+  }, [sourceNews]);
 
   const handleRefresh = async () => {
     await Promise.all([refetchNews(), refetchDates()]);
@@ -159,6 +199,48 @@ export default function News() {
         </Button>
       </div>
 
+      {/* Search box: query current or past exam news */}
+      <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
+            placeholder={`Search ${examType} news — e.g. "2022 cutoff trends" or "expected 2027 exam dates"`}
+            aria-label="Search exam news"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit" disabled={!queryInput.trim() || searchFetching} className="flex items-center gap-2">
+            <Search className="w-4 h-4" />
+            Search
+          </Button>
+          {isSearching && (
+            <Button type="button" variant="ghost" onClick={clearSearch} className="flex items-center gap-2">
+              <X className="w-4 h-4" />
+              Clear
+            </Button>
+          )}
+        </div>
+      </form>
+
+      {isSearching && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-secondary/40 px-4 py-2.5 text-sm">
+          <span className="text-muted-foreground">
+            {searchFetching ? 'Searching for ' : 'Showing results for '}
+            <span className="font-semibold text-foreground">&ldquo;{activeSearch}&rdquo;</span>
+          </span>
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="text-xs font-semibold text-primary hover:underline whitespace-nowrap"
+          >
+            Back to latest news
+          </button>
+        </div>
+      )}
+
       {showCachedIndicator && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground" title="Showing cached data and refreshing in the background when needed.">
           <div className="relative group cursor-help">
@@ -177,7 +259,7 @@ export default function News() {
         </div>
       )}
 
-      {!loading && news.length > 0 && (
+      {!feedLoading && sourceNews.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           {availableCategories.map((cat) => (
             <Button
@@ -195,7 +277,7 @@ export default function News() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {loading ? (
+          {feedLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="glass-card rounded-2xl p-6 animate-pulse">
@@ -205,18 +287,20 @@ export default function News() {
                 </div>
               ))}
             </div>
-          ) : error ? (
+          ) : feedError ? (
             <div className="glass-card rounded-2xl p-8 text-center border-destructive/50">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-              <p className="text-destructive font-medium">{error.message || 'Failed to load news.'}</p>
-              <Button onClick={handleRefresh} variant="destructive" className="mt-4">
+              <p className="text-destructive font-medium">{feedError.message || 'Failed to load news.'}</p>
+              <Button onClick={isSearching ? () => refetchSearch() : handleRefresh} variant="destructive" className="mt-4">
                 Try Again
               </Button>
             </div>
           ) : filteredNews.length === 0 ? (
             <div className="glass-card rounded-2xl p-12 text-center">
               <Newspaper className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground font-medium">No news available for this category</p>
+              <p className="text-muted-foreground font-medium">
+                {isSearching ? 'No results found for your search' : 'No news available for this category'}
+              </p>
             </div>
           ) : (
             <>

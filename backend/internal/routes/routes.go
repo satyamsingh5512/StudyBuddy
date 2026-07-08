@@ -49,6 +49,7 @@ func SetupRoutes(app *fiber.App) {
 	// News
 	protected.Get("/news/:examType", handlers.GetNews)
 	protected.Get("/news/:examType/dates", handlers.GetNewsDates)
+	protected.Post("/news/:examType/search", handlers.SearchNews)
 	protected.Post("/news/cache/clear", handlers.ClearNewsCache)
 
 	// Messages
