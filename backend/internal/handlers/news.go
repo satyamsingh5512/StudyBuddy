@@ -23,13 +23,19 @@ type CachedNews struct {
 var newsCache = sync.Map{}
 var CACHE_DURATION int64 = 3600000 // 1 hour in ms
 
-// defaultGroqModel uses Groq's Compound system, which augments the underlying
-// Llama/GPT-OSS models with real-time web search. Plain instruction-following
-// models have a training cutoff and cannot know "today's date" or current
-// exam-cycle news, so they will confidently invent stale/incorrect dates no
-// matter how the prompt is worded. Compound actually searches the live web
-// before answering, which is required for this to be factually current.
-const defaultGroqModel = "groq/compound"
+// defaultGroqModel uses Groq's Compound Mini system, which augments the
+// underlying Llama model with real-time web search (a single search per
+// request). Plain instruction-following models have a training cutoff and
+// cannot know "today's date" or current exam-cycle news, so they will
+// confidently invent stale/incorrect dates no matter how the prompt is
+// worded — Compound actually searches the live web before answering, which
+// is required for this to be factually current.
+//
+// We use compound-mini (max 1 tool call) rather than full compound (up to 10
+// tool calls) because compound's multi-step tool use can accumulate enough
+// fetched web content in context to trip Groq's 413 "request too large"
+// error for a simple news lookup. Mini is faster and sufficient for this.
+const defaultGroqModel = "groq/compound-mini"
 
 var allowedNewsCategories = map[string]struct{}{
 	"announcement": {},
@@ -116,6 +122,34 @@ func normalizeNewsItems(raw interface{}) ([]generatedNewsItem, error) {
 	return normalized, nil
 }
 
+var errRequestTooLarge = errors.New("request too large")
+
+// fallbackGroqModel is a plain (non-tool-use) model used only as a retry when
+// the search-grounded model's accumulated context trips a 413. It won't have
+// live web results, but the date-fencing rules in each prompt still keep it
+// from returning clearly stale years.
+const fallbackGroqModel = "llama-3.1-8b-instant"
+
+// callGroqJSONWithFallback calls callGroqJSON with the requested model, and on
+// a 413 (request too large — usually from search-tool context accumulation)
+// retries once with a smaller completion budget and a plain model that
+// doesn't call tools, so the feature degrades gracefully instead of failing.
+func callGroqJSONWithFallback(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
+	text, err := callGroqJSON(apiKey, model, systemInstruction, userPrompt, temperature, maxOutputTokens)
+	if err == nil {
+		return text, nil
+	}
+	if !errors.Is(err, errRequestTooLarge) {
+		return "", err
+	}
+
+	retryTokens := maxOutputTokens / 2
+	if retryTokens < 512 {
+		retryTokens = 512
+	}
+	return callGroqJSON(apiKey, fallbackGroqModel, systemInstruction, userPrompt, temperature, retryTokens)
+}
+
 // callGroqJSON sends a chat-completion request to Groq's OpenAI-compatible API
 // and returns the assistant message content (expected to be JSON). Groq hosts
 // open models such as Meta's Llama; the model is configurable via GROQ_MODEL.
@@ -155,6 +189,9 @@ func callGroqJSON(apiKey, model, systemInstruction, userPrompt string, temperatu
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusRequestEntityTooLarge {
+			return "", errRequestTooLarge
+		}
 		return "", fmt.Errorf("Groq API error (%d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -249,7 +286,7 @@ Rules:
 - Date must be YYYY-MM-DD.
 - Keep each item relevant to %s.`, today, examTypeUpper, currentYear, currentYear, currentYear, examTypeUpper)
 
-	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.6, 1500)
+	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.6, 1500)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -299,7 +336,7 @@ Rules:
 - No markdown, no backticks, no extra keys, no text outside the JSON object.
 - Date must be YYYY-MM-DD.`, today, examTypeUpper, currentYear, currentYear+1, examTypeUpper, currentYear, currentYear)
 
-	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.4, 1000)
+	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.4, 1000)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -378,7 +415,7 @@ Rules:
 - Date must be YYYY-MM-DD and match the timeframe implied by the query.
 - Keep every item relevant to %s and to the user's query.`, today, examTypeUpper, query, examTypeUpper)
 
-	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.5, 1800)
+	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.5, 1800)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
