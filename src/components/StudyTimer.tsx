@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom, userAtom, timerSessionStartAtom } from '@/store/atoms';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { GlassCard as Card, GlassCardContent as CardContent } from '@/components/dashboard/glass';
 import { formatTime } from '@/lib/utils';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
@@ -336,7 +336,7 @@ export default function StudyTimer() {
             className="cursor-grab active:cursor-grabbing"
           >
             {/* RESPONSIVE FIX: Fluid width for mobile */}
-            <Card className="shadow-lg" style={{ width: 'clamp(280px, 90vw, 320px)' }}>
+            <Card tier="elevated" className="shadow-lg" style={{ width: 'clamp(280px, 90vw, 320px)' }}>
               <CardContent className="p-4 sm:p-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
