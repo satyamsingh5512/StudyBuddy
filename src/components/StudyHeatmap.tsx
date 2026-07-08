@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import {
+    GlassCard as Card,
+    GlassCardContent as CardContent,
+    GlassCardHeader as CardHeader,
+    GlassCardTitle as CardTitle,
+} from '@/components/dashboard/glass';
 import { Flame } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
@@ -76,7 +81,7 @@ export default function StudyHeatmap({ data = generateMockHeatmapData() }: Study
     };
 
     return (
-        <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-xl overflow-hidden group">
+        <Card className="shadow-xl overflow-hidden group">
             <CardHeader className="pb-3 border-b border-border/50 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
                     <span className="flex items-center gap-2 text-foreground">
