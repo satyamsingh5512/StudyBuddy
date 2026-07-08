@@ -1,0 +1,165 @@
+/**
+ * Dashboard Glassmorphism — primitive surface classes + ambient background.
+ * Scope: dashboard module only. Consumed by GlassSurface.tsx and the ambient
+ * background layer. Depends on tokens in dashboard-glass-tokens.css.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Glass surfaces
+ * - backdrop-filter and border-radius live on the SAME element (gotcha from
+ *   spec: keeping them together avoids blur bleeding past rounded corners
+ *   in some engines). overflow:hidden guards inner content too.
+ * - -webkit- prefix always paired with the unprefixed property (Safari).
+ * - Wrapped in @supports with a solid, opaque fallback for browsers without
+ *   backdrop-filter support — never falls through to a flat/dead block.
+ * ------------------------------------------------------------------------ */
+
+.sbd-glass {
+  overflow: hidden;
+  contain: layout style paint;
+  border: 1px solid var(--sbd-glass-border-outer);
+  box-shadow: var(--sbd-glass-shadow), inset 0 1px 0 0 var(--sbd-glass-border-inset);
+}
+
+.sbd-glass--ambient {
+  border-radius: var(--sbd-glass-radius-card);
+  background: var(--sbd-glass-fallback-bg-ambient);
+}
+
+.sbd-glass--card {
+  border-radius: var(--sbd-glass-radius-card);
+  background: var(--sbd-glass-fallback-bg-card);
+}
+
+.sbd-glass--elevated {
+  border-radius: var(--sbd-glass-radius-modal);
+  background: var(--sbd-glass-fallback-bg-elevated);
+  box-shadow: var(--sbd-glass-shadow-elevated), inset 0 1px 0 0 var(--sbd-glass-border-inset);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .sbd-glass--ambient {
+    background: var(--sbd-glass-bg-ambient);
+    -webkit-backdrop-filter: blur(var(--sbd-glass-blur-ambient)) saturate(var(--sbd-glass-saturate-ambient));
+    backdrop-filter: blur(var(--sbd-glass-blur-ambient)) saturate(var(--sbd-glass-saturate-ambient));
+  }
+
+  .sbd-glass--card {
+    background: var(--sbd-glass-bg-card);
+    -webkit-backdrop-filter: blur(var(--sbd-glass-blur-card)) saturate(var(--sbd-glass-saturate-card));
+    backdrop-filter: blur(var(--sbd-glass-blur-card)) saturate(var(--sbd-glass-saturate-card));
+  }
+
+  .sbd-glass--elevated {
+    background: var(--sbd-glass-bg-elevated);
+    -webkit-backdrop-filter: blur(var(--sbd-glass-blur-elevated)) saturate(var(--sbd-glass-saturate-elevated));
+    backdrop-filter: blur(var(--sbd-glass-blur-elevated)) saturate(var(--sbd-glass-saturate-elevated));
+  }
+}
+
+/* Focus ring — must be visibly distinct from hover for keyboard users */
+.sbd-glass:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--sbd-glass-shadow),
+    inset 0 1px 0 0 var(--sbd-glass-border-inset),
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--ring));
+}
+
+.sbd-glass--elevated:focus-visible {
+  box-shadow:
+    var(--sbd-glass-shadow-elevated),
+    inset 0 1px 0 0 var(--sbd-glass-border-inset),
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--ring));
+}
+
+/* ---------------------------------------------------------------------------
+ * Ambient background — gradient mesh
+ * Sits below all glass surfaces (z-index), never itself has backdrop-filter
+ * (it's the thing being blurred, not a glass layer). Blobs drift via CSS
+ * @keyframes only — zero main-thread cost.
+ * ------------------------------------------------------------------------ */
+
+.sbd-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.sbd-ambient-bg__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.2;
+  /* transform-only animation — never animate filter/blur values */
+  will-change: transform;
+}
+
+.sbd-ambient-bg__blob--1 {
+  top: -10%;
+  left: -5%;
+  width: 42vw;
+  height: 42vw;
+  min-width: 380px;
+  min-height: 380px;
+  background: hsl(var(--sbd-blob-1));
+  animation: sbd-drift-1 32s ease-in-out infinite;
+}
+
+.sbd-ambient-bg__blob--2 {
+  top: 30%;
+  right: -8%;
+  width: 38vw;
+  height: 38vw;
+  min-width: 340px;
+  min-height: 340px;
+  background: hsl(var(--sbd-blob-2));
+  animation: sbd-drift-2 38s ease-in-out infinite;
+}
+
+.sbd-ambient-bg__blob--3 {
+  bottom: -12%;
+  left: 20%;
+  width: 36vw;
+  height: 36vw;
+  min-width: 320px;
+  min-height: 320px;
+  background: hsl(var(--sbd-blob-3));
+  animation: sbd-drift-3 26s ease-in-out infinite;
+}
+
+@keyframes sbd-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, 8vh) scale(1.08); }
+}
+
+@keyframes sbd-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-7vw, 5vh) scale(1.05); }
+}
+
+@keyframes sbd-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4vw, -6vh) scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sbd-ambient-bg__blob--1,
+  .sbd-ambient-bg__blob--2,
+  .sbd-ambient-bg__blob--3 {
+    animation: none;
+  }
+}
+
+/* Long-list performance: content-visibility for offscreen dashboard rows.
+   Paired with existing .list-item-optimized already used app-wide. */
+.sbd-glass-row {
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 64px;
+}
