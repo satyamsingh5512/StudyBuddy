@@ -1,0 +1,90 @@
+/**
+ * Dashboard Glassmorphism Design Tokens
+ * ---------------------------------------------------------------------------
+ * Scope: ONLY the dashboard module (`app/dashboard`, `src/views/Dashboard.tsx`
+ * and its child components: StudyHeatmap, StudyTimer, AnalyticsDashboard,
+ * AnimatedNumber, Skeleton-as-used-in-dashboard).
+ *
+ * This file is intentionally separate from the app-wide `.glass` utilities
+ * already defined in `src/index.css` (--glass-bg / --glass-opacity / etc.),
+ * which many other routes (Settings, Friends, Messages, Notes...) depend on.
+ * Reusing or mutating those would leak this redesign outside the dashboard.
+ *
+ * Namespace: every token is prefixed `--sbd-glass-*` ("StudyBuddy Dashboard
+ * glass") to avoid any collision with the existing `--glass-*` tokens.
+ *
+ * Theme mechanism reused as-is: values are scoped under `.dark` / default,
+ * matching the app's existing `darkMode: ['class']` + `.dark` on <html>
+ * convention (see src/lib/theme.ts). No new theme mechanism introduced.
+ *
+ * Import once, at the dashboard boundary (app/dashboard/page.tsx), so it
+ * never affects other routes' bundles or cascade.
+ */
+
+:root {
+  /* ===== Elevation tier: ambient (full-bleed background panels) ===== */
+  --sbd-glass-blur-ambient: 60px;
+  --sbd-glass-saturate-ambient: 170%;
+
+  /* ===== Elevation tier: card (default cards/panels, most common) ===== */
+  --sbd-glass-blur-card: 22px;
+  --sbd-glass-saturate-card: 170%;
+
+  /* ===== Elevation tier: elevated (modals/popovers/overlays) ===== */
+  --sbd-glass-blur-elevated: 32px;
+  --sbd-glass-saturate-elevated: 180%;
+
+  /* ===== Radii ===== */
+  --sbd-glass-radius-sm: 16px;   /* chips / buttons */
+  --sbd-glass-radius-card: 22px; /* cards */
+  --sbd-glass-radius-modal: 28px; /* modals / sheets */
+
+  /* ===== Light theme (default) ===== */
+  --sbd-glass-bg-ambient: rgba(255, 255, 255, 0.35);
+  --sbd-glass-bg-card: rgba(255, 255, 255, 0.55);
+  --sbd-glass-bg-elevated: rgba(255, 255, 255, 0.72);
+
+  --sbd-glass-border-outer: rgba(255, 255, 255, 0.85);
+  --sbd-glass-border-inset: rgba(0, 0, 0, 0.06);
+
+  --sbd-glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
+  --sbd-glass-shadow-elevated: 0 16px 48px rgba(31, 38, 135, 0.22);
+
+  /* Fallback bg for browsers without backdrop-filter support (~95% opaque) */
+  --sbd-glass-fallback-bg-ambient: rgba(255, 255, 255, 0.92);
+  --sbd-glass-fallback-bg-card: rgba(255, 255, 255, 0.95);
+  --sbd-glass-fallback-bg-elevated: rgba(255, 255, 255, 0.97);
+
+  /* Ambient background blob colors (light) — pastel, high lightness */
+  --sbd-blob-1: 210 100% 85%; /* soft blue */
+  --sbd-blob-2: 330 100% 88%; /* soft pink */
+  --sbd-blob-3: 160 70% 85%;  /* soft mint */
+}
+
+.dark {
+  --sbd-glass-bg-ambient: rgba(20, 20, 24, 0.35);
+  --sbd-glass-bg-card: rgba(28, 28, 32, 0.55);
+  --sbd-glass-bg-elevated: rgba(32, 32, 38, 0.72);
+
+  --sbd-glass-border-outer: rgba(255, 255, 255, 0.09);
+  --sbd-glass-border-inset: rgba(255, 255, 255, 0.05);
+
+  --sbd-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --sbd-glass-shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --sbd-glass-fallback-bg-ambient: rgba(20, 20, 24, 0.94);
+  --sbd-glass-fallback-bg-card: rgba(28, 28, 32, 0.96);
+  --sbd-glass-fallback-bg-elevated: rgba(32, 32, 38, 0.97);
+
+  /* Ambient background blob colors (dark) — saturated, low lightness */
+  --sbd-blob-1: 240 60% 35%; /* indigo */
+  --sbd-blob-2: 180 60% 22%; /* deep teal */
+  --sbd-blob-3: 280 45% 30%; /* plum */
+}
+
+/**
+ * Cross-browser: solid, sufficiently-opaque fallback for browsers without
+ * backdrop-filter support. Applied via @supports not() in the primitives'
+ * generated class names (see glass-primitives.css), tokens declared here
+ * for a single source of truth.
+ */
