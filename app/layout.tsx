@@ -1,4 +1,10 @@
 import '../src/index.css';
+// Dashboard-only glassmorphism tokens/classes (namespaced `sbd-*` / `--sbd-*`).
+// Next.js requires global stylesheets to be imported from the root layout,
+// but every rule inside is scoped by class/selector to the dashboard module —
+// it has no visual effect on any other route.
+import '../src/styles/dashboard-glass-tokens.css';
+import '../src/styles/dashboard-glass.css';
 import { Analytics } from '@vercel/analytics/next';
 
 import { Providers } from './Providers';
