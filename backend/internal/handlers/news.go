@@ -23,7 +23,13 @@ type CachedNews struct {
 var newsCache = sync.Map{}
 var CACHE_DURATION int64 = 3600000 // 1 hour in ms
 
-const defaultGroqModel = "llama-3.3-70b-versatile"
+// defaultGroqModel uses Groq's Compound system, which augments the underlying
+// Llama/GPT-OSS models with real-time web search. Plain instruction-following
+// models have a training cutoff and cannot know "today's date" or current
+// exam-cycle news, so they will confidently invent stale/incorrect dates no
+// matter how the prompt is worded. Compound actually searches the live web
+// before answering, which is required for this to be factually current.
+const defaultGroqModel = "groq/compound"
 
 var allowedNewsCategories = map[string]struct{}{
 	"announcement": {},
@@ -220,12 +226,12 @@ func GetNews(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
 	}
 
-	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Return only valid JSON without markdown."
+	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Use web search to find real, current information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON array itself."
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	currentYear := now.Year()
-	prompt := fmt.Sprintf(`Today's date is %s. You are preparing news for %s aspirants in India for the %d exam cycle.
-Generate exactly 5 useful, current, and forward-looking updates.
+	prompt := fmt.Sprintf(`Today's date is %s. Search the web for the latest real news about the %s exam for Indian aspirants, for the %d exam cycle.
+Generate exactly 5 useful, current, and forward-looking updates based on what you find.
 Return a JSON array with this schema:
 [
   {
@@ -237,9 +243,9 @@ Return a JSON array with this schema:
   }
 ]
 Rules:
-- Every "date" MUST be %d-01-01 or later. Never output any date before %d.
+- Every "date" MUST be %d-01-01 or later. Never output any date before %d — if you cannot find a real, current source, omit that item rather than inventing an old date.
 - Focus on the current and upcoming exam cycle. If an official date is not yet announced, give the most probable expected date and write "(expected)" in the content.
-- No markdown, no backticks, no extra keys.
+- No markdown, no backticks, no extra keys, no text outside the JSON array.
 - Date must be YYYY-MM-DD.
 - Keep each item relevant to %s.`, today, examTypeUpper, currentYear, currentYear, currentYear, examTypeUpper)
 
@@ -270,11 +276,11 @@ func GetNewsDates(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
 	}
 
-	systemInstruction := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Return only valid JSON without markdown."
+	systemInstruction := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Use web search to find real, current information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON object itself."
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	currentYear := now.Year()
-	prompt := fmt.Sprintf(`Today's date is %s. Provide key dates for the %s exam cycle for %d (and early %d if relevant) in India.
+	prompt := fmt.Sprintf(`Today's date is %s. Search the web for the latest real key dates for the %s exam cycle for %d (and early %d if relevant) in India.
 Return a JSON object with this schema:
 {
   "examName": "%s",
@@ -287,10 +293,10 @@ Return a JSON object with this schema:
   ]
 }
 Rules:
-- Every "date" MUST be %d-01-01 or later. Do not include any date before %d.
+- Every "date" MUST be %d-01-01 or later. Do not include any date before %d — if you cannot find a real, current source, omit that item rather than inventing an old date.
 - If a date is not yet officially announced, provide the most probable expected date based on previous years' patterns and note "(expected)" in the description.
 - Include registration, exam, result, and counseling milestones when applicable.
-- No markdown, no backticks, no extra keys.
+- No markdown, no backticks, no extra keys, no text outside the JSON object.
 - Date must be YYYY-MM-DD.`, today, examTypeUpper, currentYear, currentYear+1, examTypeUpper, currentYear, currentYear)
 
 	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.4, 1000)
@@ -350,11 +356,12 @@ func SearchNews(c *fiber.Ctx) error {
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
-	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Return only valid JSON without markdown."
+	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Use web search to find real, accurate information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON array itself."
 	prompt := fmt.Sprintf(`Today's date is %s. A %s aspirant in India asked: "%s".
-Respond with 3 to 6 news/update items that best answer this query.
-- If the query is about a past exam cycle or historical data, give accurate information you are confident about for that period, using dates from that timeframe.
+Search the web and respond with 3 to 6 news/update items that best answer this query, based on what you find.
+- If the query is about a past exam cycle or historical data, give accurate information for that period, using real dates from that timeframe.
 - If the query is about the current or upcoming cycle, give current or most-probable expected updates and write "(expected)" in the content for unconfirmed dates.
+- If you cannot find real information for an item, omit it rather than inventing one.
 
 Return a JSON array with this schema:
 [
