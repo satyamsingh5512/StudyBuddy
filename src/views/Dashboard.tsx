@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from '@/lib/router';
 import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical, Gauge } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { staggerContainer, getRiseItem, springSnappy } from '@/lib/motion';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,6 +38,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+/** Card that participates in entrance orchestration and lifts on hover. */
+const MotionCard = motion(Card);
 
 interface Todo {
   id: string;
@@ -857,9 +862,19 @@ export default function Dashboard() {
 
   const navigate = useNavigate();
 
+  // Motion: orchestrated entrance for the dashboard. Respects reduced-motion.
+  const reduce = useReducedMotion();
+  const item = getRiseItem(reduce);
+  const hoverLift = reduce ? undefined : { y: -6, transition: springSnappy };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <motion.div
+      className="space-y-6"
+      variants={staggerContainer(0.08, 0.05)}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={item} className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
           <p className="text-sm text-muted-foreground">
@@ -892,12 +907,12 @@ export default function Dashboard() {
             <span className="hidden sm:inline">Find Friends</span>
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Cards - Responsive Grid on Large Screens, Horizontal Scroll on Mobile */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-4 xs:gap-6 xl:gap-8 xl:overflow-x-auto xl:pb-4 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent">
+      <motion.div variants={staggerContainer(0.07)} className="grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-4 xs:gap-6 xl:gap-8 xl:overflow-x-auto xl:pb-4 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent">
         {/* Today's Tasks Card */}
-        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/5">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -911,9 +926,10 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-primary transition-colors">
-                    {todaysTasks}
-                  </span>
+                  <AnimatedNumber
+                    value={todaysTasks}
+                    className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-primary transition-colors"
+                  />
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
                   Active tasks
@@ -921,11 +937,11 @@ export default function Dashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MotionCard>
 
         {/* Overdue Tasks Card */}
         {overdueCount > 0 && (
-          <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-destructive/20 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-destructive/5 line-through-animation">
+          <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-destructive/20 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-destructive/5 line-through-animation">
             <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-24 h-24 bg-destructive/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
               <div className="relative z-10">
@@ -939,9 +955,10 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-auto">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-destructive">
-                      {overdueCount}
-                    </span>
+                    <AnimatedNumber
+                      value={overdueCount}
+                      className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-destructive"
+                    />
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
                     Need attention
@@ -949,11 +966,11 @@ export default function Dashboard() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </MotionCard>
         )}
 
         {/* Completed Tasks Card */}
-        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-success/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-success/5">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-success/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -967,9 +984,10 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-success transition-colors">
-                    {completedCount}
-                  </span>
+                  <AnimatedNumber
+                    value={completedCount}
+                    className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-success transition-colors"
+                  />
                   <span className="text-sm font-bold font-mono text-muted-foreground">/{todos.length}</span>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
@@ -978,10 +996,10 @@ export default function Dashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MotionCard>
 
         {/* Overall Efficiency Card */}
-        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/10">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/10">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -995,9 +1013,17 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-primary transition-colors">
-                    {efficiencyLoading ? '--' : `${Math.round(dailyEfficiency?.overallEfficiencyPct || 0)}%`}
-                  </span>
+                  {efficiencyLoading ? (
+                    <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground">
+                      --
+                    </span>
+                  ) : (
+                    <AnimatedNumber
+                      value={Math.round(dailyEfficiency?.overallEfficiencyPct || 0)}
+                      suffix="%"
+                      className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-primary transition-colors"
+                    />
+                  )}
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
                   {efficiencyLoading
@@ -1012,10 +1038,10 @@ export default function Dashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MotionCard>
 
         {/* Total Points Card */}
-        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -1029,9 +1055,10 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-accent transition-colors">
-                    {user?.totalPoints || 0}
-                  </span>
+                  <AnimatedNumber
+                    value={user?.totalPoints || 0}
+                    className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-accent transition-colors"
+                  />
                   <span className="text-sm font-bold font-mono text-muted-foreground">XP</span>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
@@ -1040,10 +1067,10 @@ export default function Dashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MotionCard>
 
         {/* Streak Card */}
-        <Card className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl hover:scale-[1.02] transition-all duration-300 border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -1057,9 +1084,10 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-accent transition-colors">
-                    {user?.streak || 0}
-                  </span>
+                  <AnimatedNumber
+                    value={user?.streak || 0}
+                    className="text-3xl sm:text-4xl font-black font-mono tracking-tighter text-foreground group-hover:text-accent transition-colors"
+                  />
                   <span className="text-sm font-bold font-mono text-muted-foreground">Days</span>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
@@ -1068,13 +1096,13 @@ export default function Dashboard() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </MotionCard>
 
         {/* Anchored Study Timer Component (Floating out-of-flow beside stats) */}
         <div className="absolute top-[200px] right-2 sm:right-6 lg:right-10 z-[100] xl:static xl:ml-auto">
           <StudyTimer />
         </div>
-      </div>
+      </motion.div>
 
       {/* Admin Panel - Only visible to admin users */}
       {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
@@ -1102,9 +1130,11 @@ export default function Dashboard() {
       )}
 
       {showAnalytics ? (
-        <AnalyticsDashboard user={user || undefined} />
+        <motion.div variants={item}>
+          <AnalyticsDashboard user={user || undefined} />
+        </motion.div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-xl">
             <CardHeader className="pb-3 border-b border-border/50">
               <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
@@ -1296,7 +1326,7 @@ export default function Dashboard() {
           <div className="lg:sticky lg:top-24 h-fit">
             <StudyHeatmap />
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Reschedule Modal */}
@@ -1352,6 +1382,6 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
