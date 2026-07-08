@@ -7,7 +7,12 @@ import {
   BarChart3,
   Activity
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import {
+  GlassCard as Card,
+  GlassCardContent as CardContent,
+  GlassCardHeader as CardHeader,
+  GlassCardTitle as CardTitle,
+} from '@/components/dashboard/glass';
 import { Button } from './ui/button';
 import { apiFetch } from '@/config/api';
 import { formatTime } from '@/lib/utils';
@@ -195,55 +200,53 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </div>
       </div>
 
-      {/* Summary Cards - RESPONSIVE FIX: CSS Grid with auto-fit */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))' }}>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-muted-foreground">Total Study Time</p>
-                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
-              </div>
+      {/* Summary Cards - RESPONSIVE FIX: CSS Grid with auto-fit.
+          Single shared glass shell (perf budget: avoid 4 independent
+          backdrop-filter layers when this section can render alongside the
+          6 always-on dashboard stat tiles). */}
+      <div
+        className="sbd-glass sbd-glass--card p-3 grid gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))' }}
+      >
+        <div className="rounded-xl bg-background/40 p-3">
+          <div className="flex items-center space-x-2">
+            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Total Study Time</p>
+              <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-muted-foreground">Tasks Completed</p>
-                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalTasks}</p>
-              </div>
+        <div className="rounded-xl bg-background/40 p-3">
+          <div className="flex items-center space-x-2">
+            <Target className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Tasks Completed</p>
+              <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalTasks}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-muted-foreground">Focus Sessions</p>
-                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalSessions}</p>
-              </div>
+        <div className="rounded-xl bg-background/40 p-3">
+          <div className="flex items-center space-x-2">
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Focus Sessions</p>
+              <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{totalSessions}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-muted-foreground">Avg Understanding</p>
-                <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{avgUnderstanding.toFixed(1)}/10</p>
-              </div>
+        <div className="rounded-xl bg-background/40 p-3">
+          <div className="flex items-center space-x-2">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Avg Understanding</p>
+              <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{avgUnderstanding.toFixed(1)}/10</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Study Hours Chart - Histogram Style - RESPONSIVE FIX */}
