@@ -5,7 +5,21 @@ import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, Chec
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  GlassCard as Card,
+  GlassCardContent as CardContent,
+  GlassCardHeader as CardHeader,
+  GlassCardTitle as CardTitle,
+  GlassButton,
+  GlassModal,
+  AmbientBackground,
+} from '@/components/dashboard/glass';
+import {
+  Card as SolidCard,
+  CardContent as SolidCardContent,
+  CardHeader as SolidCardHeader,
+  CardTitle as SolidCardTitle,
+} from '@/components/ui/card';
 import { staggerContainer, getRiseItem, springSnappy } from '@/lib/motion';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { Button } from '@/components/ui/button';
@@ -39,8 +53,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-/** Card that participates in entrance orchestration and lifts on hover. */
-const MotionCard = motion(Card);
+/** Stat tiles inside the stats row are intentionally NOT individually glass.
+ * Performance budget: capping simultaneous backdrop-filter layers at ~6-8 per
+ * viewport means 6 independently-blurred stat cards would already eat most
+ * of the budget before the todo panel, heatmap, or analytics cards render.
+ * Instead the whole row shares ONE glass shell (`sbd-glass--card` on the
+ * row wrapper below) and each tile is a plain motion.div — same stagger/
+ * hover-lift feel, one blur layer instead of six. */
+const MotionCard = motion.div;
 
 interface Todo {
   id: string;
@@ -868,7 +888,9 @@ export default function Dashboard() {
   const hoverLift = reduce ? undefined : { y: -6, transition: springSnappy };
 
   return (
-    <motion.div
+    <>
+      <AmbientBackground />
+      <motion.div
       className="space-y-6"
       variants={staggerContainer(0.08, 0.05)}
       initial="hidden"
@@ -882,37 +904,33 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
+          <GlassButton
             onClick={() => setShowAnalytics(!showAnalytics)}
-            onMouseEnter={() => {
-
-            }}
-            onFocus={() => {
-
-            }}
-            variant="outline"
             size="sm"
-            className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2"
           >
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Analytics</span>
-          </Button>
-          <Button
+          </GlassButton>
+          <GlassButton
             onClick={() => navigate('/friends')}
-            variant="outline"
             size="sm"
-            className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+            className="flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Find Friends</span>
-          </Button>
+          </GlassButton>
         </div>
       </motion.div>
 
-      {/* Stats Cards - Responsive Grid on Large Screens, Horizontal Scroll on Mobile */}
-      <motion.div variants={staggerContainer(0.07)} className="grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-4 xs:gap-6 xl:gap-8 xl:overflow-x-auto xl:pb-4 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent">
+      {/* Stats Cards - Responsive Grid on Large Screens, Horizontal Scroll on Mobile.
+          Single shared glass shell (perf budget) — see MotionCard comment above. */}
+      <motion.div
+        variants={staggerContainer(0.07)}
+        className="sbd-glass sbd-glass--card p-3 xs:p-4 grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-3 xs:gap-4 xl:gap-6 xl:overflow-x-auto xl:pb-1 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent"
+      >
         {/* Today's Tasks Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -941,7 +959,7 @@ export default function Dashboard() {
 
         {/* Overdue Tasks Card */}
         {overdueCount > 0 && (
-          <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-destructive/20 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-destructive/5 line-through-animation">
+          <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 line-through-animation">
             <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
               <div className="absolute top-0 right-0 w-24 h-24 bg-destructive/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
               <div className="relative z-10">
@@ -970,7 +988,7 @@ export default function Dashboard() {
         )}
 
         {/* Completed Tasks Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-success/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-success/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -999,7 +1017,7 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Overall Efficiency Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0 shadow-lg hover:shadow-primary/10">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -1041,7 +1059,7 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Total Points Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -1070,7 +1088,7 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Streak Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden bg-card/80 backdrop-blur-2xl border-border/50 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 shadow-lg hover:shadow-accent/5">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
           <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
@@ -1106,16 +1124,16 @@ export default function Dashboard() {
 
       {/* Admin Panel - Only visible to admin users */}
       {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
-        <Card className="border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
+        <SolidCard className="border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20">
+          <SolidCardHeader>
+            <SolidCardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
               Admin Access
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </SolidCardTitle>
+          </SolidCardHeader>
+          <SolidCardContent>
             <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
               You have administrator privileges. Access the admin dashboard to manage users and send daily stats emails.
             </p>
@@ -1125,8 +1143,8 @@ export default function Dashboard() {
             >
               Open Admin Dashboard
             </Button>
-          </CardContent>
-        </Card>
+          </SolidCardContent>
+        </SolidCard>
       )}
 
       {showAnalytics ? (
@@ -1135,7 +1153,7 @@ export default function Dashboard() {
         </motion.div>
       ) : (
         <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-border/50 bg-card/80 backdrop-blur-2xl shadow-xl">
+          <Card className="border-transparent shadow-xl">
             <CardHeader className="pb-3 border-b border-border/50">
               <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
                 <span className="flex items-center gap-2 text-foreground">
@@ -1264,7 +1282,7 @@ export default function Dashboard() {
                           }}
                         >
                           {activeDragTodo ? (
-                            <div className="rounded-lg border border-border/60 bg-card shadow-xl overflow-hidden">
+                            <div className="sbd-glass sbd-glass--elevated overflow-hidden">
                               <div className="flex items-start gap-2 p-3">
                                 <div className="mt-1 p-0.5 rounded opacity-60">
                                   <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -1330,58 +1348,43 @@ export default function Dashboard() {
       )}
 
       {/* Reschedule Modal */}
-      <AnimatePresence>
-        {rescheduleModal.open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-              className="w-full max-w-md"
+      <GlassModal
+        open={rescheduleModal.open}
+        onOpenChange={(open) => setRescheduleModal({ open, todoId: open ? rescheduleModal.todoId : null })}
+        ariaLabel="Reschedule Objective"
+      >
+        <CardHeader className="border-b border-white/10 pb-4">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+            <Calendar className="h-4 w-4 text-primary" />
+            Reschedule Objective
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-6">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Choose a new date for this task. Tasks completed on their scheduled day earn more XP.
+          </p>
+          <Input
+            type="date"
+            value={rescheduleDate}
+            onChange={(e) => setRescheduleDate(e.target.value)}
+            min={new Date().toISOString().split('T')[0]}
+            className="bg-secondary/50 border-border/50 focus-visible:ring-primary/20"
+          />
+          <div className="flex gap-2 justify-end pt-2">
+            <GlassButton
+              variant="ghost"
+              onClick={() => setRescheduleModal({ open: false, todoId: null })}
+              className="text-xs font-semibold"
             >
-              <Card className="border-border/50 bg-card shadow-2xl">
-                <CardHeader className="border-b border-border/50 pb-4">
-                  <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    Reschedule Objective
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Choose a new date for this task. Tasks completed on their scheduled day earn more XP.
-                  </p>
-                  <Input
-                    type="date"
-                    value={rescheduleDate}
-                    onChange={(e) => setRescheduleDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="bg-secondary/50 border-border/50 focus-visible:ring-primary/20"
-                  />
-                  <div className="flex gap-2 justify-end pt-2">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setRescheduleModal({ open: false, todoId: null })}
-                      className="text-xs font-semibold"
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleReschedule} className="text-xs font-semibold">
-                      Confirm Reschedule
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              Cancel
+            </GlassButton>
+            <GlassButton variant="primary" onClick={handleReschedule} className="text-xs font-semibold">
+              Confirm Reschedule
+            </GlassButton>
+          </div>
+        </CardContent>
+      </GlassModal>
     </motion.div>
+    </>
   );
 }
