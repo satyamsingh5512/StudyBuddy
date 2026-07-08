@@ -23,7 +23,7 @@ type CachedNews struct {
 var newsCache = sync.Map{}
 var CACHE_DURATION int64 = 3600000 // 1 hour in ms
 
-const defaultGeminiModel = "gemini-1.5-flash"
+const defaultGroqModel = "llama-3.3-70b-versatile"
 
 var allowedNewsCategories = map[string]struct{}{
 	"announcement": {},
@@ -43,22 +43,16 @@ type generatedNewsItem struct {
 	Source   string `json:"source"`
 }
 
-func getGeminiModel() string {
-	model := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
+func getGroqModel() string {
+	model := strings.TrimSpace(os.Getenv("GROQ_MODEL"))
 	if model == "" {
-		return defaultGeminiModel
+		return defaultGroqModel
 	}
 	return model
 }
 
-func getGeminiAPIKey() string {
-	if key := strings.TrimSpace(os.Getenv("GEMINI_API_KEY")); key != "" {
-		return key
-	}
-	if key := strings.TrimSpace(os.Getenv("GOOGLE_API_KEY")); key != "" {
-		return key
-	}
-	return ""
+func getGroqAPIKey() string {
+	return strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
 }
 
 func normalizeCategory(category string) string {
@@ -110,32 +104,24 @@ func normalizeNewsItems(raw interface{}) ([]generatedNewsItem, error) {
 	}
 
 	if len(normalized) == 0 {
-		return nil, errors.New("empty or invalid news payload from Gemini")
+		return nil, errors.New("empty or invalid news payload from Groq")
 	}
 
 	return normalized, nil
 }
 
-func callGeminiJSON(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
+// callGroqJSON sends a chat-completion request to Groq's OpenAI-compatible API
+// and returns the assistant message content (expected to be JSON). Groq hosts
+// open models such as Meta's Llama; the model is configurable via GROQ_MODEL.
+func callGroqJSON(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
 	requestBody := map[string]interface{}{
-		"systemInstruction": map[string]interface{}{
-			"parts": []map[string]string{
-				{"text": systemInstruction},
-			},
+		"model": model,
+		"messages": []map[string]string{
+			{"role": "system", "content": systemInstruction},
+			{"role": "user", "content": userPrompt},
 		},
-		"contents": []map[string]interface{}{
-			{
-				"role": "user",
-				"parts": []map[string]string{
-					{"text": userPrompt},
-				},
-			},
-		},
-		"generationConfig": map[string]interface{}{
-			"temperature":      temperature,
-			"maxOutputTokens":  maxOutputTokens,
-			"responseMimeType": "application/json",
-		},
+		"temperature": temperature,
+		"max_tokens":  maxOutputTokens,
 	}
 
 	reqBytes, err := json.Marshal(requestBody)
@@ -143,8 +129,15 @@ func callGeminiJSON(apiKey, model, systemInstruction, userPrompt string, tempera
 		return "", err
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(reqBytes))
+	req, err := http.NewRequest(http.MethodPost, "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -156,42 +149,27 @@ func callGeminiJSON(apiKey, model, systemInstruction, userPrompt string, tempera
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Gemini API error (%d): %s", resp.StatusCode, string(bodyBytes))
+		return "", fmt.Errorf("Groq API error (%d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var geminiRes map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &geminiRes); err != nil {
+	var groqRes struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(bodyBytes, &groqRes); err != nil {
 		return "", err
 	}
 
-	candidates, ok := geminiRes["candidates"].([]interface{})
-	if !ok || len(candidates) == 0 {
-		return "", errors.New("no candidates from Gemini")
+	if len(groqRes.Choices) == 0 {
+		return "", errors.New("no choices from Groq")
 	}
 
-	candidate, ok := candidates[0].(map[string]interface{})
-	if !ok {
-		return "", errors.New("invalid candidate payload from Gemini")
-	}
-
-	contentMap, ok := candidate["content"].(map[string]interface{})
-	if !ok {
-		return "", errors.New("missing content in Gemini response")
-	}
-
-	parts, ok := contentMap["parts"].([]interface{})
-	if !ok || len(parts) == 0 {
-		return "", errors.New("missing content parts in Gemini response")
-	}
-
-	part, ok := parts[0].(map[string]interface{})
-	if !ok {
-		return "", errors.New("invalid content part from Gemini")
-	}
-
-	text, ok := part["text"].(string)
-	if !ok || strings.TrimSpace(text) == "" {
-		return "", errors.New("empty text response from Gemini")
+	text := strings.TrimSpace(groqRes.Choices[0].Message.Content)
+	if text == "" {
+		return "", errors.New("empty text response from Groq")
 	}
 
 	return text, nil
@@ -236,9 +214,9 @@ func GetNews(c *fiber.Ctx) error {
 		}
 	}
 
-	apiKey := getGeminiAPIKey()
+	apiKey := getGroqAPIKey()
 	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
 	}
 
 	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Return only valid JSON without markdown."
@@ -258,14 +236,14 @@ Rules:
 - Date must be YYYY-MM-DD.
 - Keep each item relevant to %s.`, examTypeUpper, examTypeUpper)
 
-	responseText, err := callGeminiJSON(apiKey, getGeminiModel(), systemInstruction, prompt, 0.6, 1500)
+	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.6, 1500)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var parsedNews interface{}
 	if err := parseJSONWithFallback(responseText, "[", "]", &parsedNews); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini news response"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Groq news response"})
 	}
 
 	normalizedNews, err := normalizeNewsItems(parsedNews)
@@ -279,10 +257,10 @@ Rules:
 
 func GetNewsDates(c *fiber.Ctx) error {
 	examTypeUpper := strings.ToUpper(c.Params("examType"))
-	apiKey := getGeminiAPIKey()
+	apiKey := getGroqAPIKey()
 
 	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
 	}
 
 	systemInstruction := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Return only valid JSON without markdown."
@@ -303,14 +281,14 @@ Rules:
 - No markdown, no backticks, no extra keys.
 - Date must be YYYY-MM-DD.`, examTypeUpper, examTypeUpper)
 
-	responseText, err := callGeminiJSON(apiKey, getGeminiModel(), systemInstruction, prompt, 0.4, 1000)
+	responseText, err := callGroqJSON(apiKey, getGroqModel(), systemInstruction, prompt, 0.4, 1000)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var parsedDates interface{}
 	if err := parseJSONWithFallback(responseText, "{", "}", &parsedDates); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini dates response"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Groq dates response"})
 	}
 
 	return c.JSON(parsedDates)
