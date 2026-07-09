@@ -275,14 +275,20 @@ export default function StudyTimer() {
   };
 
   return (
-    <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50">
-      {/* RESPONSIVE FIX: Adjusted positioning for mobile */}
+    <div className="fixed inset-0 z-50 pointer-events-none">
+      {/* Full-viewport drag boundary: the timer button/card is absolutely
+          positioned in the bottom-right corner by default via `initial`
+          layout, but framer-motion's `dragConstraints` below lets it be
+          dragged anywhere within the viewport instead of being boxed into
+          a small corner region. */}
       <AnimatePresence mode="wait">
         {!isExpanded ? (
           <motion.div
             key="collapsed-button"
             drag
             dragMomentum={false}
+            dragConstraints={{ top: 8, left: 8, right: 8, bottom: 8 }}
+            dragElastic={0.05}
             whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -292,7 +298,7 @@ export default function StudyTimer() {
               stiffness: 400,
               damping: 25
             }}
-            className="relative cursor-grab active:cursor-grabbing"
+            className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 cursor-grab active:cursor-grabbing pointer-events-auto"
           >
             {/* RESPONSIVE FIX: Touch target min 44x44px */}
             <Button
@@ -313,6 +319,8 @@ export default function StudyTimer() {
             key="expanded-card"
             drag
             dragMomentum={false}
+            dragConstraints={{ top: 8, left: 8, right: 8, bottom: 8 }}
+            dragElastic={0.05}
             whileDrag={{ cursor: 'grabbing' }}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -323,7 +331,7 @@ export default function StudyTimer() {
               damping: 30,
               mass: 1
             }}
-            className="cursor-grab active:cursor-grabbing"
+            className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 cursor-grab active:cursor-grabbing pointer-events-auto"
           >
             {/* RESPONSIVE FIX: Fluid width for mobile */}
             <Card tier="elevated" className="shadow-lg" style={{ width: 'clamp(280px, 90vw, 320px)' }}>
