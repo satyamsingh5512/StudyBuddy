@@ -18,10 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SkeletonList } from '@/components/Skeleton';
-import { apiFetch } from '@/config/api';
+import { useFriends, useFriendRequests, useBlockedUsers, useSearchUsers, useSendFriendRequest, useAcceptFriendRequest, useRejectFriendRequest, useUnfriend, useBlockUser, useUnblockUser } from '@/lib/queries';
 import { getAvatarUrl } from '@/lib/avatar';
 
-// OPTIMIZATION: Debounce hook to reduce API calls
+// OPTIMIZATION: useTransition for non-urgent search updates
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -67,11 +67,6 @@ interface BlockedUser {
 export default function Friends() {
   const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'search' | 'blocked'>('friends');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [friends, setFriends] = useState<User[]>([]);
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [blocked, setBlocked] = useState<BlockedUser[]>([]);
-  const [loading, setLoading] = useState(false);
   // OPTIMIZATION: useTransition for non-urgent search updates
   const [isPending, startTransition] = useTransition();
   const navigate = useNavigate();
@@ -79,133 +74,62 @@ export default function Friends() {
   // OPTIMIZATION: Debounce search query (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  const fetchFriends = async () => {
-    try {
-      setLoading(true);
-      const response = await apiFetch('/friends/list');
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure user data is clean
-        const cleanData = data.map((user: any) => ({
-          ...user,
-          friendshipId: user.friendshipId || user.id,
-          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
-        }));
-        setFriends(cleanData);
-      }
-    } catch (error) {
-      console.error('Error fetching friends:', error);
-    } finally {
-      setLoading(false);
-    }
+  // React Query hooks
+  const { data: friendsData = [], isLoading: friendsLoading } = useFriends();
+  const { data: requestsData = [], isLoading: requestsLoading } = useFriendRequests();
+  const { data: blockedData = [], isLoading: blockedLoading } = useBlockedUsers();
+  const { data: searchResultsData = [], isLoading: searchLoading } = useSearchUsers(debouncedSearchQuery);
+
+  // Mutations
+  const sendFriendRequestMutation = useSendFriendRequest();
+  const acceptFriendRequestMutation = useAcceptFriendRequest();
+  const rejectFriendRequestMutation = useRejectFriendRequest();
+  const unfriendMutation = useUnfriend();
+  const blockUserMutation = useBlockUser();
+  const unblockUserMutation = useUnblockUser();
+
+  const cleanFriendData = (users: any[]): User[] => {
+    return users.map((user: any) => ({
+      ...user,
+      friendshipId: user.friendshipId || user.id,
+      totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+    }));
   };
 
-  const fetchRequests = async () => {
-    try {
-      setLoading(true);
-      const response = await apiFetch('/friends/requests');
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure user data is clean
-        const cleanData = data.map((user: any) => ({
-          ...user,
-          sender: {
-            ...user.sender,
-            totalPoints: typeof user.sender?.totalPoints === 'number' ? user.sender.totalPoints : 0,
-          },
-        }));
-        setRequests(cleanData);
-      }
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-    } finally {
-      setLoading(false);
-    }
+  const cleanRequestData = (requests: any[]): FriendRequest[] => {
+    return requests.map((req: any) => ({
+      ...req,
+      sender: {
+        ...req.sender,
+        totalPoints: typeof req.sender?.totalPoints === 'number' ? req.sender.totalPoints : 0,
+      },
+    }));
   };
 
-  const fetchBlocked = async () => {
-    try {
-      setLoading(true);
-      const response = await apiFetch('/friends/blocked');
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure user data is clean
-        const cleanData = data.map((user: any) => ({
-          ...user,
-          blocked: user.blocked
-            ? {
-                ...user.blocked,
-                totalPoints: typeof user.blocked.totalPoints === 'number' ? user.blocked.totalPoints : 0,
-              }
-            : null,
-        }));
-        setBlocked(cleanData);
-      }
-    } catch (error) {
-      console.error('Error fetching blocked users:', error);
-    } finally {
-      setLoading(false);
-    }
+  const cleanBlockedData = (blocked: any[]): BlockedUser[] => {
+    return blocked.map((block: any) => ({
+      ...block,
+      blocked: block.blocked
+        ? {
+            ...block.blocked,
+            totalPoints: typeof block.blocked.totalPoints === 'number' ? block.blocked.totalPoints : 0,
+          }
+        : null,
+    }));
   };
 
-  const handleSearch = async (query: string) => {
-    if (!query || query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      // OPTIMIZATION: Use optimized search endpoint
-      const response = await apiFetch(
-        `/friends/search?query=${encodeURIComponent(query)}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        // Ensure user data is clean
-        const cleanData = data.map((user: any) => ({
-          ...user,
-          friendshipStatus: user.friendshipStatus ? String(user.friendshipStatus).toLowerCase() : null,
-          totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
-        }));
-        setSearchResults(cleanData);
-      }
-    } catch (error) {
-      console.error('Error searching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'friends') fetchFriends();
-    if (activeTab === 'requests') fetchRequests();
-    if (activeTab === 'blocked') fetchBlocked();
-  }, [activeTab]);
-
-  // OPTIMIZATION: Auto-search when debounced query changes
-  useEffect(() => {
-    if (activeTab === 'search' && debouncedSearchQuery) {
-      handleSearch(debouncedSearchQuery);
-    } else if (!debouncedSearchQuery) {
-      setSearchResults([]);
-    }
-  }, [debouncedSearchQuery, activeTab]);
+  const friends = cleanFriendData(friendsData);
+  const requests = cleanRequestData(requestsData);
+  const blocked = cleanBlockedData(blockedData);
+  const searchResults = searchResultsData.map((user: any) => ({
+    ...user,
+    friendshipStatus: user.friendshipStatus ? String(user.friendshipStatus).toLowerCase() : null,
+    totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+  }));
 
   const sendFriendRequest = async (userId: string) => {
     try {
-      const response = await apiFetch('/friends/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiverId: userId }),
-      });
-      if (response.ok) {
-        // Refresh search results
-        if (debouncedSearchQuery) {
-          handleSearch(debouncedSearchQuery);
-        }
-      }
+      await sendFriendRequestMutation.mutateAsync({ receiverId: userId });
     } catch (error) {
       console.error('Error sending friend request:', error);
     }
@@ -213,13 +137,7 @@ export default function Friends() {
 
   const acceptRequest = async (requestId: string) => {
     try {
-      const response = await apiFetch(`/friends/request/${requestId}/accept`, {
-        method: 'PUT',
-      });
-      if (response.ok) {
-        fetchRequests();
-        fetchFriends();
-      }
+      await acceptFriendRequestMutation.mutateAsync({ requestId });
     } catch (error) {
       console.error('Error accepting request:', error);
     }
@@ -227,12 +145,7 @@ export default function Friends() {
 
   const rejectRequest = async (requestId: string) => {
     try {
-      const response = await apiFetch(`/friends/request/${requestId}/reject`, {
-        method: 'PUT',
-      });
-      if (response.ok) {
-        fetchRequests();
-      }
+      await rejectFriendRequestMutation.mutateAsync({ requestId });
     } catch (error) {
       console.error('Error rejecting request:', error);
     }
@@ -242,12 +155,7 @@ export default function Friends() {
     if (!confirm('Are you sure you want to unfriend this user?')) return;
 
     try {
-      const response = await apiFetch(`/friends/${friendshipId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        fetchFriends();
-      }
+      await unfriendMutation.mutateAsync({ friendshipId });
     } catch (error) {
       console.error('Error unfriending:', error);
     }
@@ -257,15 +165,8 @@ export default function Friends() {
     if (!confirm('Are you sure you want to block this user?')) return;
 
     try {
-      const response = await apiFetch('/friends/block', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
-      if (response.ok) {
-        fetchFriends();
-        setActiveTab('blocked');
-      }
+      await blockUserMutation.mutateAsync({ userId });
+      setActiveTab('blocked');
     } catch (error) {
       console.error('Error blocking user:', error);
     }
@@ -273,12 +174,7 @@ export default function Friends() {
 
   const unblockUser = async (userId: string) => {
     try {
-      const response = await apiFetch(`/friends/block/${userId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        fetchBlocked();
-      }
+      await unblockUserMutation.mutateAsync({ userId });
     } catch (error) {
       console.error('Error unblocking user:', error);
     }
@@ -370,14 +266,15 @@ export default function Friends() {
                   // OPTIMIZATION: Use transition for search results update
                   startTransition(() => {
                     if (value.length >= 2) {
-                      handleSearch(value);
+                      // Search hook handles fetching automatically
                     } else {
-                      setSearchResults([]);
+                      // Clear search results by setting empty string
+                      // The searchResults will automatically update via React Query
                     }
                   });
                 }}
               />
-              {(loading || isPending) && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
+              {(isPending || searchLoading) && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
             </div>
 
             {searchResults.length > 0 && (
@@ -415,7 +312,7 @@ export default function Friends() {
               </div>
             )}
 
-            {searchResults.length === 0 && searchQuery && !loading && (
+            {searchResults.length === 0 && searchQuery.length >= 2 && !searchLoading && (
               <p className="text-center text-muted-foreground py-8">No users found</p>
             )}
           </CardContent>
@@ -429,7 +326,7 @@ export default function Friends() {
             <CardTitle className="text-lg">My Friends</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading && friends.length === 0 ? (
+            {friendsLoading && friends.length === 0 ? (
               <SkeletonList count={5} />
             ) : friends.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
@@ -481,7 +378,9 @@ export default function Friends() {
             <CardTitle className="text-lg">Friend Requests</CardTitle>
           </CardHeader>
           <CardContent>
-            {requests.length === 0 ? (
+            {requestsLoading ? (
+              <SkeletonList count={5} />
+            ) : requests.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No pending requests</p>
             ) : (
               <div className="space-y-2">
@@ -522,7 +421,9 @@ export default function Friends() {
             <CardTitle className="text-lg">Blocked Users</CardTitle>
           </CardHeader>
           <CardContent>
-            {blocked.length === 0 ? (
+            {blockedLoading ? (
+              <SkeletonList count={5} />
+            ) : blocked.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No blocked users</p>
             ) : (
               <div className="space-y-2">

@@ -32,7 +32,7 @@ import { SkeletonList } from '@/components/Skeleton';
 import StudyHeatmap from '@/components/StudyHeatmap';
 import StudyTimer from '@/components/StudyTimer';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
-import { apiFetch } from '@/config/api';
+import { useTodos, useDailyEfficiency, useCreateTodo, useUpdateTodo, useDeleteTodo, useRescheduleTodo, useRescheduleAllOverdue, useToggleTodo, useRescheduleTodoToToday } from '@/lib/queries';
 import { soundManager } from '@/lib/sounds';
 import {
   DndContext,
@@ -477,12 +477,11 @@ SortableTodoItem.displayName = 'SortableTodoItem';
 
 export default function Dashboard() {
   const [user] = useAtom(userAtom);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [dailyEfficiency, setDailyEfficiency] = useState<DailyEfficiency | null>(null);
-  const [efficiencyLoading, setEfficiencyLoading] = useState(true);
+  const todosQuery = useTodos();
+  const { data: dailyEfficiencyData, isLoading: efficiencyLoading, isError: efficiencyError } = useDailyEfficiency(1);
+  const dailyEfficiency = useMemo(() => dailyEfficiencyData as DailyEfficiency | null, [dailyEfficiencyData]);
   const [newTodo, setNewTodo] = useState('');
   const [newTodoDifficulty, setNewTodoDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-  const [initialLoading, setInitialLoading] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ open: boolean; todoId: string | null }>({
     open: false,
@@ -491,8 +490,27 @@ export default function Dashboard() {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [updatingTodoId, setUpdatingTodoId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const hasFetchedOnce = useRef(false);
   const { toast } = useToast();
+
+  // DnD state - separate from query data for smooth reordering
+  const [dndTodos, setDndTodos] = useState<Todo[]>([]);
+  
+  // Use query data directly for rendering (React Query handles loading states)
+  const todos = useMemo(() => {
+    const data = todosQuery.data || [];
+    return sortTodosByPriority(data.map((todo: any) => normalizeTodoFromApi(todo)));
+  }, [todosQuery.data]);
+  const isLoading = todosQuery.isLoading;
+  const queryTodos = todos; // For editTodo revert
+
+  // Mutation hooks
+  const createTodoMutation = useCreateTodo();
+  const updateTodoMutation = useUpdateTodo();
+  const deleteTodoMutation = useDeleteTodo();
+  const rescheduleTodoMutation = useRescheduleTodo();
+  const rescheduleAllOverdueMutation = useRescheduleAllOverdue();
+  const toggleTodoMutation = useToggleTodo();
+  const rescheduleTodoToTodayMutation = useRescheduleTodoToToday();
 
   // DnD sensors — lower activation distance makes drag pickup feel quicker
   const sensors = useSensors(
@@ -503,20 +521,6 @@ export default function Dashboard() {
     setActiveDragId(String(event.active.id));
   }, []);
 
-  const fetchDailyEfficiency = useCallback(async () => {
-    try {
-      setEfficiencyLoading(true);
-      const res = await apiFetch('/reports/efficiency');
-      if (!res.ok) return;
-      const data = await res.json();
-      setDailyEfficiency(data);
-    } catch (error) {
-      console.error('Failed to fetch daily efficiency:', error);
-    } finally {
-      setEfficiencyLoading(false);
-    }
-  }, []);
-
   const handleDragCancel = useCallback((_event: DragCancelEvent) => {
     setActiveDragId(null);
   }, []);
@@ -525,48 +529,18 @@ export default function Dashboard() {
     const { active, over } = event;
     setActiveDragId(null);
     if (!over || active.id === over.id) return;
-    setTodos((prev) => {
-      const regularTodos = prev.filter((t) => !t.isOverdue || t.completed);
-      const overdueTodos = prev.filter((t) => t.isOverdue && !t.completed);
-      const oldIndex = regularTodos.findIndex((t) => t.id === active.id);
-      const newIndex = regularTodos.findIndex((t) => t.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      const reordered = arrayMove(regularTodos, oldIndex, newIndex);
-      return [...overdueTodos, ...reordered];
-    });
-  }, []);
+    const regularTodos = todos.filter((t) => !t.isOverdue || t.completed);
+    const overdueTodos = todos.filter((t) => t.isOverdue && !t.completed);
+    const oldIndex = regularTodos.findIndex((t) => t.id === active.id);
+    const newIndex = regularTodos.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(regularTodos, oldIndex, newIndex);
+    const updatedTodos = [...overdueTodos, ...reordered];
+    // Store for DnD operations only
+    setDndTodos(updatedTodos);
+  }, [todos]);
 
-  // Silent background fetch — only shows skeleton on first load
-  const fetchTodos = useCallback(async () => {
-    if (!hasFetchedOnce.current) {
-      setInitialLoading(true);
-    }
-    const res = await apiFetch('/todos');
-    if (res.ok) {
-      const data = await res.json();
-      const processedData = data.map((todo: any) => normalizeTodoFromApi(todo));
-      setTodos(sortTodosByPriority(processedData));
-    }
-    fetchDailyEfficiency();
-    if (!hasFetchedOnce.current) {
-      hasFetchedOnce.current = true;
-      setInitialLoading(false);
-    }
-  }, [fetchDailyEfficiency]);
-
-  useEffect(() => {
-    fetchTodos();
-  }, [fetchTodos]);
-
-  useEffect(() => {
-    const handleTimerSaved = () => {
-      fetchDailyEfficiency();
-    };
-
-    window.addEventListener('studybuddy:timer-session-saved', handleTimerSaved);
-    return () => window.removeEventListener('studybuddy:timer-session-saved', handleTimerSaved);
-  }, [fetchDailyEfficiency]);
-
+  // Handler functions using mutation hooks instead of manual fetch
   const addTodo = useCallback(async () => {
     if (!newTodo.trim()) {
       toast({
@@ -592,43 +566,28 @@ export default function Dashboard() {
       rescheduledCount: 0,
     };
 
-    // Optimistic update - add immediately
-    setTodos((prev) => sortTodosByPriority([...prev, optimisticTodo]));
+    // Optimistic update - add to DnD state immediately
+    setDndTodos((prev) => sortTodosByPriority([...prev, optimisticTodo]));
     setNewTodo('');
     soundManager.playAdd();
 
     try {
-      const res = await apiFetch('/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTodo.trim(),
-          subject: 'General',
-          difficulty: newTodoDifficulty,
-          questionsTarget: 10,
-          dueDate: today.toISOString(),
-        }),
+      await createTodoMutation.mutateAsync({
+        title: newTodo.trim(),
+        subject: 'General',
+        difficulty: newTodoDifficulty,
+        questionsTarget: 10,
+        dueDate: today.toISOString(),
       });
 
-      if (res.ok) {
-        const realTodo = await res.json();
-        const processedTodo = normalizeTodoFromApi(realTodo);
-        // Replace temp todo with real one
-        setTodos((prev) =>
-          sortTodosByPriority(prev.map((todo) => (todo.id === optimisticTodo.id ? processedTodo : todo)))
-        );
-        fetchDailyEfficiency();
-        toast({
-          title: 'Task added for today!',
-          description: 'Complete it to earn 2 points',
-        });
-      } else {
-        throw new Error('Failed to add task');
-      }
+      toast({
+        title: 'Task added for today!',
+        description: 'Complete it to earn 2 points',
+      });
     } catch (error) {
       console.error('Error adding todo:', error);
       // Revert optimistic update on error
-      setTodos((prev) => prev.filter((todo) => todo.id !== optimisticTodo.id));
+      setDndTodos((prev) => prev.filter((todo) => todo.id !== optimisticTodo.id));
       setNewTodo(newTodo.trim());
       toast({
         title: 'Failed to add task',
@@ -636,12 +595,12 @@ export default function Dashboard() {
         variant: 'destructive',
       });
     }
-  }, [newTodo, newTodoDifficulty, toast, fetchDailyEfficiency]);
+  }, [newTodo, newTodoDifficulty, toast, createTodoMutation]);
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
-      // Optimistic update — instantly flip in UI
-      setTodos(prev => prev.map(t =>
+      // Optimistic update — instantly flip in DnD state
+      setDndTodos(prev => prev.map(t =>
         t.id === id ? { ...t, completed: !completed, isOverdue: !completed ? false : t.isOverdue } : t
       ));
 
@@ -650,182 +609,107 @@ export default function Dashboard() {
       }
 
       try {
-        const res = await apiFetch(`/todos/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completed: !completed }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          // Silently sync server state
-          fetchTodos();
-          if (!completed) {
-            const points = data.pointsAwarded || 0;
-            let message = 'Task completed!';
-            let description = 'Well done!';
-
-            if (points > 0) {
-              message = `Task completed! +${points} point${points === 1 ? '' : 's'}`;
-              if (points === 1) {
-                description = 'Completed on scheduled date!';
-              } else if (points === 0.5) {
-                description = 'Completed after reschedule!';
-              }
-            }
-
-            toast({ title: message, description });
-          }
-        } else {
-          // Revert on failure
-          setTodos(prev => prev.map(t =>
-            t.id === id ? { ...t, completed, isOverdue: t.isOverdue } : t
-          ));
-          toast({ title: 'Failed to update task', variant: 'destructive' });
+        await toggleTodoMutation.mutateAsync({ id, completed: !completed });
+        
+        if (!completed) {
+          // Note: Points info is available in the response but React Query invalidates automatically
+          toast({ title: 'Task completed!', description: 'Well done!' });
         }
-      } catch {
+      } catch (error) {
+        console.error('Error toggling todo:', error);
         // Revert on error
-        setTodos(prev => prev.map(t =>
+        setDndTodos(prev => prev.map(t =>
           t.id === id ? { ...t, completed, isOverdue: t.isOverdue } : t
         ));
         toast({ title: 'Failed to update task', variant: 'destructive' });
       }
     },
-    [fetchTodos, toast]
+    [toggleTodoMutation, toast]
   );
 
   const deleteTodo = useCallback(
     async (id: string) => {
-      // Optimistic update — remove from list immediately (AnimatePresence will animate out)
-      const previousTodos = todos;
-      setTodos(prev => prev.filter(t => t.id !== id));
+      // Optimistic update — remove from DnD state immediately
+      const previousTodos = dndTodos;
+      setDndTodos(prev => prev.filter(t => t.id !== id));
       soundManager.playDelete();
 
       try {
-        const res = await apiFetch(`/todos/${id}`, {
-          method: 'DELETE',
-        });
-
-        if (res.ok) {
-          fetchDailyEfficiency();
-          toast({ title: 'Task deleted' });
-        } else {
-          // Revert on failure
-          setTodos(previousTodos);
-          toast({ title: 'Failed to delete task', variant: 'destructive' });
-        }
-      } catch {
+        await deleteTodoMutation.mutateAsync(id);
+        toast({ title: 'Task deleted' });
+      } catch (error) {
+        console.error('Error deleting todo:', error);
         // Revert on error
-        setTodos(previousTodos);
+        setDndTodos(previousTodos);
         toast({ title: 'Failed to delete task', variant: 'destructive' });
       }
     },
-    [todos, toast, fetchDailyEfficiency]
+    [dndTodos, toast, deleteTodoMutation]
   );
 
   const rescheduleToToday = useCallback(
     async (id: string) => {
       try {
-        const res = await apiFetch(`/todos/${id}/reschedule-to-today`, {
-          method: 'POST',
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          // Local update instead of full refetch
-          setTodos(prev => prev.map(t => {
-            if (t.id === id) {
-              return {
-                ...t,
-                scheduledDate: new Date().toISOString(),
-                isOverdue: false,
-                // Assuming rescheduling increments count, though backend handles logical logic
-                rescheduledCount: (t.rescheduledCount || 0) + 1
-              };
-            }
-            return t;
-          }));
-
-          const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
-          fetchDailyEfficiency();
-          toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
-        } else {
-          toast({ title: 'Failed to reschedule', variant: 'destructive' });
-        }
+        const result = await rescheduleTodoToTodayMutation.mutateAsync({ id });
+        
+        const pointsMsg = result.pointsCredited ? ` (+${result.pointsCredited} points)` : '';
+        toast({ title: 'Task rescheduled to today', description: `Complete it to earn points!${pointsMsg}` });
       } catch (error) {
+        console.error('Error rescheduling todo:', error);
         toast({ title: 'Error rescheduling task', variant: 'destructive' });
-      } finally {
-        setUpdatingTodoId(null);
       }
     },
-    [toast, fetchDailyEfficiency]
+    [rescheduleTodoToTodayMutation, toast]
   );
 
   const rescheduleAllOverdue = useCallback(
     async () => {
+      // Optimistic: move all overdue tasks to today in DnD state
       const todayISO = new Date().toISOString();
-      // Optimistic: move all overdue tasks to today
-      setTodos(prev => prev.map(t =>
+      setDndTodos(prev => prev.map(t =>
         t.isOverdue && !t.completed
           ? { ...t, scheduledDate: todayISO, isOverdue: false, rescheduledCount: (t.rescheduledCount || 0) + 1 }
           : t
       ));
 
       try {
-        const res = await apiFetch('/todos/reschedule-all-overdue', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+        const result = await rescheduleAllOverdueMutation.mutateAsync({});
+        toast({
+          title: 'All overdue tasks rescheduled!',
+          description: `${result.count} task${result.count > 1 ? 's' : ''} moved to today`
         });
-
-        if (res.ok) {
-          const data = await res.json();
-          fetchTodos(); // silent background sync
-          toast({
-            title: 'All overdue tasks rescheduled!',
-            description: `${data.count} task${data.count > 1 ? 's' : ''} moved to today`
-          });
-        } else {
-          fetchTodos(); // revert via refetch
-          toast({ title: 'Failed to reschedule tasks', variant: 'destructive' });
-        }
-      } catch {
-        fetchTodos();
+      } catch (error) {
+        console.error('Error rescheduling all overdue:', error);
         toast({ title: 'Failed to reschedule tasks', variant: 'destructive' });
       }
     },
-    [fetchTodos, toast]
+    [rescheduleAllOverdueMutation, toast]
   );
   const editTodo = useCallback(
     async (id: string, updates: Partial<Todo>) => {
-      // Optimistic update
-      const previousTodos = todos;
-      setTodos((prev) =>
+      // Optimistic update in DnD state
+      setDndTodos((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
       soundManager.playClick();
 
       try {
-        const res = await apiFetch(`/todos/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
+        await updateTodoMutation.mutateAsync({ id, data: updates });
+        toast({ title: 'Task updated' });
+      } catch (error) {
+        console.error('Error editing todo:', error);
+        // Revert on error - need to get the original todo from query data
+        setDndTodos((prev) => {
+          const queryTodo = queryTodos.find(t => t.id === id);
+          if (queryTodo) {
+            return prev.map(t => (t.id === id ? queryTodo : t));
+          }
+          return prev;
         });
-
-        if (res.ok) {
-          fetchTodos(); // silent background sync
-          toast({ title: 'Task updated' });
-        } else {
-          // Revert on failure
-          setTodos(previousTodos);
-          toast({ title: 'Failed to update task', variant: 'destructive' });
-        }
-      } catch {
-        setTodos(previousTodos);
         toast({ title: 'Failed to update task', variant: 'destructive' });
       }
     },
-    [todos, fetchTodos, toast]
+    [queryTodos, updateTodoMutation, toast]
   );
 
   const openRescheduleModal = useCallback((id: string) => {
@@ -839,22 +723,20 @@ export default function Dashboard() {
   const handleReschedule = useCallback(async () => {
     if (!rescheduleModal.todoId || !rescheduleDate) return;
 
-    const res = await apiFetch(`/todos/${rescheduleModal.todoId}/reschedule`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newDate: rescheduleDate }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      fetchTodos();
+    try {
+      const result = await rescheduleTodoMutation.mutateAsync({
+        id: rescheduleModal.todoId,
+        newDate: new Date(rescheduleDate)
+      });
+      
       setRescheduleModal({ open: false, todoId: null });
-      const pointsMsg = data.pointsCredited ? ` (+${data.pointsCredited} points)` : '';
+      const pointsMsg = result.pointsCredited ? ` (+${result.pointsCredited} points)` : '';
       toast({ title: 'Task rescheduled', description: `Scheduled for ${new Date(rescheduleDate).toLocaleDateString()}${pointsMsg}` });
-    } else {
+    } catch (error) {
+      console.error('Error rescheduling todo:', error);
       toast({ title: 'Failed to reschedule', variant: 'destructive' });
     }
-  }, [rescheduleModal.todoId, rescheduleDate, fetchTodos, toast]);
+  }, [rescheduleModal.todoId, rescheduleDate, rescheduleTodoMutation, toast]);
 
   const completedCount = useMemo(() => todos.filter((t) => t.completed).length, [todos]);
   const overdueCount = useMemo(() => todos.filter((t) => t.isOverdue && !t.completed).length, [todos]);
@@ -1198,7 +1080,7 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2">
-                {initialLoading ? (
+                {isLoading ? (
                   <SkeletonList count={3} />
                 ) : (
                   <>

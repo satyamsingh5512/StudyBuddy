@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Medal, Flame, Star, Award, ChevronUp } from 'lucide-react';
 import { SkeletonList } from '@/components/Skeleton';
-import { apiFetch } from '@/config/api';
+import { useLeaderboard } from '@/lib/queries';
 import { getAvatarUrl } from '@/lib/avatar';
 
 interface LeaderboardUser {
@@ -17,30 +17,16 @@ interface LeaderboardUser {
 }
 
 export default function Leaderboard() {
-  const [users, setUsers] = useState<LeaderboardUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: usersData = [], isLoading } = useLeaderboard();
 
-  const fetchLeaderboard = async () => {
-    setLoading(true);
-    const res = await apiFetch('/users/leaderboard');
-    if (res.ok) {
-      const data = await res.json();
-      const cleanData = data.map((user: any) => ({
-        ...user,
-        totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
-        totalStudyMinutes: typeof user.totalStudyMinutes === 'number' ? user.totalStudyMinutes : 0,
-        streak: typeof user.streak === 'number' ? user.streak : 0,
-      }));
-      // Sort users by points explicitly just to be safe
-      const sortedUsers = cleanData.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
-      setUsers(sortedUsers);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+  const users = useMemo(() => {
+    return (usersData as LeaderboardUser[]).map((user: any) => ({
+      ...user,
+      totalPoints: typeof user.totalPoints === 'number' ? user.totalPoints : 0,
+      totalStudyMinutes: typeof user.totalStudyMinutes === 'number' ? user.totalStudyMinutes : 0,
+      streak: typeof user.streak === 'number' ? user.streak : 0,
+    })).sort((a: LeaderboardUser, b: LeaderboardUser) => b.totalPoints - a.totalPoints);
+  }, [usersData]);
 
   const topThree = users.slice(0, 3);
   const remainingUsers = users.slice(3);
@@ -64,7 +50,7 @@ export default function Leaderboard() {
         <p className="text-muted-foreground">Study consistently to climb the ranks and earn badges.</p>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="p-4 bg-card/50 rounded-2xl border border-border/50">
           <SkeletonList count={8} />
         </div>

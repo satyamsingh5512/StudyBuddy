@@ -32,6 +32,10 @@ func ConnectDB() {
 		log.Fatal(err)
 	}
 
-	DB = client.Database("studybuddy") // Assuming 'studybuddy' is the DB name; adjust as needed.
+	DB = client.Database("studybuddy")
 	log.Println("Connected to MongoDB!")
+}
+
+func GetDB() *mongo.Database {
+	return DB
 }

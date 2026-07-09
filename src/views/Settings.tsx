@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { apiFetch } from '@/config/api';
+import { useProfile, useUpdateProfile } from '@/lib/queries';
 import { Switch } from '@/components/ui/switch';
 import { soundManager } from '@/lib/sounds';
 import {
@@ -22,6 +22,8 @@ import { Camera, Upload, RefreshCw, X } from 'lucide-react';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
+  const { data: profileData } = useProfile();
+  const { mutateAsync: updateProfile } = useUpdateProfile();
   const [examGoal, setExamGoal] = useState(user?.examGoal || '');
   const [examDate, setExamDate] = useState(
     user?.examDate ? new Date(user.examDate).toISOString().split('T')[0] : ''
@@ -68,21 +70,16 @@ export default function Settings() {
   }, [authSounds]);
 
   const saveSettings = async () => {
-    const res = await apiFetch('/users/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await updateProfile({
         examGoal,
         examDate: new Date(examDate),
         showProfile,
         statsResetAt: statsResetAt ? new Date(`${statsResetAt}T00:00:00`) : null,
-      }),
-    });
-
-    if (res.ok) {
-      const updated = await res.json();
-      setUser(updated);
+      });
       toast({ title: 'Settings saved successfully' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
 

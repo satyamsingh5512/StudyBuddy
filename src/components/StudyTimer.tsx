@@ -6,6 +6,7 @@ import { studyingAtom, studyTimeAtom, userAtom, timerSessionStartAtom } from '@/
 import { Button } from './ui/button';
 import { GlassCard as Card, GlassCardContent as CardContent } from '@/components/dashboard/glass';
 import { formatTime } from '@/lib/utils';
+import { useUpdateProfile } from '@/lib/queries';
 import { apiFetch } from '@/config/api';
 import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
@@ -50,6 +51,7 @@ export default function StudyTimer() {
 
   const [selectedSubject, setSelectedSubject] = useState<string | undefined>();
   const [newSubject, setNewSubject] = useState('');
+  const { mutateAsync: updateProfile } = useUpdateProfile();
 
   const handleAddSubject = async () => {
     if (!newSubject.trim() || !user) return;
@@ -59,16 +61,10 @@ export default function StudyTimer() {
     const updatedSubjects = [...currentSubjects, newSubject.trim()];
     
     try {
-      const res = await apiFetch('/users/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjects: updatedSubjects }),
-      });
-      if (res.ok) {
-        setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
-        setSelectedSubject(newSubject.trim());
-        setNewSubject('');
-      }
+      await updateProfile({ subjects: updatedSubjects });
+      setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
+      setSelectedSubject(newSubject.trim());
+      setNewSubject('');
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to add subject' });
     }
@@ -80,16 +76,10 @@ export default function StudyTimer() {
     const updatedSubjects = currentSubjects.filter(s => s !== subject);
     
     try {
-      const res = await apiFetch('/users/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subjects: updatedSubjects }),
-      });
-      if (res.ok) {
-        setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
-        if (selectedSubject === subject) {
-          setSelectedSubject(undefined);
-        }
+      await updateProfile({ subjects: updatedSubjects });
+      setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
+      if (selectedSubject === subject) {
+        setSelectedSubject(undefined);
       }
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to remove subject' });

@@ -9,6 +9,7 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/routes"
+	"studybuddy-backend/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -95,6 +96,11 @@ func main() {
 	}))
 
 	config.ConnectDB()
+
+	// Setup MongoDB indexes (run once on startup)
+	log.Println("Setting up MongoDB indexes...")
+	middleware.SetupIndexes()
+	log.Println("MongoDB indexes setup complete")
 
 	routes.SetupRoutes(app)
 

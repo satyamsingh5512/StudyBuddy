@@ -6,7 +6,7 @@ import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { apiFetch } from '@/config/api';
+import { useConversations, useSendMessage, useMessagesWithUser } from '@/lib/queries';
 
 interface Message {
   id: string;
@@ -43,95 +43,34 @@ export default function Messages() {
   const { userId } = useParams() as { userId?: string };
   const navigate = useNavigate();
   const [user] = useAtom(userAtom);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [selectedUser, setSelectedUser] = useState<Friend | null>(null);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: conversationsData = [] } = useConversations();
+  const { data: messagesData = [], isLoading } = useMessagesWithUser(userId);
+  const sendMessageMutation = useSendMessage();
+
+  const conversations = conversationsData as Conversation[];
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const fetchConversations = useCallback(async () => {
-    try {
-      const response = await apiFetch('/messages/conversations');
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data);
-      }
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-    }
-  }, []);
-
-  const fetchUserDetails = useCallback(async (id: string) => {
-    try {
-      const response = await apiFetch('/friends/list');
-      if (response.ok) {
-        const friends = await response.json();
-        const friend = friends.find((f: Friend) => f.id === id);
-        if (friend) setSelectedUser(friend);
-      }
-    } catch (error) {
-      console.error('Error fetching user details:', error);
-    }
-  }, []);
-
-  const fetchMessages = useCallback(async (id: string) => {
-    try {
-      setLoading(true);
-      const response = await apiFetch(`/messages/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data);
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
-
-  useEffect(() => {
-    if (userId) {
-      fetchMessages(userId);
-      fetchUserDetails(userId);
-    }
-  }, [userId, fetchMessages, fetchUserDetails]);
-
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+  }, [messagesData, scrollToBottom]);
 
-  const sendMessage = useCallback(async () => {
+  const sendMessage = async () => {
     if (!newMessage.trim() || !userId) return;
 
     try {
-      const response = await apiFetch('/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiverId: userId,
-          message: newMessage.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        const message = await response.json();
-        setMessages((prev) => [...prev, message]);
-        setNewMessage('');
-        fetchConversations();
-      }
+      await sendMessageMutation.mutateAsync({ receiverId: userId, message: newMessage.trim() });
+      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  }, [newMessage, userId, fetchConversations]);
+  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -154,6 +93,25 @@ export default function Messages() {
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  const fetchUserDetails = useCallback(async (id: string) => {
+    try {
+      const response = await fetch('/api/friends/list');
+      if (response.ok) {
+        const friends = await response.json();
+        const friend = friends.find((f: Friend) => f.id === id);
+        if (friend) setSelectedUser(friend);
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserDetails(userId);
+    }
+  }, [userId, fetchUserDetails]);
 
   if (!userId) {
     return (
@@ -249,21 +207,21 @@ export default function Messages() {
       {/* Messages */}
       <Card className="h-[calc(100vh-280px)] flex flex-col">
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
-          {loading ? (
+          {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">Loading messages...</p>
             </div>
-          ) : messages.length === 0 ? (
+          ) : messagesData.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">No messages yet. Say hi! 👋</p>
             </div>
           ) : (
             <>
-              {messages.map((message, index) => {
+              {messagesData.map((message: Message, index) => {
                 const isOwn = message.senderId === user?.id;
                 const showDate =
                   index === 0 ||
-                  new Date(messages[index - 1].createdAt).toDateString() !==
+                  new Date(messagesData[index - 1].createdAt).toDateString() !==
                     new Date(message.createdAt).toDateString();
 
                 return (

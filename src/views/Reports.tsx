@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonPage } from '@/components/Skeleton';
-import { apiFetch } from '@/config/api';
+import { useReports, useDailyEfficiency, useCreateReport } from '@/lib/queries';
 
 interface Report {
   id: string;
@@ -40,64 +40,39 @@ interface EfficiencyTrendResponse {
 }
 
 export default function Reports() {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [dailyEfficiency, setDailyEfficiency] = useState<DailyEfficiency | null>(null);
   const [trendDays, setTrendDays] = useState<7 | 30>(7);
-  const [efficiencyTrend, setEfficiencyTrend] = useState<DailyEfficiency[]>([]);
-  const [trendSummary, setTrendSummary] = useState({
-    averageOverallEfficiencyPct: 0,
-    averageTaskCompletionPct: 0,
-    averageTimerUsagePct: 0,
-  });
-  const [trendLoading, setTrendLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
 
-  const fetchReports = useCallback(async () => {
-    const res = await apiFetch('/reports');
-    if (res.ok) {
-      const data = await res.json();
-      setReports(data);
-    }
-  }, []);
+  // OPTIMIZATION: shared React Query cache — same /reports/efficiency
+  // endpoint & cache entries Dashboard already populates, so navigating
+  // here after visiting the dashboard is instant (no refetch needed).
+  const { data: reports = [], isLoading: reportsLoading } = useReports();
+  const { data: dailyEfficiency, isLoading: efficiencyLoading } = useDailyEfficiency(1) as {
+    data: DailyEfficiency | undefined;
+    isLoading: boolean;
+  };
+  const { data: trendData, isLoading: trendLoading } = useDailyEfficiency(trendDays) as {
+    data: EfficiencyTrendResponse | undefined;
+    isLoading: boolean;
+  };
+  const { mutateAsync: createReport } = useCreateReport();
 
-  const fetchDailyEfficiency = useCallback(async () => {
-    const res = await apiFetch('/reports/efficiency');
-    if (res.ok) {
-      const data = await res.json();
-      setDailyEfficiency(data);
-    }
-  }, []);
+  const loading = reportsLoading || efficiencyLoading;
 
-  const fetchEfficiencyTrend = useCallback(async (days: 7 | 30) => {
-    try {
-      setTrendLoading(true);
-      const res = await apiFetch(`/reports/efficiency?days=${days}`);
-      if (!res.ok) return;
+  const efficiencyTrend = useMemo(
+    () => (Array.isArray(trendData?.trend) ? trendData!.trend : []),
+    [trendData]
+  );
 
-      const data = (await res.json()) as EfficiencyTrendResponse;
-      setEfficiencyTrend(Array.isArray(data.trend) ? data.trend : []);
-      setTrendSummary({
-        averageOverallEfficiencyPct: data.averageOverallEfficiencyPct || 0,
-        averageTaskCompletionPct: data.averageTaskCompletionPct || 0,
-        averageTimerUsagePct: data.averageTimerUsagePct || 0,
-      });
-    } finally {
-      setTrendLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      await Promise.all([fetchReports(), fetchDailyEfficiency()]);
-      setLoading(false);
-    })();
-  }, [fetchReports, fetchDailyEfficiency]);
-
-  useEffect(() => {
-    fetchEfficiencyTrend(trendDays);
-  }, [trendDays, fetchEfficiencyTrend]);
+  const trendSummary = useMemo(
+    () => ({
+      averageOverallEfficiencyPct: trendData?.averageOverallEfficiencyPct || 0,
+      averageTaskCompletionPct: trendData?.averageTaskCompletionPct || 0,
+      averageTimerUsagePct: trendData?.averageTimerUsagePct || 0,
+    }),
+    [trendData]
+  );
 
   const totalAbandonedStartsInTrend = useMemo(
     () => efficiencyTrend.reduce((sum, day) => sum + (day.abandonedTimerStarts || 0), 0),
@@ -118,10 +93,10 @@ export default function Reports() {
   const submitReport = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const tasksPlanned = Number(formData.get('tasksPlanned'));
     const tasksCompleted = Number(formData.get('tasksCompleted'));
-    
+
     const data = {
       tasksPlanned,
       tasksCompleted,
@@ -133,18 +108,12 @@ export default function Reports() {
       completionPct: (tasksCompleted / tasksPlanned) * 100,
     };
 
-    const res = await apiFetch('/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (res.ok) {
+    try {
+      await createReport(data);
       toast({ title: 'Report submitted successfully' });
       setShowForm(false);
-      fetchReports();
-      fetchDailyEfficiency();
-      fetchEfficiencyTrend(trendDays);
+    } catch {
+      toast({ title: 'Failed to submit report', variant: 'destructive' });
     }
   };
 
@@ -330,7 +299,7 @@ export default function Reports() {
       )}
 
       <div className="grid gap-4">
-        {reports.map((report) => (
+        {reports.map((report: Report) => (
           <Card key={report.id}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">

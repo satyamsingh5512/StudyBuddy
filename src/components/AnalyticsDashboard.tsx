@@ -14,7 +14,7 @@ import {
   GlassCardTitle as CardTitle,
 } from '@/components/dashboard/glass';
 import { Button } from './ui/button';
-import { apiFetch } from '@/config/api';
+import { useTimerAnalytics } from '@/lib/queries';
 import { formatTime } from '@/lib/utils';
 
 interface AnalyticsData {
@@ -71,69 +71,10 @@ const toSafeDate = (value: unknown, fallbackDate: Date): string => {
 };
 
 export default function AnalyticsDashboard({ className, user }: AnalyticsDashboardProps) {
-  const [analytics, setAnalytics] = useState<AnalyticsData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState(7);
-
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setLoading(true);
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await apiFetch(`/timer/analytics?days=${timeRange}&timezone=${encodeURIComponent(timezone)}`);
-      if (res.ok) {
-        const payload = await res.json();
-        const rows = Array.isArray(payload) ? payload : [];
-
-        const cleanData = rows
-          .map((day: any, index: number): AnalyticsData => {
-            const fallbackDate = new Date();
-            fallbackDate.setHours(0, 0, 0, 0);
-            fallbackDate.setDate(fallbackDate.getDate() - (rows.length - 1 - index));
-
-            const rawSessionTypes = day && typeof day.sessionTypes === 'object' && day.sessionTypes !== null
-              ? day.sessionTypes
-              : {};
-
-            return {
-              date: toSafeDate(day?.date, fallbackDate),
-              studyHours: Math.max(0, toFiniteNumber(day?.studyHours)),
-              tasksCompleted: Math.max(0, Math.round(toFiniteNumber(day?.tasksCompleted))),
-              understanding: Math.max(0, Math.min(10, toFiniteNumber(day?.understanding))),
-              sessions: Math.max(0, Math.round(toFiniteNumber(day?.sessions))),
-              sessionTypes: Object.fromEntries(
-                Object.entries(rawSessionTypes).map(([key, value]) => {
-                  const safeKey = key.trim() || 'General';
-                  const safeValue = Math.max(0, Math.round(toFiniteNumber(value)));
-                  return [safeKey, safeValue];
-                })
-              ),
-            };
-          })
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        setAnalytics(cleanData);
-      }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [timeRange]);
-
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
-
-  useEffect(() => {
-    const onTimerSaved = () => {
-      fetchAnalytics();
-    };
-
-    window.addEventListener('studybuddy:timer-session-saved', onTimerSaved);
-    return () => {
-      window.removeEventListener('studybuddy:timer-session-saved', onTimerSaved);
-    };
-  }, [fetchAnalytics]);
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { data, isLoading: loading, error } = useTimerAnalytics(timeRange, timezone);
+  const analytics: any[] = data ?? [];
 
   const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
   const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
@@ -366,8 +307,9 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
           {(() => {
-            const sessionTypeTotals = analytics.reduce((acc, day) => {
-              Object.entries(day.sessionTypes).forEach(([type, count]) => {
+            const sessionTypeTotals: Record<string, number> = analytics.reduce((acc, day) => {
+              const sessionTypes = (day.sessionTypes ?? {}) as Record<string, number>;
+              Object.entries(sessionTypes).forEach(([type, count]) => {
                 acc[type] = (acc[type] || 0) + count;
               });
               return acc;

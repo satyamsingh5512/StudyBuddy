@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonPage } from '@/components/Skeleton';
-import { apiFetch } from '@/config/api';
+import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/lib/queries';
 import { Pin, PinOff, Pencil, Trash2, Search, Plus, X, StickyNote } from 'lucide-react';
 
 interface Note {
@@ -45,35 +45,41 @@ const cardClassFor = (color: string) =>
 const emptyDraft = { id: '', title: '', content: '', color: '', tags: [] as string[], pinned: false };
 
 export default function Notes() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [colorFilter, setColorFilter] = useState('');
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [tagInput, setTagInput] = useState('');
-  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const fetchNotes = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (search.trim()) params.set('q', search.trim());
-    if (colorFilter) params.set('color', colorFilter);
-    const qs = params.toString();
-    const res = await apiFetch(`/notes${qs ? `?${qs}` : ''}`);
-    if (res.ok) {
-      const data = await res.json();
-      setNotes(Array.isArray(data) ? data : []);
-    }
-    setLoading(false);
-  }, [search, colorFilter]);
+  const { data: notes = [], isLoading } = useNotes();
+  const createNoteMutation = useCreateNote();
+  const updateNoteMutation = useUpdateNote();
+  const deleteNoteMutation = useDeleteNote();
 
-  // Debounce search / filter changes to avoid hammering the API on each keypress.
-  useEffect(() => {
-    const t = setTimeout(fetchNotes, 250);
-    return () => clearTimeout(t);
-  }, [fetchNotes]);
+  // Filter and sort notes locally
+  const filteredNotes = useMemo(() => {
+    let filtered = notes as Note[];
+
+    // Apply search filter
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      filtered = filtered.filter(
+        (n: Note) =>
+          (n.title && n.title.toLowerCase().includes(query)) ||
+          (n.content && n.content.toLowerCase().includes(query)) ||
+          n.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply color filter
+    if (colorFilter) {
+      filtered = filtered.filter((n: Note) => n.color === colorFilter);
+    }
+
+    return filtered;
+  }, [notes, search, colorFilter]);
 
   const openCreate = () => {
     setDraft(emptyDraft);
@@ -112,7 +118,6 @@ export default function Notes() {
       toast({ title: 'Nothing to save', description: 'Add a title or some content first.', variant: 'destructive' });
       return;
     }
-    setSaving(true);
     const payload = {
       title: draft.title.trim(),
       content: draft.content,
@@ -121,53 +126,46 @@ export default function Notes() {
       pinned: draft.pinned,
     };
     try {
-      const res = draft.id
-        ? await apiFetch(`/notes/${draft.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-        : await apiFetch('/notes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-      if (!res.ok) throw new Error('Request failed');
+      if (draft.id) {
+        await updateNoteMutation.mutateAsync({ id: draft.id, data: payload });
+      } else {
+        await createNoteMutation.mutateAsync(payload);
+      }
       toast({ title: draft.id ? 'Note updated' : 'Note saved' });
       setDialogOpen(false);
-      await fetchNotes();
     } catch {
       toast({ title: 'Could not save note', variant: 'destructive' });
-    } finally {
-      setSaving(false);
     }
   };
 
   const togglePin = async (note: Note) => {
-    const res = await apiFetch(`/notes/${note.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinned: !note.pinned }),
-    });
-    if (res.ok) fetchNotes();
+    try {
+      await updateNoteMutation.mutateAsync({
+        id: note.id,
+        data: { pinned: !note.pinned },
+      });
+    } catch {
+      toast({ title: 'Could not update note', variant: 'destructive' });
+    }
   };
 
-  const deleteNote = async (note: Note) => {
+  const handleDeleteNote = async (note: Note) => {
     if (!window.confirm('Delete this note? This cannot be undone.')) return;
-    const res = await apiFetch(`/notes/${note.id}`, { method: 'DELETE' });
-    if (res.ok || res.status === 204) {
+    try {
+      await deleteNoteMutation.mutateAsync(note.id);
       toast({ title: 'Note deleted' });
-      fetchNotes();
+    } catch {
+      toast({ title: 'Could not delete note', variant: 'destructive' });
     }
   };
 
   // Split into pinned notes and the rest grouped date-wise (by createdAt day).
-  const pinned = useMemo(() => notes.filter((n) => n.pinned), [notes]);
+  const pinned = useMemo(() => (filteredNotes as Note[]).filter((n) => n.pinned), [filteredNotes]);
 
   const groupedByDate = useMemo(() => {
     const groups: { label: string; key: string; items: Note[] }[] = [];
     const map = new Map<string, Note[]>();
-    for (const note of notes.filter((n) => !n.pinned)) {
+    for (const note of (filteredNotes as Note[]).filter((n) => !n.pinned)) {
       const d = new Date(note.createdAt);
       const key = d.toISOString().slice(0, 10);
       if (!map.has(key)) map.set(key, []);
@@ -178,9 +176,9 @@ export default function Notes() {
       groups.push({ key, label: formatDateLabel(key), items: map.get(key)! });
     }
     return groups;
-  }, [notes]);
+  }, [filteredNotes]);
 
-  const hasNotes = notes.length > 0;
+  const hasNotes = filteredNotes.length > 0;
 
   return (
     <div className="space-y-6">
@@ -229,9 +227,9 @@ export default function Notes() {
         </div>
       </div>
 
-      {loading && <SkeletonPage rows={4} />}
+      {isLoading && <SkeletonPage rows={4} />}
 
-      {!loading && !hasNotes && (
+      {!isLoading && !hasNotes && (
         <Card>
           <CardContent className="py-16 flex flex-col items-center text-center gap-3">
             <StickyNote className="h-12 w-12 text-muted-foreground/50" />
@@ -252,7 +250,7 @@ export default function Notes() {
         </Card>
       )}
 
-      {!loading && pinned.length > 0 && (
+      {!isLoading && pinned.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Pin className="h-4 w-4" /> Pinned
@@ -263,7 +261,7 @@ export default function Notes() {
                 key={note.id}
                 note={note}
                 onEdit={openEdit}
-                onDelete={deleteNote}
+                onDelete={handleDeleteNote}
                 onTogglePin={togglePin}
               />
             ))}
@@ -271,7 +269,7 @@ export default function Notes() {
         </section>
       )}
 
-      {!loading &&
+      {!isLoading &&
         groupedByDate.map((group) => (
           <section key={group.key} className="space-y-3">
             <div className="flex items-center gap-3">
@@ -285,7 +283,7 @@ export default function Notes() {
                   key={note.id}
                   note={note}
                   onEdit={openEdit}
-                  onDelete={deleteNote}
+                  onDelete={handleDeleteNote}
                   onTogglePin={togglePin}
                 />
               ))}
@@ -384,11 +382,11 @@ export default function Notes() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveNote} disabled={saving}>
-              {saving ? 'Saving...' : draft.id ? 'Save changes' : 'Save note'}
+            <Button onClick={saveNote} disabled={createNoteMutation.isPending || updateNoteMutation.isPending}>
+              {createNoteMutation.isPending || updateNoteMutation.isPending ? 'Saving...' : draft.id ? 'Save changes' : 'Save note'}
             </Button>
           </div>
         </DialogContent>
