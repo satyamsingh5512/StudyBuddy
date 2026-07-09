@@ -12,6 +12,7 @@ import { useToast } from './ui/use-toast';
 import { soundManager } from '@/lib/sounds';
 import { Trash2, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Slider } from './ui/slider';
 
 import FullscreenTimer from './FullscreenTimer';
 import {
@@ -481,15 +482,14 @@ export default function StudyTimer() {
                               {tempDuration}<span className="text-sm font-normal text-muted-foreground ml-1">min</span>
                             </span>
                           </div>
-                          <input
+                          <Slider
                             id="duration-slider"
-                            type="range"
-                            min="1"
-                            max="120"
-                            step="1"
+                            aria-label="Focus Duration"
+                            min={1}
+                            max={120}
+                            step={1}
                             value={tempDuration}
-                            onChange={(e) => setTempDuration(parseInt(e.target.value, 10))}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-primary bg-muted"
+                            onChange={setTempDuration}
                           />
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>1 min</span>
