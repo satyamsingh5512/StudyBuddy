@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
@@ -36,6 +36,11 @@ export default function StudyTimer() {
   const [studyTime, setStudyTime] = useAtom(studyTimeAtom);
   const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const [isExpanded, setIsExpanded] = useState(false);
+  // Full-viewport drag boundary: framer-motion measures dragConstraints
+  // against this element's actual bounding box (the whole screen) rather
+  // than tiny pixel offsets from the timer's starting position, so the
+  // timer can be dragged anywhere on the page, not just wiggled in place.
+  const dragBoundaryRef = useRef<HTMLDivElement>(null);
   // OPTIMIZATION: Lazy state initialization - only reads localStorage once
   const [pomodoroDuration, setPomodoroDuration] = useState(() => {
     if (typeof window === 'undefined') return 50;
@@ -275,20 +280,18 @@ export default function StudyTimer() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none">
-      {/* Full-viewport drag boundary: the timer button/card is absolutely
-          positioned in the bottom-right corner by default via `initial`
-          layout, but framer-motion's `dragConstraints` below lets it be
-          dragged anywhere within the viewport instead of being boxed into
-          a small corner region. */}
+    <div ref={dragBoundaryRef} className="fixed inset-0 z-50 pointer-events-none">
+      {/* Full-viewport drag boundary: dragConstraints={dragBoundaryRef} makes
+          framer-motion measure against this element's real bounding box
+          (the whole screen), so the timer can be dragged anywhere on the
+          page instead of being boxed into a small region near the corner. */}
       <AnimatePresence mode="wait">
         {!isExpanded ? (
           <motion.div
             key="collapsed-button"
             drag
             dragMomentum={false}
-            dragConstraints={{ top: 8, left: 8, right: 8, bottom: 8 }}
-            dragElastic={0.05}
+            dragConstraints={dragBoundaryRef}
             whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -319,8 +322,7 @@ export default function StudyTimer() {
             key="expanded-card"
             drag
             dragMomentum={false}
-            dragConstraints={{ top: 8, left: 8, right: 8, bottom: 8 }}
-            dragElastic={0.05}
+            dragConstraints={dragBoundaryRef}
             whileDrag={{ cursor: 'grabbing' }}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
