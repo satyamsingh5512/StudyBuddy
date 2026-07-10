@@ -285,7 +285,82 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour time format, specific t
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save schedule"})
 	}
 
+	// ── Mirror schedule tasks into the todos collection so they appear on the
+	//    Dashboard task list. Skip "Break" items. Replace any previously
+	//    schedule-generated todos for this same date to avoid duplicates on
+	//    regeneration. ──
+	syncScheduleToTodos(ctx, user.ID, body.Date, scheduleItems)
+
 	return c.JSON(schedule)
+}
+
+// priorityToDifficulty maps schedule priority → todo difficulty.
+func priorityToDifficulty(priority string) string {
+	switch strings.ToLower(priority) {
+	case "high":
+		return "hard"
+	case "low":
+		return "easy"
+	default:
+		return "medium"
+	}
+}
+
+// syncScheduleToTodos creates Dashboard todos from schedule items for a date,
+// clearing any prior schedule-generated todos for that date first.
+func syncScheduleToTodos(ctx context.Context, userID primitive.ObjectID, date string, items []models.ScheduleItem) {
+	todosCol := config.DB.Collection("todos")
+
+	// Parse the schedule date (used as scheduledDate/dueDate for the todos)
+	parsedDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		parsedDate = time.Now()
+	}
+	dayStart := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.UTC)
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	// Remove previously schedule-generated todos for this date (avoid dupes on re-gen)
+	_, _ = todosCol.DeleteMany(ctx, bson.M{
+		"userId": userID,
+		"source": "schedule",
+		"scheduledDate": bson.M{
+			"$gte": dayStart,
+			"$lt":  dayEnd,
+		},
+	})
+
+	// Build fresh todos (skip breaks)
+	docs := make([]interface{}, 0, len(items))
+	for _, it := range items {
+		if strings.EqualFold(strings.TrimSpace(it.Subject), "break") {
+			continue
+		}
+		sd := dayStart
+		todo := models.Todo{
+			ID:              primitive.NewObjectID(),
+			UserID:          userID,
+			Title:           it.TaskTitle,
+			Subject:         it.Subject,
+			Difficulty:      priorityToDifficulty(it.Priority),
+			QuestionsTarget: 0,
+			Completed:       it.Completed,
+			ScheduledDate:   &sd,
+			DueDate:         &sd,
+			Source:          "schedule",
+			StartTime:       it.StartTime,
+			EndTime:         it.EndTime,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+		}
+		if todo.Subject == "" {
+			todo.Subject = "Study"
+		}
+		docs = append(docs, todo)
+	}
+
+	if len(docs) > 0 {
+		_, _ = todosCol.InsertMany(ctx, docs)
+	}
 }
 
 // buildAvailabilityContext converts availability model to a human-readable string for the prompt.

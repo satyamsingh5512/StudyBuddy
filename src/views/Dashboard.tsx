@@ -74,6 +74,9 @@ interface Todo {
   isOverdue?: boolean;
   rescheduledCount?: number;
   originalScheduledDate?: string;
+  source?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface DailyEfficiency {
@@ -406,6 +409,13 @@ const SortableTodoItem = memo(
                 </p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <p className="text-xs text-muted-foreground">{todo.subject}</p>
+                  {/* Time badge for AI-scheduled tasks */}
+                  {todo.source === 'schedule' && todo.startTime && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex items-center gap-1 bg-primary/10 text-primary">
+                      <Calendar className="h-2.5 w-2.5" />
+                      {todo.startTime}{todo.endTime ? `–${todo.endTime}` : ''}
+                    </span>
+                  )}
                   {/* Difficulty badge */}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide ${diffCfg.color}`}>
                     {diffCfg.label}
