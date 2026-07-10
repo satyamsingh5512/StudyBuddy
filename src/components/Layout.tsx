@@ -14,6 +14,7 @@ import {
   X,
   Newspaper,
   StickyNote,
+  CalendarDays,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom } from '@/store/atoms';
@@ -38,6 +39,7 @@ import { soundManager } from '@/lib/sounds';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/schedule', icon: CalendarDays, label: 'Schedule' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/notes', icon: StickyNote, label: 'Notepad' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
