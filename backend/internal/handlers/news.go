@@ -15,6 +15,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// ─────────────────────────────────────────────
+// Cache
+// ─────────────────────────────────────────────
+
 type CachedNews struct {
 	Data      interface{}
 	Timestamp int64
@@ -23,19 +27,9 @@ type CachedNews struct {
 var newsCache = sync.Map{}
 var CACHE_DURATION int64 = 3600000 // 1 hour in ms
 
-// defaultGroqModel uses Groq's Compound Mini system, which augments the
-// underlying Llama model with real-time web search (a single search per
-// request). Plain instruction-following models have a training cutoff and
-// cannot know "today's date" or current exam-cycle news, so they will
-// confidently invent stale/incorrect dates no matter how the prompt is
-// worded — Compound actually searches the live web before answering, which
-// is required for this to be factually current.
-//
-// We use compound-mini (max 1 tool call) rather than full compound (up to 10
-// tool calls) because compound's multi-step tool use can accumulate enough
-// fetched web content in context to trip Groq's 413 "request too large"
-// error for a simple news lookup. Mini is faster and sufficient for this.
-const defaultGroqModel = "groq/compound-mini"
+// ─────────────────────────────────────────────
+// Allowed categories / valid exam types
+// ─────────────────────────────────────────────
 
 var allowedNewsCategories = map[string]struct{}{
 	"announcement": {},
@@ -47,32 +41,34 @@ var allowedNewsCategories = map[string]struct{}{
 	"result":       {},
 }
 
-type generatedNewsItem struct {
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	Category string `json:"category"`
-	Date     string `json:"date"`
-	Source   string `json:"source"`
-}
-
-func getGroqModel() string {
-	model := strings.TrimSpace(os.Getenv("GROQ_MODEL"))
-	if model == "" {
-		return defaultGroqModel
-	}
-	return model
-}
-
-func getGroqAPIKey() string {
-	return strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
-}
-
 func normalizeCategory(category string) string {
 	cat := strings.ToLower(strings.TrimSpace(category))
 	if _, ok := allowedNewsCategories[cat]; ok {
 		return cat
 	}
 	return "announcement"
+}
+
+func isValidExamType(examTypeUpper string) bool {
+	validExams := []string{"JEE", "NEET", "GATE", "UPSC", "CAT", "NDA", "CLAT"}
+	for _, exam := range validExams {
+		if exam == examTypeUpper {
+			return true
+		}
+	}
+	return false
+}
+
+// ─────────────────────────────────────────────
+// News item type + normaliser
+// ─────────────────────────────────────────────
+
+type generatedNewsItem struct {
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	Category string `json:"category"`
+	Date     string `json:"date"`
+	Source   string `json:"source"`
 }
 
 func normalizeNewsItems(raw interface{}) ([]generatedNewsItem, error) {
@@ -116,107 +112,15 @@ func normalizeNewsItems(raw interface{}) ([]generatedNewsItem, error) {
 	}
 
 	if len(normalized) == 0 {
-		return nil, errors.New("empty or invalid news payload from Groq")
+		return nil, errors.New("empty or invalid news payload from Gemini")
 	}
 
 	return normalized, nil
 }
 
-var errRequestTooLarge = errors.New("request too large")
-
-// fallbackGroqModel is a plain (non-tool-use) model used only as a retry when
-// the search-grounded model's accumulated context trips a 413. It won't have
-// live web results, but the date-fencing rules in each prompt still keep it
-// from returning clearly stale years.
-const fallbackGroqModel = "llama-3.1-8b-instant"
-
-// callGroqJSONWithFallback calls callGroqJSON with the requested model, and on
-// a 413 (request too large — usually from search-tool context accumulation)
-// retries once with a smaller completion budget and a plain model that
-// doesn't call tools, so the feature degrades gracefully instead of failing.
-func callGroqJSONWithFallback(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
-	text, err := callGroqJSON(apiKey, model, systemInstruction, userPrompt, temperature, maxOutputTokens)
-	if err == nil {
-		return text, nil
-	}
-	if !errors.Is(err, errRequestTooLarge) {
-		return "", err
-	}
-
-	retryTokens := maxOutputTokens / 2
-	if retryTokens < 512 {
-		retryTokens = 512
-	}
-	return callGroqJSON(apiKey, fallbackGroqModel, systemInstruction, userPrompt, temperature, retryTokens)
-}
-
-// callGroqJSON sends a chat-completion request to Groq's OpenAI-compatible API
-// and returns the assistant message content (expected to be JSON). Groq hosts
-// open models such as Meta's Llama; the model is configurable via GROQ_MODEL.
-func callGroqJSON(apiKey, model, systemInstruction, userPrompt string, temperature float64, maxOutputTokens int) (string, error) {
-	requestBody := map[string]interface{}{
-		"model": model,
-		"messages": []map[string]string{
-			{"role": "system", "content": systemInstruction},
-			{"role": "user", "content": userPrompt},
-		},
-		"temperature": temperature,
-		"max_tokens":  maxOutputTokens,
-	}
-
-	reqBytes, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(reqBytes))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusRequestEntityTooLarge {
-			return "", errRequestTooLarge
-		}
-		return "", fmt.Errorf("Groq API error (%d): %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	var groqRes struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.Unmarshal(bodyBytes, &groqRes); err != nil {
-		return "", err
-	}
-
-	if len(groqRes.Choices) == 0 {
-		return "", errors.New("no choices from Groq")
-	}
-
-	text := strings.TrimSpace(groqRes.Choices[0].Message.Content)
-	if text == "" {
-		return "", errors.New("empty text response from Groq")
-	}
-
-	return text, nil
-}
+// ─────────────────────────────────────────────
+// JSON parser with fallback boundary detection
+// ─────────────────────────────────────────────
 
 func parseJSONWithFallback(responseText, startToken, endToken string, out interface{}) error {
 	trimmed := strings.TrimSpace(responseText)
@@ -233,15 +137,117 @@ func parseJSONWithFallback(responseText, startToken, endToken string, out interf
 	return json.Unmarshal([]byte(trimmed[startIdx:endIdx+1]), out)
 }
 
-func isValidExamType(examTypeUpper string) bool {
-	validExams := []string{"JEE", "NEET", "GATE", "UPSC", "CAT", "NDA", "CLAT"}
-	for _, exam := range validExams {
-		if exam == examTypeUpper {
-			return true
-		}
-	}
-	return false
+// ─────────────────────────────────────────────
+// Gemini REST API — generateContent with Google Search grounding
+// ─────────────────────────────────────────────
+
+// geminiNewsRequest is the full request payload for Gemini generateContent.
+type geminiNewsRequest struct {
+	Contents []geminiNewsContent `json:"contents"`
+	Tools    []geminiNewsTool    `json:"tools"`
 }
+
+type geminiNewsContent struct {
+	Parts []geminiNewsPart `json:"parts"`
+}
+
+type geminiNewsPart struct {
+	Text string `json:"text"`
+}
+
+// geminiNewsTool enables the Google Search grounding tool so Gemini can
+// fetch live web results before generating its answer — keeping news and
+// exam dates factually current with a real web search on every uncached call.
+type geminiNewsTool struct {
+	GoogleSearch map[string]interface{} `json:"google_search"`
+}
+
+type geminiNewsResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []struct {
+				Text string `json:"text"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+}
+
+func getGeminiAPIKey() string {
+	return strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
+}
+
+// callGeminiNews calls Gemini 1.5 Flash with Google Search grounding enabled
+// and returns the raw text response. The prompt must instruct the model to
+// return only valid JSON so callers can parse it with parseJSONWithFallback.
+func callGeminiNews(prompt string) (string, error) {
+	apiKey := getGeminiAPIKey()
+	if apiKey == "" {
+		return "", errors.New("GEMINI_API_KEY not configured")
+	}
+
+	url := fmt.Sprintf(
+		"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s",
+		apiKey,
+	)
+
+	reqBody := geminiNewsRequest{
+		Contents: []geminiNewsContent{
+			{Parts: []geminiNewsPart{{Text: prompt}}},
+		},
+		// Google Search grounding: Gemini searches the live web before
+		// answering, giving real current exam dates and news.
+		Tools: []geminiNewsTool{
+			{GoogleSearch: map[string]interface{}{}},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Gemini API error (%d): %s", resp.StatusCode, string(respBytes))
+	}
+
+	var gemResp geminiNewsResponse
+	if err := json.Unmarshal(respBytes, &gemResp); err != nil {
+		return "", fmt.Errorf("failed to decode Gemini response: %w", err)
+	}
+
+	if len(gemResp.Candidates) == 0 || len(gemResp.Candidates[0].Content.Parts) == 0 {
+		return "", errors.New("empty response from Gemini")
+	}
+
+	text := strings.TrimSpace(gemResp.Candidates[0].Content.Parts[0].Text)
+	if text == "" {
+		return "", errors.New("empty text from Gemini")
+	}
+
+	return text, nil
+}
+
+// ─────────────────────────────────────────────
+// Handlers
+// ─────────────────────────────────────────────
 
 func GetNews(c *fiber.Ctx) error {
 	examTypeUpper := strings.ToUpper(c.Params("examType"))
@@ -258,42 +264,44 @@ func GetNews(c *fiber.Ctx) error {
 		}
 	}
 
-	apiKey := getGroqAPIKey()
-	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
+	if getGeminiAPIKey() == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
 	}
 
-	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Use web search to find real, current information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON array itself."
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	currentYear := now.Year()
+
 	prompt := fmt.Sprintf(`Today's date is %s. Search the web for the latest real news about the %s exam for Indian aspirants, for the %d exam cycle.
 Generate exactly 5 useful, current, and forward-looking updates based on what you find.
-Return a JSON array with this schema:
+Return ONLY a valid JSON array — no markdown, no backticks, no commentary outside the JSON.
+
+Schema:
 [
   {
     "title": "News headline",
     "content": "2-3 sentence summary",
-		"category": "announcement|syllabus|notification|tips|motivation",
+    "category": "announcement|syllabus|notification|tips|motivation",
     "date": "YYYY-MM-DD",
-    "source": "official or reputable source"
+    "source": "official or reputable source name"
   }
 ]
+
 Rules:
-- Every "date" MUST be %d-01-01 or later. Never output any date before %d — if you cannot find a real, current source, omit that item rather than inventing an old date.
+- Every "date" MUST be %d-01-01 or later. Never output any date before %d — if you cannot find a real current source, omit that item rather than inventing an old date.
 - Focus on the current and upcoming exam cycle. If an official date is not yet announced, give the most probable expected date and write "(expected)" in the content.
 - No markdown, no backticks, no extra keys, no text outside the JSON array.
-- Date must be YYYY-MM-DD.
-- Keep each item relevant to %s.`, today, examTypeUpper, currentYear, currentYear, currentYear, examTypeUpper)
+- Keep each item relevant to %s.`,
+		today, examTypeUpper, currentYear, currentYear, currentYear, examTypeUpper)
 
-	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.6, 1500)
+	responseText, err := callGeminiNews(prompt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var parsedNews interface{}
 	if err := parseJSONWithFallback(responseText, "[", "]", &parsedNews); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Groq news response"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini news response"})
 	}
 
 	normalizedNews, err := normalizeNewsItems(parsedNews)
@@ -307,18 +315,19 @@ Rules:
 
 func GetNewsDates(c *fiber.Ctx) error {
 	examTypeUpper := strings.ToUpper(c.Params("examType"))
-	apiKey := getGroqAPIKey()
 
-	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
+	if getGeminiAPIKey() == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
 	}
 
-	systemInstruction := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Use web search to find real, current information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON object itself."
 	now := time.Now()
 	today := now.Format("2006-01-02")
 	currentYear := now.Year()
+
 	prompt := fmt.Sprintf(`Today's date is %s. Search the web for the latest real key dates for the %s exam cycle for %d (and early %d if relevant) in India.
-Return a JSON object with this schema:
+Return ONLY a valid JSON object — no markdown, no backticks, no text outside the JSON.
+
+Schema:
 {
   "examName": "%s",
   "dates": [
@@ -329,21 +338,22 @@ Return a JSON object with this schema:
     }
   ]
 }
+
 Rules:
-- Every "date" MUST be %d-01-01 or later. Do not include any date before %d — if you cannot find a real, current source, omit that item rather than inventing an old date.
+- Every "date" MUST be %d-01-01 or later. Do not include any date before %d — if you cannot find a real current source, omit that item.
 - If a date is not yet officially announced, provide the most probable expected date based on previous years' patterns and note "(expected)" in the description.
 - Include registration, exam, result, and counseling milestones when applicable.
-- No markdown, no backticks, no extra keys, no text outside the JSON object.
-- Date must be YYYY-MM-DD.`, today, examTypeUpper, currentYear, currentYear+1, examTypeUpper, currentYear, currentYear)
+- No markdown, no backticks, no extra keys, no text outside the JSON object.`,
+		today, examTypeUpper, currentYear, currentYear+1, examTypeUpper, currentYear, currentYear)
 
-	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.4, 1000)
+	responseText, err := callGeminiNews(prompt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var parsedDates interface{}
 	if err := parseJSONWithFallback(responseText, "{", "}", &parsedDates); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Groq dates response"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini dates response"})
 	}
 
 	return c.JSON(parsedDates)
@@ -353,10 +363,6 @@ type newsSearchRequest struct {
 	Query string `json:"query"`
 }
 
-// SearchNews answers a free-form user query (e.g. "JEE 2022 cutoff trends" or
-// "NEET 2026 expected exam date") with a set of relevant news items. Historical
-// queries return the model's best known information; current/upcoming queries
-// return current or probable expected updates. Results are cached per query.
 func SearchNews(c *fiber.Ctx) error {
 	examTypeUpper := strings.ToUpper(c.Params("examType"))
 
@@ -377,9 +383,8 @@ func SearchNews(c *fiber.Ctx) error {
 		query = query[:300]
 	}
 
-	apiKey := getGroqAPIKey()
-	if apiKey == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GROQ_API_KEY."})
+	if getGeminiAPIKey() == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "News service not configured. Set GEMINI_API_KEY."})
 	}
 
 	cacheKey := "search:" + examTypeUpper + "|" + strings.ToLower(query)
@@ -391,38 +396,41 @@ func SearchNews(c *fiber.Ctx) error {
 		}
 	}
 
-	now := time.Now()
-	today := now.Format("2006-01-02")
-	systemInstruction := "You are StudyBuddy's exam news assistant for Indian competitive exams. Use web search to find real, accurate information before answering. Return only valid JSON without markdown, backticks, or commentary — your entire response must be the JSON array itself."
+	today := time.Now().Format("2006-01-02")
+
 	prompt := fmt.Sprintf(`Today's date is %s. A %s aspirant in India asked: "%s".
-Search the web and respond with 3 to 6 news/update items that best answer this query, based on what you find.
-- If the query is about a past exam cycle or historical data, give accurate information for that period, using real dates from that timeframe.
+Search the web and respond with 3 to 6 news/update items that best answer this query.
+- If the query is about a past exam cycle or historical data, give accurate information for that period using real dates from that timeframe.
 - If the query is about the current or upcoming cycle, give current or most-probable expected updates and write "(expected)" in the content for unconfirmed dates.
 - If you cannot find real information for an item, omit it rather than inventing one.
 
-Return a JSON array with this schema:
+Return ONLY a valid JSON array — no markdown, no backticks, no text outside the JSON.
+
+Schema:
 [
   {
     "title": "Headline",
     "content": "2-3 sentence summary",
     "category": "announcement|syllabus|notification|tips|motivation|strategy|result",
     "date": "YYYY-MM-DD",
-    "source": "official or reputable source"
+    "source": "official or reputable source name"
   }
 ]
-Rules:
-- No markdown, no backticks, no extra keys.
-- Date must be YYYY-MM-DD and match the timeframe implied by the query.
-- Keep every item relevant to %s and to the user's query.`, today, examTypeUpper, query, examTypeUpper)
 
-	responseText, err := callGroqJSONWithFallback(apiKey, getGroqModel(), systemInstruction, prompt, 0.5, 1800)
+Rules:
+- No markdown, no backticks, no extra keys, no text outside the JSON array.
+- Date must be YYYY-MM-DD and match the timeframe implied by the query.
+- Keep every item relevant to %s and to the user's query.`,
+		today, examTypeUpper, query, examTypeUpper)
+
+	responseText, err := callGeminiNews(prompt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var parsedNews interface{}
 	if err := parseJSONWithFallback(responseText, "[", "]", &parsedNews); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Groq search response"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse Gemini search response"})
 	}
 
 	normalizedNews, err := normalizeNewsItems(parsedNews)
@@ -435,8 +443,7 @@ Rules:
 }
 
 func ClearNewsCache(c *fiber.Ctx) error {
-	// Simple map clear
-	newsCache.Range(func(key interface{}, value interface{}) bool {
+	newsCache.Range(func(key interface{}, _ interface{}) bool {
 		newsCache.Delete(key)
 		return true
 	})
