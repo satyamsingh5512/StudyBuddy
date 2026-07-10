@@ -75,6 +75,7 @@ func SetupRoutes(app *fiber.App) {
 	todos := protected.Group("/todos")
 	todos.Get("/", handlers.GetTodos)
 	todos.Post("/", handlers.CreateTodo)
+	todos.Delete("/by-day", handlers.DeleteTodosByDay)
 	todos.Put("/:id", handlers.UpdateTodo)
 	todos.Patch("/:id", handlers.UpdateTodo) // Support PATCH for frontend compatibility
 	todos.Delete("/:id", handlers.DeleteTodo)
