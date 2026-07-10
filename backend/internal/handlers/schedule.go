@@ -207,30 +207,7 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 // Gemini AI Schedule Generation
 // ─────────────────────────────────────────────
 
-// geminiRequest is the request body for Gemini REST API.
-type geminiRequest struct {
-	Contents []geminiContent `json:"contents"`
-}
-
-type geminiContent struct {
-	Parts []geminiPart `json:"parts"`
-}
-
-type geminiPart struct {
-	Text string `json:"text"`
-}
-
-type geminiResponse struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-		} `json:"content"`
-	} `json:"candidates"`
-}
-
-// GenerateSchedule calls Gemini to create a structured time-blocked study plan.
+// GenerateSchedule calls the AI to create a structured time-blocked study plan.
 func GenerateSchedule(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
 
@@ -366,22 +343,22 @@ func buildAvailabilityContext(avail models.Availability) string {
 	return result
 }
 
-// callGemini calls the Gemini REST API and parses the schedule items out of the response.
-// Retries up to 3 times on 429 rate-limit errors, respecting the API's retry-delay.
+// callGemini calls the AI (OpenRouter) and parses the schedule items out of the response.
+// Retries up to 3 times on 429, respecting the Retry-After header.
 func callGemini(prompt string) ([]models.ScheduleItem, error) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("GEMINI_API_KEY not configured")
+		return nil, fmt.Errorf("OPENROUTER_API_KEY not configured")
 	}
 
-	geminiModel := os.Getenv("GEMINI_MODEL")
-	if geminiModel == "" {
-		geminiModel = "gemini-2.5-flash"
+	model := os.Getenv("OPENROUTER_MODEL")
+	if model == "" {
+		model = "google/gemma-4-26b-a4b-it:free"
 	}
 
 	const maxAttempts = 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		items, retryAfter, err := doGeminiScheduleRequest(apiKey, geminiModel, prompt)
+		items, retryAfter, err := doOpenRouterScheduleRequest(apiKey, model, prompt)
 		if err == nil {
 			return items, nil
 		}
@@ -390,25 +367,23 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 			continue
 		}
 		if attempt == maxAttempts && retryAfter > 0 {
-			return nil, fmt.Errorf("Gemini rate limit exceeded after %d attempts. Please try again in a minute", maxAttempts)
+			return nil, fmt.Errorf("AI rate limit exceeded after %d attempts. Please try again in a minute", maxAttempts)
 		}
 		return nil, err
 	}
 	return nil, fmt.Errorf("unexpected end of retry loop")
 }
 
-// doGeminiScheduleRequest makes a single Gemini generateContent call for schedule generation.
+// doOpenRouterScheduleRequest makes a single OpenRouter chat completion call for schedule generation.
 // Returns (items, retryAfter, error). retryAfter > 0 means it was a 429.
-func doGeminiScheduleRequest(apiKey, geminiModel, prompt string) ([]models.ScheduleItem, time.Duration, error) {
-	url := fmt.Sprintf(
-		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-		geminiModel, apiKey,
-	)
-
-	reqBody := geminiRequest{
-		Contents: []geminiContent{
-			{Parts: []geminiPart{{Text: prompt}}},
+func doOpenRouterScheduleRequest(apiKey, model, prompt string) ([]models.ScheduleItem, time.Duration, error) {
+	reqBody := map[string]interface{}{
+		"model": model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
 		},
+		"temperature": 0.4,
+		"max_tokens":  3000,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -416,11 +391,17 @@ func doGeminiScheduleRequest(apiKey, geminiModel, prompt string) ([]models.Sched
 		return nil, 0, err
 	}
 
-	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
+	httpReq, err := http.NewRequest("POST",
+		"https://openrouter.ai/api/v1/chat/completions",
+		bytes.NewReader(bodyBytes),
+	)
 	if err != nil {
 		return nil, 0, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("HTTP-Referer", "https://sbd.satym.in")
+	httpReq.Header.Set("X-Title", "StudyBuddy")
 
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
@@ -435,56 +416,43 @@ func doGeminiScheduleRequest(apiKey, geminiModel, prompt string) ([]models.Sched
 	}
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		retryDelay := parseScheduleRetryDelay(b)
+		retryDelay := 15 * time.Second
+		if ra := resp.Header.Get("Retry-After"); ra != "" {
+			var secs float64
+			if _, err := fmt.Sscanf(ra, "%f", &secs); err == nil && secs > 0 {
+				retryDelay = time.Duration((secs+1)*float64(time.Second))
+			}
+		}
 		return nil, retryDelay, fmt.Errorf("rate limited (429)")
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("Gemini API error %d: %s", resp.StatusCode, string(b))
+		return nil, 0, fmt.Errorf("AI API error %d: %s", resp.StatusCode, string(b))
 	}
 
-	var gemResp geminiResponse
-	if err := json.Unmarshal(b, &gemResp); err != nil {
-		return nil, 0, err
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(b, &result); err != nil {
+		return nil, 0, fmt.Errorf("failed to parse AI response: %w", err)
+	}
+	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
+		return nil, 0, fmt.Errorf("empty response from AI")
 	}
 
-	if len(gemResp.Candidates) == 0 || len(gemResp.Candidates[0].Content.Parts) == 0 {
-		return nil, 0, fmt.Errorf("empty response from Gemini")
-	}
-
-	rawText := gemResp.Candidates[0].Content.Parts[0].Text
+	rawText := strings.TrimSpace(result.Choices[0].Message.Content)
 	rawText = stripMarkdownJSON(rawText)
 
 	var items []models.ScheduleItem
 	if err := json.Unmarshal([]byte(rawText), &items); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse Gemini JSON output: %w\n\nRaw: %s", err, rawText[:safeMin(200, len(rawText))])
+		return nil, 0, fmt.Errorf("failed to parse AI JSON output: %w\n\nRaw: %s", err, rawText[:safeMin(200, len(rawText))])
 	}
 
 	return items, 0, nil
-}
-
-// parseScheduleRetryDelay extracts the retryDelay from a Gemini 429 response body.
-func parseScheduleRetryDelay(body []byte) time.Duration {
-	var errResp struct {
-		Error struct {
-			Details []struct {
-				Type       string `json:"@type"`
-				RetryDelay string `json:"retryDelay"`
-			} `json:"details"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(body, &errResp); err == nil {
-		for _, d := range errResp.Error.Details {
-			if strings.Contains(d.Type, "RetryInfo") && d.RetryDelay != "" {
-				s := strings.TrimSuffix(d.RetryDelay, "s")
-				var secs float64
-				if _, err := fmt.Sscanf(s, "%f", &secs); err == nil && secs > 0 {
-					return time.Duration((secs+2)*float64(time.Second))
-				}
-			}
-		}
-	}
-	return 15 * time.Second
 }
 
 // stripMarkdownJSON removes ```json ... ``` fences from Gemini output.
