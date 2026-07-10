@@ -372,9 +372,13 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 		return nil, fmt.Errorf("GEMINI_API_KEY not configured")
 	}
 
+	geminiModel := os.Getenv("GEMINI_MODEL")
+	if geminiModel == "" {
+		geminiModel = "gemini-2.0-flash-lite"
+	}
 	url := fmt.Sprintf(
-		"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s",
-		apiKey,
+		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+		geminiModel, apiKey,
 	)
 
 	reqBody := geminiRequest{

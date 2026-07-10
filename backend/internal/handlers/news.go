@@ -176,7 +176,16 @@ func getGeminiAPIKey() string {
 	return strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
 }
 
-// callGeminiNews calls Gemini 1.5 Flash with Google Search grounding enabled
+// getGeminiModel returns the model ID from GEMINI_MODEL env var,
+// defaulting to gemini-2.0-flash-lite which is available to all API keys.
+func getGeminiModel() string {
+	if m := strings.TrimSpace(os.Getenv("GEMINI_MODEL")); m != "" {
+		return m
+	}
+	return "gemini-2.0-flash-lite"
+}
+
+// callGeminiNews calls Gemini with Google Search grounding enabled
 // and returns the raw text response. The prompt must instruct the model to
 // return only valid JSON so callers can parse it with parseJSONWithFallback.
 func callGeminiNews(prompt string) (string, error) {
@@ -186,8 +195,8 @@ func callGeminiNews(prompt string) (string, error) {
 	}
 
 	url := fmt.Sprintf(
-		"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s",
-		apiKey,
+		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+		getGeminiModel(), apiKey,
 	)
 
 	reqBody := geminiNewsRequest{
