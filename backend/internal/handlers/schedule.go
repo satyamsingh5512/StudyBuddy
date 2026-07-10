@@ -319,22 +319,66 @@ func buildAvailabilityContext(avail models.Availability) string {
 	return result
 }
 
-// callGemini calls the AI (OpenRouter) and parses the schedule items out of the response.
-// Retries up to 3 times on 429, respecting the Retry-After header.
+// callGemini generates schedule items using whatever AI provider is configured.
+// Tries OpenRouter first, then falls back to Groq (which most deployments
+// already have set for the news feature). This way the schedule works as long
+// as EITHER key is present.
 func callGemini(prompt string) ([]models.ScheduleItem, error) {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("OPENROUTER_API_KEY not configured")
+	orKey := os.Getenv("OPENROUTER_API_KEY")
+	groqKey := os.Getenv("GROQ_API_KEY")
+
+	if orKey == "" && groqKey == "" {
+		return nil, fmt.Errorf("no AI key configured — set OPENROUTER_API_KEY or GROQ_API_KEY")
 	}
 
-	model := os.Getenv("OPENROUTER_MODEL")
-	if model == "" {
-		model = "google/gemma-4-26b-a4b-it:free"
+	var lastErr error
+
+	// ── Try OpenRouter first ──
+	if orKey != "" {
+		model := os.Getenv("OPENROUTER_MODEL")
+		if model == "" {
+			model = "google/gemma-4-26b-a4b-it:free"
+		}
+		items, err := callScheduleAI(
+			"https://openrouter.ai/api/v1/chat/completions",
+			orKey, model, prompt, true,
+		)
+		if err == nil {
+			return items, nil
+		}
+		lastErr = fmt.Errorf("OpenRouter: %w", err)
 	}
 
+	// ── Fall back to Groq ──
+	if groqKey != "" {
+		model := os.Getenv("GROQ_SCHEDULE_MODEL")
+		if model == "" {
+			model = "llama-3.3-70b-versatile"
+		}
+		items, err := callScheduleAI(
+			"https://api.groq.com/openai/v1/chat/completions",
+			groqKey, model, prompt, false,
+		)
+		if err == nil {
+			return items, nil
+		}
+		if lastErr != nil {
+			lastErr = fmt.Errorf("%v; Groq: %w", lastErr, err)
+		} else {
+			lastErr = fmt.Errorf("Groq: %w", err)
+		}
+	}
+
+	return nil, lastErr
+}
+
+// callScheduleAI calls any OpenAI-compatible chat endpoint and parses schedule items.
+// Retries up to 3 times on 429. `mergeSystem` merges instructions into the user
+// message (required for Gemma which rejects the system role).
+func callScheduleAI(endpoint, apiKey, model, userPrompt string, mergeSystem bool) ([]models.ScheduleItem, error) {
 	const maxAttempts = 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		items, retryAfter, err := doOpenRouterScheduleRequest(apiKey, model, prompt)
+		items, retryAfter, err := doScheduleRequest(endpoint, apiKey, model, userPrompt, mergeSystem)
 		if err == nil {
 			return items, nil
 		}
@@ -343,25 +387,35 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 			continue
 		}
 		if attempt == maxAttempts && retryAfter > 0 {
-			return nil, fmt.Errorf("AI rate limit exceeded after %d attempts. Please try again in a minute", maxAttempts)
+			return nil, fmt.Errorf("rate limited after %d attempts", maxAttempts)
 		}
 		return nil, err
 	}
 	return nil, fmt.Errorf("unexpected end of retry loop")
 }
 
-// doOpenRouterScheduleRequest makes a single OpenRouter chat completion call for schedule generation.
+// doScheduleRequest makes a single OpenAI-compatible chat completion call.
 // Returns (items, retryAfter, error). retryAfter > 0 means it was a 429.
-func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.ScheduleItem, time.Duration, error) {
-	// Split into system + user so smaller models don't add preamble before the JSON
-	systemMsg := "You are a study schedule planner. You ONLY output valid JSON arrays. Never add any text, explanation, or markdown before or after the JSON array. Your entire response must be a raw JSON array starting with [ and ending with ]."
+func doScheduleRequest(endpoint, apiKey, model, userPrompt string, mergeSystem bool) ([]models.ScheduleItem, time.Duration, error) {
+	instruction := "You ONLY output a raw JSON array. No markdown, no code fences, no explanation before or after. Start your response with [ and end with ]."
+
+	var messages []map[string]string
+	if mergeSystem {
+		// Gemma-safe: everything in one user message (Gemma rejects system role)
+		messages = []map[string]string{
+			{"role": "user", "content": instruction + "\n\n" + userPrompt},
+		}
+	} else {
+		// Groq/Llama: proper system + user split
+		messages = []map[string]string{
+			{"role": "system", "content": instruction},
+			{"role": "user", "content": userPrompt},
+		}
+	}
 
 	reqBody := map[string]interface{}{
-		"model": model,
-		"messages": []map[string]string{
-			{"role": "system", "content": systemMsg},
-			{"role": "user", "content": userPrompt},
-		},
+		"model":       model,
+		"messages":    messages,
 		"temperature": 0.3,
 		"max_tokens":  4096,
 	}
@@ -371,10 +425,7 @@ func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.Sch
 		return nil, 0, err
 	}
 
-	httpReq, err := http.NewRequest("POST",
-		"https://openrouter.ai/api/v1/chat/completions",
-		bytes.NewReader(bodyBytes),
-	)
+	httpReq, err := http.NewRequest("POST", endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -386,7 +437,7 @@ func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.Sch
 	client := &http.Client{Timeout: 90 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, 0, fmt.Errorf("network error calling AI: %w", err)
+		return nil, 0, fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -407,7 +458,7 @@ func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.Sch
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("AI API error %d: %s", resp.StatusCode, string(b))
+		return nil, 0, fmt.Errorf("API error %d: %s", resp.StatusCode, string(b[:safeMin(300, len(b))]))
 	}
 
 	var result struct {
@@ -421,27 +472,23 @@ func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.Sch
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(b, &result); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse AI response: %w — raw: %s", err, string(b[:safeMin(300, len(b))]))
+		return nil, 0, fmt.Errorf("bad response: %w — raw: %s", err, string(b[:safeMin(300, len(b))]))
 	}
 	if result.Error != nil {
-		return nil, 0, fmt.Errorf("AI error: %s", result.Error.Message)
+		return nil, 0, fmt.Errorf("%s", result.Error.Message)
 	}
 	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
-		return nil, 0, fmt.Errorf("empty response from AI — raw: %s", string(b[:safeMin(300, len(b))]))
+		return nil, 0, fmt.Errorf("empty response — raw: %s", string(b[:safeMin(300, len(b))]))
 	}
 
-	rawText := strings.TrimSpace(result.Choices[0].Message.Content)
-
-	// Extract JSON array robustly — handles markdown fences and preamble text
-	rawText = extractJSONArray(rawText)
+	rawText := extractJSONArray(strings.TrimSpace(result.Choices[0].Message.Content))
 
 	var items []models.ScheduleItem
 	if err := json.Unmarshal([]byte(rawText), &items); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse schedule JSON: %w — raw response: %s", err, rawText[:safeMin(400, len(rawText))])
+		return nil, 0, fmt.Errorf("could not parse schedule JSON: %w — got: %s", err, rawText[:safeMin(400, len(rawText))])
 	}
-
 	if len(items) == 0 {
-		return nil, 0, fmt.Errorf("AI returned an empty schedule array")
+		return nil, 0, fmt.Errorf("AI returned empty schedule")
 	}
 
 	return items, 0, nil

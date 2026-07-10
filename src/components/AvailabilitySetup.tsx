@@ -1,94 +1,295 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Clock, Plus, Trash2, Check, ChevronRight, Sunrise, Moon } from 'lucide-react';
+import { Clock, Plus, Trash2, Check, Sunrise, Moon, Copy, AlertCircle } from 'lucide-react';
 import { GlassModal } from '@/components/dashboard/glass/GlassModal';
-import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from '@/components/dashboard/glass/GlassCard';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpsertAvailability, type TimeBlock, type Availability } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
 
-interface TimeBlockRowProps {
-  block: TimeBlock & { id: string };
-  onRemove: (id: string) => void;
-  onChange: (id: string, field: keyof TimeBlock, value: any) => void;
-  type: 'free' | 'blocked';
+const DAYS = [
+  { short: 'Sun', full: 'Sunday',    i: 0 },
+  { short: 'Mon', full: 'Monday',    i: 1 },
+  { short: 'Tue', full: 'Tuesday',   i: 2 },
+  { short: 'Wed', full: 'Wednesday', i: 3 },
+  { short: 'Thu', full: 'Thursday',  i: 4 },
+  { short: 'Fri', full: 'Friday',    i: 5 },
+  { short: 'Sat', full: 'Saturday',  i: 6 },
+];
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+
+interface Slot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  label?: string;  // only for blocked
 }
 
-function TimeBlockRow({ block, onRemove, onChange, type }: TimeBlockRowProps) {
+// DaySchedule holds free + blocked slots per day
+interface DaySchedule {
+  free: Slot[];
+  blocked: Slot[];
+}
+
+type WeekSchedule = Record<number, DaySchedule>; // key = 0..6
+
+// ─────────────────────────────────────────────
+// ID helper
+// ─────────────────────────────────────────────
+
+let _id = 0;
+const uid = () => `s_${Date.now()}_${++_id}`;
+
+// ─────────────────────────────────────────────
+// Conversion helpers
+// ─────────────────────────────────────────────
+
+function blocksToWeek(freeBlocks: TimeBlock[], blockedSlots: TimeBlock[]): WeekSchedule {
+  const week: WeekSchedule = {};
+  for (let d = 0; d < 7; d++) {
+    week[d] = { free: [], blocked: [] };
+  }
+  for (const b of freeBlocks) {
+    week[b.dayOfWeek]?.free.push({ id: uid(), startTime: b.startTime, endTime: b.endTime });
+  }
+  for (const b of blockedSlots) {
+    week[b.dayOfWeek]?.blocked.push({ id: uid(), startTime: b.startTime, endTime: b.endTime, label: b.label });
+  }
+  return week;
+}
+
+function weekToBlocks(week: WeekSchedule): { freeBlocks: TimeBlock[]; blockedSlots: TimeBlock[] } {
+  const freeBlocks: TimeBlock[] = [];
+  const blockedSlots: TimeBlock[] = [];
+  for (let d = 0; d < 7; d++) {
+    for (const s of week[d]?.free ?? []) {
+      freeBlocks.push({ dayOfWeek: d, startTime: s.startTime, endTime: s.endTime });
+    }
+    for (const s of week[d]?.blocked ?? []) {
+      blockedSlots.push({ dayOfWeek: d, startTime: s.startTime, endTime: s.endTime, label: s.label });
+    }
+  }
+  return { freeBlocks, blockedSlots };
+}
+
+function emptyWeek(): WeekSchedule {
+  const w: WeekSchedule = {};
+  for (let d = 0; d < 7; d++) w[d] = { free: [], blocked: [] };
+  return w;
+}
+
+// ─────────────────────────────────────────────
+// SlotRow — a single time slot inside a day
+// ─────────────────────────────────────────────
+
+interface SlotRowProps {
+  slot: Slot;
+  type: 'free' | 'blocked';
+  onChange: (id: string, field: string, value: string) => void;
+  onRemove: (id: string) => void;
+  onApplyAll: (slot: Slot) => void;
+}
+
+function SlotRow({ slot, type, onChange, onRemove, onApplyAll }: SlotRowProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
-      className={cn(
-        'flex flex-wrap items-center gap-2 p-3 rounded-xl border',
-        type === 'free'
-          ? 'bg-emerald-500/10 border-emerald-500/20'
-          : 'bg-rose-500/10 border-rose-500/20'
-      )}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      className="overflow-hidden"
     >
-      {/* Day selector */}
-      <div className="flex gap-1 flex-wrap">
-        {DAYS.map((d, i) => (
+      <div className={cn(
+        'flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border mb-2',
+        type === 'free'
+          ? 'bg-emerald-500/8 border-emerald-500/20'
+          : 'bg-rose-500/8 border-rose-500/20'
+      )}>
+        {/* Time pickers */}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="time"
+            value={slot.startTime}
+            onChange={(e) => onChange(slot.id, 'startTime', e.target.value)}
+            className="bg-background border border-border/60 rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-28"
+          />
+          <span className="text-[11px] text-muted-foreground">to</span>
+          <input
+            type="time"
+            value={slot.endTime}
+            onChange={(e) => onChange(slot.id, 'endTime', e.target.value)}
+            className="bg-background border border-border/60 rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-28"
+          />
+        </div>
+
+        {/* Label for blocked only */}
+        {type === 'blocked' && (
+          <input
+            placeholder="e.g. College, Lunch"
+            value={slot.label ?? ''}
+            onChange={(e) => onChange(slot.id, 'label', e.target.value)}
+            className="flex-1 min-w-24 bg-background border border-border/60 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        )}
+
+        <div className="flex items-center gap-1 ml-auto">
+          {/* Apply to all week */}
           <button
-            key={d}
-            onClick={() => onChange(block.id, 'dayOfWeek', i)}
-            className={cn(
-              'h-7 w-7 rounded-lg text-xs font-semibold transition-all duration-150',
-              block.dayOfWeek === i
-                ? type === 'free'
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-rose-500 text-white'
-                : 'bg-background/60 text-muted-foreground hover:bg-background'
-            )}
+            onClick={() => onApplyAll(slot)}
+            title="Copy this time slot to all 7 days"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20"
           >
-            {d[0]}
+            <Copy className="h-3 w-3" />
+            <span className="hidden sm:inline">All week</span>
           </button>
-        ))}
+          {/* Remove */}
+          <button
+            onClick={() => onRemove(slot.id)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
-
-      {/* Time range */}
-      <div className="flex items-center gap-1.5 ml-auto">
-        <input
-          type="time"
-          value={block.startTime}
-          onChange={(e) => onChange(block.id, 'startTime', e.target.value)}
-          className="bg-background/70 border border-border/50 rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        <span className="text-muted-foreground text-xs">to</span>
-        <input
-          type="time"
-          value={block.endTime}
-          onChange={(e) => onChange(block.id, 'endTime', e.target.value)}
-          className="bg-background/70 border border-border/50 rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
-
-      {/* Label */}
-      {type === 'blocked' && (
-        <input
-          placeholder="Label (e.g. College)"
-          value={block.label ?? ''}
-          onChange={(e) => onChange(block.id, 'label', e.target.value)}
-          className="flex-1 min-w-28 bg-background/70 border border-border/50 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      )}
-
-      <button
-        onClick={() => onRemove(block.id)}
-        className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
     </motion.div>
   );
 }
+
+// ─────────────────────────────────────────────
+// DayPanel — one collapsible day row
+// ─────────────────────────────────────────────
+
+interface DayPanelProps {
+  dayIndex: number;
+  dayFull: string;
+  dayShort: string;
+  schedule: DaySchedule;
+  onAddFree: (day: number) => void;
+  onAddBlocked: (day: number) => void;
+  onChangeSlot: (day: number, type: 'free' | 'blocked', id: string, field: string, value: string) => void;
+  onRemoveSlot: (day: number, type: 'free' | 'blocked', id: string) => void;
+  onApplyAll: (day: number, type: 'free' | 'blocked', slot: Slot) => void;
+}
+
+function DayPanel({ dayIndex, dayFull, dayShort, schedule, onAddFree, onAddBlocked, onChangeSlot, onRemoveSlot, onApplyAll }: DayPanelProps) {
+  const [open, setOpen] = useState(dayIndex >= 1 && dayIndex <= 5); // Mon–Fri open by default
+  const totalSlots = schedule.free.length + schedule.blocked.length;
+
+  return (
+    <div className="border border-border/50 rounded-2xl overflow-hidden">
+      {/* Day header — click to expand */}
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-secondary/30 hover:bg-secondary/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+            {dayShort}
+          </span>
+          <span className="text-sm font-semibold">{dayFull}</span>
+          {totalSlots > 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              {schedule.free.length > 0 && (
+                <span className="inline-flex items-center gap-1 mr-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />
+                  {schedule.free.length} free
+                </span>
+              )}
+              {schedule.blocked.length > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 inline-block" />
+                  {schedule.blocked.length} blocked
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+        <span className={cn('text-muted-foreground text-sm transition-transform duration-200', open && 'rotate-180')}>
+          ▾
+        </span>
+      </button>
+
+      {/* Expanded content */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="p-4 space-y-4">
+              {/* Free windows */}
+              <div>
+                <p className="text-xs font-semibold text-emerald-500 mb-2 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />
+                  Free / Study Windows
+                </p>
+                <AnimatePresence>
+                  {schedule.free.map(s => (
+                    <SlotRow
+                      key={s.id}
+                      slot={s}
+                      type="free"
+                      onChange={(id, field, val) => onChangeSlot(dayIndex, 'free', id, field, val)}
+                      onRemove={(id) => onRemoveSlot(dayIndex, 'free', id)}
+                      onApplyAll={(slot) => onApplyAll(dayIndex, 'free', slot)}
+                    />
+                  ))}
+                </AnimatePresence>
+                <button
+                  onClick={() => onAddFree(dayIndex)}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-medium border border-dashed border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 transition-all duration-150"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add free window
+                </button>
+              </div>
+
+              {/* Blocked slots */}
+              <div>
+                <p className="text-xs font-semibold text-rose-500 mb-2 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 inline-block" />
+                  Blocked / Busy Time
+                </p>
+                <AnimatePresence>
+                  {schedule.blocked.map(s => (
+                    <SlotRow
+                      key={s.id}
+                      slot={s}
+                      type="blocked"
+                      onChange={(id, field, val) => onChangeSlot(dayIndex, 'blocked', id, field, val)}
+                      onRemove={(id) => onRemoveSlot(dayIndex, 'blocked', id)}
+                      onApplyAll={(slot) => onApplyAll(dayIndex, 'blocked', slot)}
+                    />
+                  ))}
+                </AnimatePresence>
+                <button
+                  onClick={() => onAddBlocked(dayIndex)}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-medium border border-dashed border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-all duration-150"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add blocked slot
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Main AvailabilitySetup
+// ─────────────────────────────────────────────
 
 interface AvailabilitySetupProps {
   open: boolean;
@@ -97,55 +298,103 @@ interface AvailabilitySetupProps {
   onSaved?: () => void;
 }
 
-let idCounter = 0;
-function newId() {
-  return `tb_${Date.now()}_${++idCounter}`;
-}
-
-function toRowBlocks(blocks: TimeBlock[]) {
-  return blocks.map((b) => ({ ...b, id: newId() }));
-}
-
 export default function AvailabilitySetup({ open, onOpenChange, initialData, onSaved }: AvailabilitySetupProps) {
-  const reduce = useReducedMotion();
   const { toast } = useToast();
   const upsert = useUpsertAvailability();
 
-  const [step, setStep] = useState(0);
   const [wakeTime, setWakeTime] = useState(initialData?.wakeTime ?? '06:00');
   const [sleepTime, setSleepTime] = useState(initialData?.sleepTime ?? '23:00');
-  const [freeBlocks, setFreeBlocks] = useState<(TimeBlock & { id: string })[]>(
-    initialData?.freeBlocks ? toRowBlocks(initialData.freeBlocks) : []
+  const [week, setWeek] = useState<WeekSchedule>(() =>
+    initialData?.freeBlocks || initialData?.blockedSlots
+      ? blocksToWeek(initialData.freeBlocks ?? [], initialData.blockedSlots ?? [])
+      : emptyWeek()
   );
-  const [blockedSlots, setBlockedSlots] = useState<(TimeBlock & { id: string })[]>(
-    initialData?.blockedSlots ? toRowBlocks(initialData.blockedSlots) : []
-  );
 
-  const addFree = () =>
-    setFreeBlocks((p) => [...p, { id: newId(), dayOfWeek: 1, startTime: '08:00', endTime: '10:00' }]);
+  // Reset state when initialData changes (modal re-opened with fresh data)
+  const resetToInitial = useCallback(() => {
+    setWakeTime(initialData?.wakeTime ?? '06:00');
+    setSleepTime(initialData?.sleepTime ?? '23:00');
+    setWeek(
+      initialData?.freeBlocks || initialData?.blockedSlots
+        ? blocksToWeek(initialData.freeBlocks ?? [], initialData.blockedSlots ?? [])
+        : emptyWeek()
+    );
+  }, [initialData]);
 
-  const addBlocked = () =>
-    setBlockedSlots((p) => [...p, { id: newId(), dayOfWeek: 1, startTime: '14:00', endTime: '16:00', label: '' }]);
+  // ── Slot operations ──
 
-  const removeFree = (id: string) => setFreeBlocks((p) => p.filter((b) => b.id !== id));
-  const removeBlocked = (id: string) => setBlockedSlots((p) => p.filter((b) => b.id !== id));
+  const addSlot = (day: number, type: 'free' | 'blocked') => {
+    setWeek(w => {
+      const copy = { ...w, [day]: { ...w[day] } };
+      if (type === 'free') {
+        copy[day] = { ...copy[day], free: [...copy[day].free, { id: uid(), startTime: '09:00', endTime: '11:00' }] };
+      } else {
+        copy[day] = { ...copy[day], blocked: [...copy[day].blocked, { id: uid(), startTime: '13:00', endTime: '14:00', label: '' }] };
+      }
+      return copy;
+    });
+  };
 
-  function changeFree(id: string, field: keyof TimeBlock, value: any) {
-    setFreeBlocks((p) => p.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
-  }
-  function changeBlocked(id: string, field: keyof TimeBlock, value: any) {
-    setBlockedSlots((p) => p.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
-  }
+  const removeSlot = (day: number, type: 'free' | 'blocked', id: string) => {
+    setWeek(w => {
+      const copy = { ...w, [day]: { ...w[day] } };
+      if (type === 'free') {
+        copy[day] = { ...copy[day], free: copy[day].free.filter(s => s.id !== id) };
+      } else {
+        copy[day] = { ...copy[day], blocked: copy[day].blocked.filter(s => s.id !== id) };
+      }
+      return copy;
+    });
+  };
+
+  const changeSlot = (day: number, type: 'free' | 'blocked', id: string, field: string, value: string) => {
+    setWeek(w => {
+      const copy = { ...w, [day]: { ...w[day] } };
+      if (type === 'free') {
+        copy[day] = { ...copy[day], free: copy[day].free.map(s => s.id === id ? { ...s, [field]: value } : s) };
+      } else {
+        copy[day] = { ...copy[day], blocked: copy[day].blocked.map(s => s.id === id ? { ...s, [field]: value } : s) };
+      }
+      return copy;
+    });
+  };
+
+  // "Apply to all week" — copies this slot's times to every day (as a new slot)
+  const applyToAllDays = (sourceDayIndex: number, type: 'free' | 'blocked', slot: Slot) => {
+    setWeek(w => {
+      const next = { ...w };
+      for (let d = 0; d < 7; d++) {
+        if (d === sourceDayIndex) continue; // skip source day itself
+        const newSlot: Slot = { id: uid(), startTime: slot.startTime, endTime: slot.endTime, label: slot.label };
+        if (type === 'free') {
+          // Don't duplicate if same time already exists
+          const alreadyExists = next[d].free.some(s => s.startTime === slot.startTime && s.endTime === slot.endTime);
+          if (!alreadyExists) {
+            next[d] = { ...next[d], free: [...next[d].free, newSlot] };
+          }
+        } else {
+          const alreadyExists = next[d].blocked.some(s => s.startTime === slot.startTime && s.endTime === slot.endTime);
+          if (!alreadyExists) {
+            next[d] = { ...next[d], blocked: [...next[d].blocked, newSlot] };
+          }
+        }
+      }
+      return next;
+    });
+    toast({ title: '📋 Applied to all 7 days', description: `${slot.startTime}–${slot.endTime} copied to the whole week.` });
+  };
+
+  // Clear entire week
+  const clearAll = () => {
+    setWeek(emptyWeek());
+    toast({ title: 'Week cleared' });
+  };
 
   const handleSave = async () => {
+    const { freeBlocks, blockedSlots } = weekToBlocks(week);
     try {
-      await upsert.mutateAsync({
-        freeBlocks: freeBlocks.map(({ id: _id, ...rest }) => rest),
-        blockedSlots: blockedSlots.map(({ id: _id, ...rest }) => rest),
-        wakeTime,
-        sleepTime,
-      });
-      toast({ title: 'Availability saved!', description: 'The AI will now plan around your schedule.' });
+      await upsert.mutateAsync({ freeBlocks, blockedSlots, wakeTime, sleepTime });
+      toast({ title: '✅ Availability saved!', description: 'The AI will now plan around your schedule.' });
       onOpenChange(false);
       onSaved?.();
     } catch {
@@ -153,190 +402,132 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
     }
   };
 
-  const steps = [
-    {
-      title: 'Daily Schedule',
-      subtitle: 'When do you wake up and sleep?',
-      icon: <Sunrise className="h-5 w-5 text-amber-400" />,
-    },
-    {
-      title: 'Free Windows',
-      subtitle: 'When are you available to study?',
-      icon: <Check className="h-5 w-5 text-emerald-400" />,
-    },
-    {
-      title: 'Blocked Time',
-      subtitle: 'Classes, travel, meals — mark as busy.',
-      icon: <Clock className="h-5 w-5 text-rose-400" />,
-    },
-  ];
+  const totalFree = Object.values(week).reduce((n, d) => n + d.free.length, 0);
+  const totalBlocked = Object.values(week).reduce((n, d) => n + d.blocked.length, 0);
 
   return (
     <GlassModal
       open={open}
       onOpenChange={onOpenChange}
-      ariaLabel="Set up your availability"
-      className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+      ariaLabel="Set up your weekly availability"
+      className="max-w-2xl max-h-[92vh] overflow-hidden flex flex-col"
     >
       {/* Header */}
-      <div className="p-6 border-b border-border/40">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-xl bg-primary/10">
-            <Clock className="h-5 w-5 text-primary" />
+      <div className="px-6 pt-6 pb-4 border-b border-border/40 flex-shrink-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10">
+              <Clock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Weekly Availability</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Set free/blocked times per day — AI schedules only within free windows
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-bold">Set Your Availability</h2>
-            <p className="text-sm text-muted-foreground">Help the AI build a schedule that fits your life</p>
+          <button
+            onClick={resetToInitial}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2 mt-1"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Wake / Sleep */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+            <Sunrise className="h-4 w-4 text-amber-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-muted-foreground">Wake up</p>
+              <input
+                type="time"
+                value={wakeTime}
+                onChange={(e) => setWakeTime(e.target.value)}
+                className="w-full bg-transparent text-sm font-semibold focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2">
+            <Moon className="h-4 w-4 text-blue-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-muted-foreground">Sleep</p>
+              <input
+                type="time"
+                value={sleepTime}
+                onChange={(e) => setSleepTime(e.target.value)}
+                className="w-full bg-transparent text-sm font-semibold focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex gap-2">
-          {steps.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => setStep(i)}
-              className={cn(
-                'flex-1 flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-200',
-                step === i ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary/50'
-              )}
-            >
-              <span className="text-base">{s.icon}</span>
-              <span className={cn('text-xs font-semibold hidden sm:block', step === i ? 'text-primary' : 'text-muted-foreground')}>
-                {s.title}
+        {/* Summary pills */}
+        {(totalFree > 0 || totalBlocked > 0) && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            {totalFree > 0 && (
+              <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
+                {totalFree} free slot{totalFree > 1 ? 's' : ''}
               </span>
-              <div className={cn('h-0.5 w-8 rounded-full mt-1', step === i ? 'bg-primary' : 'bg-border/50')} />
+            )}
+            {totalBlocked > 0 && (
+              <span className="text-[11px] px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-400 font-medium">
+                {totalBlocked} blocked slot{totalBlocked > 1 ? 's' : ''}
+              </span>
+            )}
+            <button onClick={clearAll} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors ml-auto">
+              Clear all
             </button>
-          ))}
+          </div>
+        )}
+
+        {/* Tip */}
+        <div className="mt-3 flex items-start gap-2 p-2.5 rounded-xl bg-primary/5 border border-primary/10">
+          <AlertCircle className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Click <strong className="text-foreground">All week</strong> on any slot to copy that time to every day of the week instantly.
+          </p>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <AnimatePresence mode="wait">
-          {step === 0 && (
-            <motion.div
-              key="step0"
-              initial={reduce ? {} : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? {} : { opacity: 0, y: -8 }}
-              className="space-y-5"
-            >
-              <p className="text-sm text-muted-foreground">
-                Your typical daily boundaries. The AI won't schedule anything outside these hours.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Sunrise className="h-4 w-4 text-amber-400" /> Wake up time
-                  </label>
-                  <input
-                    type="time"
-                    value={wakeTime}
-                    onChange={(e) => setWakeTime(e.target.value)}
-                    className="w-full bg-background/70 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Moon className="h-4 w-4 text-blue-400" /> Sleep time
-                  </label>
-                  <input
-                    type="time"
-                    value={sleepTime}
-                    onChange={(e) => setSleepTime(e.target.value)}
-                    className="w-full bg-background/70 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={reduce ? {} : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? {} : { opacity: 0, y: -8 }}
-              className="space-y-4"
-            >
-              <p className="text-sm text-muted-foreground">
-                Add time windows when you are free to study. The AI prioritizes filling these slots.
-              </p>
-              <AnimatePresence>
-                {freeBlocks.map((b) => (
-                  <TimeBlockRow key={b.id} block={b} type="free" onRemove={removeFree} onChange={changeFree} />
-                ))}
-              </AnimatePresence>
-              <button
-                onClick={addFree}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium border-2 border-dashed border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10 transition-all duration-150"
-              >
-                <Plus className="h-4 w-4" /> Add free window
-              </button>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={reduce ? {} : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? {} : { opacity: 0, y: -8 }}
-              className="space-y-4"
-            >
-              <p className="text-sm text-muted-foreground">
-                Mark times you are busy — classes, commute, meals. The AI will not schedule study tasks here.
-              </p>
-              <AnimatePresence>
-                {blockedSlots.map((b) => (
-                  <TimeBlockRow key={b.id} block={b} type="blocked" onRemove={removeBlocked} onChange={changeBlocked} />
-                ))}
-              </AnimatePresence>
-              <button
-                onClick={addBlocked}
-                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium border-2 border-dashed border-rose-500/50 text-rose-500 hover:bg-rose-500/10 transition-all duration-150"
-              >
-                <Plus className="h-4 w-4" /> Add blocked slot
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Day list — scrollable */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        {DAYS.map(({ short, full, i }) => (
+          <DayPanel
+            key={i}
+            dayIndex={i}
+            dayFull={full}
+            dayShort={short}
+            schedule={week[i]}
+            onAddFree={(day) => addSlot(day, 'free')}
+            onAddBlocked={(day) => addSlot(day, 'blocked')}
+            onChangeSlot={changeSlot}
+            onRemoveSlot={removeSlot}
+            onApplyAll={applyToAllDays}
+          />
+        ))}
       </div>
 
       {/* Footer */}
-      <div className="p-5 border-t border-border/40 flex items-center justify-between gap-3">
+      <div className="px-6 py-4 border-t border-border/40 flex items-center justify-between gap-3 flex-shrink-0">
         <button
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
-          className="px-4 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={() => onOpenChange(false)}
+          className="px-4 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150"
         >
-          Back
+          Cancel
         </button>
-
-        <div className="flex gap-2">
-          {step < steps.length - 1 ? (
-            <button
-              onClick={() => setStep((s) => s + 1)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm"
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </button>
+        <button
+          onClick={handleSave}
+          disabled={upsert.isPending}
+          className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {upsert.isPending ? (
+            <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
           ) : (
-            <button
-              onClick={handleSave}
-              disabled={upsert.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {upsert.isPending ? (
-                <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Save Availability
-            </button>
+            <Check className="h-4 w-4" />
           )}
-        </div>
+          Save Availability
+        </button>
       </div>
     </GlassModal>
   );
