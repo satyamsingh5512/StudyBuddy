@@ -115,4 +115,17 @@ func SetupRoutes(app *fiber.App) {
 	notes.Put("/:id", handlers.UpdateNote)
 	notes.Patch("/:id", handlers.UpdateNote) // Support PATCH for frontend compatibility
 	notes.Delete("/:id", handlers.DeleteNote)
+
+	// Schedule (AI-powered smart schedule)
+	schedule := protected.Group("/schedule")
+	schedule.Get("/", handlers.GetSchedules)
+	schedule.Delete("/:id", handlers.DeleteSchedule)
+	schedule.Patch("/:id/items/:itemId", handlers.UpdateScheduleItem)
+	schedule.Post("/generate", handlers.GenerateSchedule)
+
+	// Availability (user's weekly free/blocked time)
+	availability := protected.Group("/availability")
+	availability.Get("/", handlers.GetAvailability)
+	availability.Post("/", handlers.UpsertAvailability)
+	availability.Put("/", handlers.UpsertAvailability)
 }
