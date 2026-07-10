@@ -256,10 +256,16 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour time format, specific t
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "AI generation failed: " + err.Error()})
 	}
 
-	// Assign ObjectIDs to each item
+	// Assign ObjectIDs to each item + normalize fields
 	for i := range scheduleItems {
 		scheduleItems[i].ID = primitive.NewObjectID()
 		scheduleItems[i].Date = body.Date
+		// Normalize priority to lowercase so the UI's icon/color map matches
+		p := strings.ToLower(strings.TrimSpace(scheduleItems[i].Priority))
+		if p != "low" && p != "medium" && p != "high" {
+			p = "medium"
+		}
+		scheduleItems[i].Priority = p
 	}
 
 	// Save to DB
@@ -320,36 +326,19 @@ func buildAvailabilityContext(avail models.Availability) string {
 }
 
 // callGemini generates schedule items using whatever AI provider is configured.
-// Tries OpenRouter first, then falls back to Groq (which most deployments
-// already have set for the news feature). This way the schedule works as long
-// as EITHER key is present.
+// Tries Groq first (fast, reliable, generous free tier), then falls back to
+// OpenRouter. Works as long as EITHER key is present.
 func callGemini(prompt string) ([]models.ScheduleItem, error) {
-	orKey := os.Getenv("OPENROUTER_API_KEY")
 	groqKey := os.Getenv("GROQ_API_KEY")
+	orKey := os.Getenv("OPENROUTER_API_KEY")
 
 	if orKey == "" && groqKey == "" {
-		return nil, fmt.Errorf("no AI key configured — set OPENROUTER_API_KEY or GROQ_API_KEY")
+		return nil, fmt.Errorf("no AI key configured — set GROQ_API_KEY or OPENROUTER_API_KEY")
 	}
 
 	var lastErr error
 
-	// ── Try OpenRouter first ──
-	if orKey != "" {
-		model := os.Getenv("OPENROUTER_MODEL")
-		if model == "" {
-			model = "google/gemma-4-26b-a4b-it:free"
-		}
-		items, err := callScheduleAI(
-			"https://openrouter.ai/api/v1/chat/completions",
-			orKey, model, prompt, true,
-		)
-		if err == nil {
-			return items, nil
-		}
-		lastErr = fmt.Errorf("OpenRouter: %w", err)
-	}
-
-	// ── Fall back to Groq ──
+	// ── Try Groq first (most reliable) ──
 	if groqKey != "" {
 		model := os.Getenv("GROQ_SCHEDULE_MODEL")
 		if model == "" {
@@ -362,10 +351,28 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 		if err == nil {
 			return items, nil
 		}
+		lastErr = fmt.Errorf("Groq: %w", err)
+	}
+
+	// ── Fall back to OpenRouter ──
+	if orKey != "" {
+		model := os.Getenv("OPENROUTER_MODEL")
+		if model == "" {
+			model = "google/gemma-4-26b-a4b-it:free"
+		}
+		// Gemma needs system merged into user; other models can use system role.
+		mergeSystem := strings.Contains(strings.ToLower(model), "gemma")
+		items, err := callScheduleAI(
+			"https://openrouter.ai/api/v1/chat/completions",
+			orKey, model, prompt, mergeSystem,
+		)
+		if err == nil {
+			return items, nil
+		}
 		if lastErr != nil {
-			lastErr = fmt.Errorf("%v; Groq: %w", lastErr, err)
+			lastErr = fmt.Errorf("%v; OpenRouter: %w", lastErr, err)
 		} else {
-			lastErr = fmt.Errorf("Groq: %w", err)
+			lastErr = fmt.Errorf("OpenRouter: %w", err)
 		}
 	}
 
