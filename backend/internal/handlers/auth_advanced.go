@@ -167,6 +167,11 @@ func ForgotPassword(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Generic response used regardless of whether the account exists. This
+	// prevents user-enumeration: an attacker cannot tell registered emails
+	// apart from unregistered ones by probing this endpoint.
+	genericResponse := fiber.Map{"message": "If an account with that email exists, a password reset code has been sent."}
+
 	otp := strconv.Itoa(100000 + rand.Intn(900000))
 	otpExpiry := time.Now().Add(10 * time.Minute)
 
@@ -176,15 +181,20 @@ func ForgotPassword(c *fiber.Ctx) error {
 		bson.M{"$set": bson.M{"resetToken": otp, "resetTokenExpiry": otpExpiry}},
 	)
 
-	if err != nil || res.MatchedCount == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
+	if err != nil {
+		log.Printf("forgot-password: database error for %s: %v", email, err)
+		return c.JSON(genericResponse)
 	}
 
-	if err := services.SendPasswordResetEmail(email, "", otp); err != nil {
-		log.Printf("failed to send password reset email to %s: %v", email, err)
+	// Only send an email when a matching account was actually found. Either
+	// way we return the same generic response to the caller.
+	if res.MatchedCount > 0 {
+		if err := services.SendPasswordResetEmail(email, "", otp); err != nil {
+			log.Printf("failed to send password reset email to %s: %v", email, err)
+		}
 	}
 
-	return c.JSON(fiber.Map{"message": "Password reset code sent"})
+	return c.JSON(genericResponse)
 }
 
 type ResetPasswordRequest struct {
@@ -211,15 +221,17 @@ func ResetPassword(c *fiber.Ctx) error {
 	var user models.User
 	err := usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
+		// Use a generic error so callers cannot distinguish "no such account"
+		// from "wrong code".
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
 	}
 
-	if user.ResetToken != req.OTP {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid reset code", "message": "Invalid reset code"})
+	if user.ResetToken == "" || user.ResetToken != req.OTP {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
 	}
 
 	if time.Now().After(user.ResetTokenExpiry) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Reset code expired", "message": "Reset code expired"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
