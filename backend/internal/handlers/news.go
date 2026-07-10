@@ -25,7 +25,11 @@ type CachedNews struct {
 }
 
 var newsCache = sync.Map{}
-var CACHE_DURATION int64 = 3600000 // 1 hour in ms
+
+// CACHE_DURATION: 6 hours. Keeps API calls low on the free tier — news doesn't
+// change minute-to-minute, so long caching is safe and dramatically reduces
+// 429 rate-limit errors when the server restarts or multiple users hit at once.
+var CACHE_DURATION int64 = 6 * 3600 * 1000 // 6 hours in ms
 
 // ─────────────────────────────────────────────
 // Allowed categories / valid exam types
@@ -186,14 +190,40 @@ func getGeminiModel() string {
 }
 
 // callGeminiNews calls Gemini with Google Search grounding enabled
-// and returns the raw text response. The prompt must instruct the model to
-// return only valid JSON so callers can parse it with parseJSONWithFallback.
+// and returns the raw text response. Retries once on 429 after the
+// retry-delay the API specifies (or 15s if not present).
 func callGeminiNews(prompt string) (string, error) {
 	apiKey := getGeminiAPIKey()
 	if apiKey == "" {
 		return "", errors.New("GEMINI_API_KEY not configured")
 	}
 
+	const maxAttempts = 3
+	retryDelay := 15 * time.Second
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		text, waitFor, err := doGeminiRequest(apiKey, prompt)
+		if err == nil {
+			return text, nil
+		}
+		// If it's a 429 and we have attempts left, wait and retry
+		if waitFor > 0 && attempt < maxAttempts {
+			time.Sleep(waitFor)
+			continue
+		}
+		// For any other error or if we're out of retries, return the error
+		if attempt == maxAttempts && waitFor > 0 {
+			return "", fmt.Errorf("Gemini rate limit exceeded after %d attempts. Please try again in a minute", maxAttempts)
+		}
+		return "", err
+	}
+	_ = retryDelay // silence unused warning
+	return "", errors.New("unexpected end of retry loop")
+}
+
+// doGeminiRequest makes a single HTTP call to Gemini generateContent.
+// Returns (text, retryAfter, error). retryAfter > 0 means it was a 429.
+func doGeminiRequest(apiKey, prompt string) (string, time.Duration, error) {
 	url := fmt.Sprintf(
 		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
 		getGeminiModel(), apiKey,
@@ -212,46 +242,79 @@ func callGeminiNews(prompt string) (string, error) {
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", 0, err
+	}
+
+	// Handle 429 — parse retry delay from response if available
+	if resp.StatusCode == http.StatusTooManyRequests {
+		retryDelay := parseRetryDelay(respBytes)
+		return "", retryDelay, fmt.Errorf("rate limited (429)")
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Gemini API error (%d): %s", resp.StatusCode, string(respBytes))
+		return "", 0, fmt.Errorf("Gemini API error (%d): %s", resp.StatusCode, string(respBytes))
 	}
 
 	var gemResp geminiNewsResponse
 	if err := json.Unmarshal(respBytes, &gemResp); err != nil {
-		return "", fmt.Errorf("failed to decode Gemini response: %w", err)
+		return "", 0, fmt.Errorf("failed to decode Gemini response: %w", err)
 	}
 
 	if len(gemResp.Candidates) == 0 || len(gemResp.Candidates[0].Content.Parts) == 0 {
-		return "", errors.New("empty response from Gemini")
+		return "", 0, errors.New("empty response from Gemini")
 	}
 
 	text := strings.TrimSpace(gemResp.Candidates[0].Content.Parts[0].Text)
 	if text == "" {
-		return "", errors.New("empty text from Gemini")
+		return "", 0, errors.New("empty text from Gemini")
 	}
 
-	return text, nil
+	return text, 0, nil
+}
+
+// parseRetryDelay extracts the retryDelay seconds from a Gemini 429 response body.
+// Falls back to 15s if not found.
+func parseRetryDelay(body []byte) time.Duration {
+	var errResp struct {
+		Error struct {
+			Details []struct {
+				Type       string `json:"@type"`
+				RetryDelay string `json:"retryDelay"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &errResp); err == nil {
+		for _, d := range errResp.Error.Details {
+			if strings.Contains(d.Type, "RetryInfo") && d.RetryDelay != "" {
+				// retryDelay is like "11s" or "11.100578426s"
+				s := strings.TrimSuffix(d.RetryDelay, "s")
+				var secs float64
+				if _, err := fmt.Sscanf(s, "%f", &secs); err == nil && secs > 0 {
+					// Add 2s buffer on top of what the API asks for
+					return time.Duration((secs+2)*float64(time.Second))
+				}
+			}
+		}
+	}
+	return 15 * time.Second // safe default
 }
 
 // ─────────────────────────────────────────────

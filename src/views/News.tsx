@@ -85,10 +85,10 @@ export default function News() {
   } = useQuery<NewsResponse, Error>({
     queryKey: ['news', examType],
     queryFn: () => apiFetchJSON<NewsResponse>(`/news/${examType}`),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: true,
+    staleTime: 60 * 60 * 1000,  // 1 hour — matches backend cache
+    gcTime: 120 * 60 * 1000,    // 2 hours
+    retry: false,               // backend already retries; don't double-hit
+    refetchOnWindowFocus: false, // prevent refetch on every tab switch
   });
 
   const {
@@ -99,10 +99,10 @@ export default function News() {
   } = useQuery<NewsDatesResponse, Error>({
     queryKey: ['newsDates', examType],
     queryFn: () => apiFetchJSON<NewsDatesResponse>(`/news/${examType}/dates`),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-    refetchOnWindowFocus: true,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 120 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -118,9 +118,9 @@ export default function News() {
         body: JSON.stringify({ query: activeSearch }),
       }),
     enabled: activeSearch.trim().length > 0,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 120 * 60 * 1000,
+    retry: false,
   });
 
   const isSearching = activeSearch.trim().length > 0;
@@ -290,7 +290,11 @@ export default function News() {
           ) : feedError ? (
             <div className="glass-card rounded-2xl p-8 text-center border-destructive/50">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-              <p className="text-destructive font-medium">{feedError.message || 'Failed to load news.'}</p>
+              <p className="text-destructive font-medium">
+                {feedError.message?.includes('rate limit') || feedError.message?.includes('429') || feedError.message?.includes('quota')
+                  ? '⏳ AI is busy — too many requests. Please wait a minute and try again.'
+                  : feedError.message || 'Failed to load news.'}
+              </p>
               <Button onClick={isSearching ? () => refetchSearch() : handleRefresh} variant="destructive" className="mt-4">
                 Try Again
               </Button>
