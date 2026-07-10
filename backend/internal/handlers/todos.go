@@ -175,6 +175,49 @@ func DeleteTodo(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// DeleteTodosByDay deletes every todo belonging to the authenticated user that
+// is scheduled/due on a given calendar day. The day is provided via the "date"
+// query parameter (RFC3339 or YYYY-MM-DD). Matching is done on dueDate within
+// the [startOfDay, startOfDay+24h) window.
+func DeleteTodosByDay(c *fiber.Ctx) error {
+	user := c.Locals("user").(models.User)
+
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "date query parameter is required"})
+	}
+
+	// Accept both full RFC3339 timestamps and plain YYYY-MM-DD dates.
+	parsed, err := time.Parse(time.RFC3339, dateStr)
+	if err != nil {
+		parsed, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid date format. Use RFC3339 or YYYY-MM-DD"})
+		}
+	}
+
+	dayStart := getStartOfDay(parsed)
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	collection := config.DB.Collection("todos")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := collection.DeleteMany(ctx, bson.M{
+		"userId":  user.ID,
+		"dueDate": bson.M{"$gte": dayStart, "$lt": dayEnd},
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete tasks"})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Tasks deleted",
+		"count":   res.DeletedCount,
+	})
+}
+
 func getStartOfDay(d time.Time) time.Time {
 	y, m, day := d.Date()
 	return time.Date(y, m, day, 0, 0, 0, 0, d.Location())
