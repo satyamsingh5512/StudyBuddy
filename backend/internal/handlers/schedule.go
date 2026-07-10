@@ -232,45 +232,21 @@ func GenerateSchedule(c *fiber.Ctx) error {
 
 	availContext := buildAvailabilityContext(avail)
 
-	// Build the Gemini prompt
-	systemPrompt := fmt.Sprintf(`You are an expert study schedule planner for competitive exam students.
+	// Build the AI prompt — concise and strict to work with smaller free models
+	systemPrompt := fmt.Sprintf(`You are a study schedule planner. Output ONLY a raw JSON array, nothing else.
 
-USER CONTEXT:
-- Name: %s
-- Exam Goal: %s
-- Availability: %s
+User: %s | Goal: %s | Date: %s
+Availability: %s
 
-USER REQUEST:
-%s
+Request: %s
 
-Today's date: %s
+Return a JSON array where each object has EXACTLY these fields:
+[{"taskTitle":"...","subject":"...","description":"...","startTime":"HH:MM","endTime":"HH:MM","date":"%s","priority":"low|medium|high"}]
 
-Create a detailed, time-blocked study schedule in VALID JSON format. Return ONLY a JSON array with no markdown, no explanation, just the raw JSON array.
-
-Each item must have exactly these fields:
-{
-  "taskTitle": "string (specific task name)",
-  "subject": "string (subject area)",
-  "description": "string (what to do in this session)",
-  "startTime": "HH:MM (24-hour format)",
-  "endTime": "HH:MM (24-hour format)",
-  "date": "%s",
-  "priority": "low|medium|high"
-}
-
-Rules:
-- Respect the user's available time windows
-- Include short breaks (label them as "Break" subject)
-- Be specific about topics (e.g. "Solve 30 DSA problems on Binary Trees" not just "DSA")
-- Schedule at least 6-10 blocks
-- Higher priority for weaker subjects or upcoming deadlines
-- Don't overlap time blocks
-- Return ONLY the JSON array, nothing else`,
-		user.Name,
-		user.ExamGoal,
+Rules: 6-10 blocks, no overlaps, include breaks, 24-hour time format, specific task titles. Output ONLY the JSON array.`,
+		user.Name, user.ExamGoal, body.Date,
 		availContext,
 		body.Prompt,
-		body.Date,
 		body.Date,
 	)
 
@@ -376,14 +352,18 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 
 // doOpenRouterScheduleRequest makes a single OpenRouter chat completion call for schedule generation.
 // Returns (items, retryAfter, error). retryAfter > 0 means it was a 429.
-func doOpenRouterScheduleRequest(apiKey, model, prompt string) ([]models.ScheduleItem, time.Duration, error) {
+func doOpenRouterScheduleRequest(apiKey, model, userPrompt string) ([]models.ScheduleItem, time.Duration, error) {
+	// Split into system + user so smaller models don't add preamble before the JSON
+	systemMsg := "You are a study schedule planner. You ONLY output valid JSON arrays. Never add any text, explanation, or markdown before or after the JSON array. Your entire response must be a raw JSON array starting with [ and ending with ]."
+
 	reqBody := map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
-			{"role": "user", "content": prompt},
+			{"role": "system", "content": systemMsg},
+			{"role": "user", "content": userPrompt},
 		},
-		"temperature": 0.4,
-		"max_tokens":  3000,
+		"temperature": 0.3,
+		"max_tokens":  4096,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -403,10 +383,10 @@ func doOpenRouterScheduleRequest(apiKey, model, prompt string) ([]models.Schedul
 	httpReq.Header.Set("HTTP-Referer", "https://sbd.satym.in")
 	httpReq.Header.Set("X-Title", "StudyBuddy")
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 90 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("network error calling AI: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -419,7 +399,7 @@ func doOpenRouterScheduleRequest(apiKey, model, prompt string) ([]models.Schedul
 		retryDelay := 15 * time.Second
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
 			var secs float64
-			if _, err := fmt.Sscanf(ra, "%f", &secs); err == nil && secs > 0 {
+			if _, scanErr := fmt.Sscanf(ra, "%f", &secs); scanErr == nil && secs > 0 {
 				retryDelay = time.Duration((secs+1)*float64(time.Second))
 			}
 		}
@@ -436,42 +416,92 @@ func doOpenRouterScheduleRequest(apiKey, model, prompt string) ([]models.Schedul
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
 	if err := json.Unmarshal(b, &result); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse AI response: %w", err)
+		return nil, 0, fmt.Errorf("failed to parse AI response: %w — raw: %s", err, string(b[:safeMin(300, len(b))]))
+	}
+	if result.Error != nil {
+		return nil, 0, fmt.Errorf("AI error: %s", result.Error.Message)
 	}
 	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
-		return nil, 0, fmt.Errorf("empty response from AI")
+		return nil, 0, fmt.Errorf("empty response from AI — raw: %s", string(b[:safeMin(300, len(b))]))
 	}
 
 	rawText := strings.TrimSpace(result.Choices[0].Message.Content)
-	rawText = stripMarkdownJSON(rawText)
+
+	// Extract JSON array robustly — handles markdown fences and preamble text
+	rawText = extractJSONArray(rawText)
 
 	var items []models.ScheduleItem
 	if err := json.Unmarshal([]byte(rawText), &items); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse AI JSON output: %w\n\nRaw: %s", err, rawText[:safeMin(200, len(rawText))])
+		return nil, 0, fmt.Errorf("failed to parse schedule JSON: %w — raw response: %s", err, rawText[:safeMin(400, len(rawText))])
+	}
+
+	if len(items) == 0 {
+		return nil, 0, fmt.Errorf("AI returned an empty schedule array")
 	}
 
 	return items, 0, nil
 }
 
-// stripMarkdownJSON removes ```json ... ``` fences from Gemini output.
-func stripMarkdownJSON(s string) string {
-	// Try to find array boundaries robustly
-	start := -1
-	end := -1
-	for i, ch := range s {
-		if ch == '[' && start == -1 {
-			start = i
-		}
-		if ch == ']' {
-			end = i
+// extractJSONArray robustly pulls the first complete JSON array out of a
+// string that may contain markdown fences, preamble text, or extra prose.
+func extractJSONArray(s string) string {
+	// Strip common markdown fences first
+	s = strings.TrimSpace(s)
+	for _, fence := range []string{"```json", "```JSON", "```"} {
+		if idx := strings.Index(s, fence); idx != -1 {
+			s = s[idx+len(fence):]
+			if end := strings.Index(s, "```"); end != -1 {
+				s = s[:end]
+			}
+			s = strings.TrimSpace(s)
+			break
 		}
 	}
-	if start >= 0 && end > start {
+
+	// Find the outermost [ ... ] with proper bracket balancing
+	start := strings.Index(s, "[")
+	if start == -1 {
+		return s
+	}
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if ch == '[' {
+			depth++
+		} else if ch == ']' {
+			depth--
+			if depth == 0 {
+				return s[start : i+1]
+			}
+		}
+	}
+	// Fallback: return from [ to last ]
+	if end := strings.LastIndex(s, "]"); end > start {
 		return s[start : end+1]
 	}
-	return s
+	return s[start:]
 }
 
 func safeMin(a, b int) int {

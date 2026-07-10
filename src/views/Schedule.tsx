@@ -21,7 +21,6 @@ import {
   GlassCardTitle,
   AmbientBackground,
 } from '@/components/dashboard/glass';
-import { GlassButton } from '@/components/dashboard/glass/GlassButton';
 import { staggerContainer, getRiseItem } from '@/lib/motion';
 import { useToast } from '@/components/ui/use-toast';
 import { useAtom } from 'jotai';
@@ -203,23 +202,20 @@ export default function Schedule() {
           </div>
 
           <div className="flex gap-2">
-            <GlassButton
-              size="sm"
-              variant="outline"
+            <button
               onClick={() => setAvailabilityOpen(true)}
-              className="gap-1.5"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150"
             >
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Availability</span>
-            </GlassButton>
-            <GlassButton
-              size="sm"
+            </button>
+            <button
               onClick={() => setShowGenerator((p) => !p)}
-              className="gap-1.5"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm shadow-primary/30"
             >
               <Sparkles className="h-4 w-4" />
               <span className="hidden sm:inline">{showGenerator ? 'Hide' : 'Generate'}</span>
-            </GlassButton>
+            </button>
           </div>
         </motion.div>
 
@@ -246,14 +242,12 @@ export default function Schedule() {
           <GlassCard>
             <GlassCardContent className="p-3">
               <div className="flex items-center justify-between gap-2">
-                <GlassButton
-                  variant="outline"
-                  size="sm"
+                <button
                   onClick={() => setSelectedDate((d) => addDays(d, -1))}
-                  className="h-9 w-9 p-0"
+                  className="h-9 w-9 flex items-center justify-center rounded-xl border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 flex-shrink-0"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </GlassButton>
+                </button>
 
                 <div className="flex gap-1.5 flex-wrap justify-center">
                   {[-2, -1, 0, 1, 2].map((offset) => {
@@ -282,14 +276,12 @@ export default function Schedule() {
                   })}
                 </div>
 
-                <GlassButton
-                  variant="outline"
-                  size="sm"
+                <button
                   onClick={() => setSelectedDate((d) => addDays(d, 1))}
-                  className="h-9 w-9 p-0"
+                  className="h-9 w-9 flex items-center justify-center rounded-xl border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 flex-shrink-0"
                 >
                   <ChevronRight className="h-4 w-4" />
-                </GlassButton>
+                </button>
               </div>
             </GlassCardContent>
           </GlassCard>
@@ -417,14 +409,13 @@ export default function Schedule() {
                     Use the AI generator above to create a personalized, time-blocked study plan in seconds.
                   </p>
                 </div>
-                <GlassButton
-                  size="sm"
+                <button
                   onClick={() => setShowGenerator(true)}
-                  className="gap-1.5 bg-primary/80 hover:bg-primary text-white border-0"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-md shadow-primary/30"
                 >
                   <Sparkles className="h-4 w-4" />
                   Generate Schedule
-                </GlassButton>
+                </button>
               </GlassCardContent>
             </GlassCard>
           </motion.div>

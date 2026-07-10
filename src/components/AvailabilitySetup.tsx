@@ -5,7 +5,6 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Clock, Plus, Trash2, Check, ChevronRight, Sunrise, Moon } from 'lucide-react';
 import { GlassModal } from '@/components/dashboard/glass/GlassModal';
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from '@/components/dashboard/glass/GlassCard';
-import { GlassButton } from '@/components/dashboard/glass/GlassButton';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpsertAvailability, type TimeBlock, type Availability } from '@/lib/queries';
 import { cn } from '@/lib/utils';
@@ -269,14 +268,12 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
                   <TimeBlockRow key={b.id} block={b} type="free" onRemove={removeFree} onChange={changeFree} />
                 ))}
               </AnimatePresence>
-              <GlassButton
-                variant="outline"
-                size="sm"
+              <button
                 onClick={addFree}
-                className="w-full border-dashed border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium border-2 border-dashed border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10 transition-all duration-150"
               >
-                <Plus className="h-4 w-4 mr-1" /> Add free window
-              </GlassButton>
+                <Plus className="h-4 w-4" /> Add free window
+              </button>
             </motion.div>
           )}
 
@@ -296,14 +293,12 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
                   <TimeBlockRow key={b.id} block={b} type="blocked" onRemove={removeBlocked} onChange={changeBlocked} />
                 ))}
               </AnimatePresence>
-              <GlassButton
-                variant="outline"
-                size="sm"
+              <button
                 onClick={addBlocked}
-                className="w-full border-dashed border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium border-2 border-dashed border-rose-500/50 text-rose-500 hover:bg-rose-500/10 transition-all duration-150"
               >
-                <Plus className="h-4 w-4 mr-1" /> Add blocked slot
-              </GlassButton>
+                <Plus className="h-4 w-4" /> Add blocked slot
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -311,24 +306,35 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
 
       {/* Footer */}
       <div className="p-5 border-t border-border/40 flex items-center justify-between gap-3">
-        <GlassButton variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
+        <button
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          disabled={step === 0}
+          className="px-4 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           Back
-        </GlassButton>
+        </button>
 
         <div className="flex gap-2">
           {step < steps.length - 1 ? (
-            <GlassButton size="sm" onClick={() => setStep((s) => s + 1)} className="gap-1">
+            <button
+              onClick={() => setStep((s) => s + 1)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm"
+            >
               Next <ChevronRight className="h-4 w-4" />
-            </GlassButton>
+            </button>
           ) : (
-            <GlassButton size="sm" onClick={handleSave} disabled={upsert.isPending} className="gap-1 bg-primary/80 hover:bg-primary text-white">
+            <button
+              onClick={handleSave}
+              disabled={upsert.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               {upsert.isPending ? (
                 <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
               ) : (
                 <Check className="h-4 w-4" />
               )}
               Save Availability
-            </GlassButton>
+            </button>
           )}
         </div>
       </div>

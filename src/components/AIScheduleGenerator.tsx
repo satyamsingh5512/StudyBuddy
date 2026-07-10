@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Sparkles, Calendar, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from '@/components/dashboard/glass/GlassCard';
-import { GlassButton } from '@/components/dashboard/glass/GlassButton';
 import { useGenerateSchedule, type Schedule } from '@/lib/queries';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -69,7 +68,7 @@ export default function AIScheduleGenerator({ onGenerated, selectedDate }: AISch
           <div>
             <GlassCardTitle className="text-base">AI Schedule Generator</GlassCardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Describe what you want to study — Gemini builds a time-blocked plan
+              Describe what you want to study — AI builds a time-blocked plan
             </p>
           </div>
           <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/60 border border-border/40">
@@ -85,7 +84,7 @@ export default function AIScheduleGenerator({ onGenerated, selectedDate }: AISch
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder={`Tell Gemini what to plan for ${formatDate(selectedDate)}…\n\nExample: "I need to study DSA (Trees + Graphs), revise Maths (Calculus), and do one mock test. I have from 9 AM to 8 PM free. Include short breaks every 1.5 hours."`}
+            placeholder={`Tell the AI what to plan for ${formatDate(selectedDate)}…\n\nExample: "I need to study DSA (Trees + Graphs), revise Maths (Calculus), and do one mock test. I have from 9 AM to 8 PM free. Include short breaks every 1.5 hours."`}
             rows={6}
             disabled={generate.isPending}
             className={cn(
@@ -140,28 +139,31 @@ export default function AIScheduleGenerator({ onGenerated, selectedDate }: AISch
         </div>
 
         {/* Generate button */}
-        <GlassButton
+        <button
           onClick={handleGenerate}
           disabled={generate.isPending || !prompt.trim()}
-          size="sm"
           className={cn(
-            'w-full gap-2 font-semibold text-sm py-2.5',
-            'bg-gradient-to-r from-primary/80 to-violet-500/80 hover:from-primary hover:to-violet-500',
-            'text-white border-0 shadow-lg shadow-primary/25'
+            'w-full flex items-center justify-center gap-2 font-semibold text-sm py-3 px-4 rounded-xl',
+            'transition-all duration-200',
+            'bg-gradient-to-r from-primary to-violet-500 text-white',
+            'hover:from-primary/90 hover:to-violet-500/90 hover:shadow-lg hover:shadow-primary/30',
+            'active:scale-[0.98]',
+            'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none',
+            'shadow-md shadow-primary/20'
           )}
         >
           {generate.isPending ? (
             <>
-              <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
-              Gemini is building your schedule…
+              <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full flex-shrink-0" />
+              Building your schedule…
             </>
           ) : (
             <>
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 flex-shrink-0" />
               Generate AI Schedule
             </>
           )}
-        </GlassButton>
+        </button>
 
         {generate.isPending && (
           <motion.div
