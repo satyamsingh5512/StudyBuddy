@@ -374,7 +374,7 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 
 	geminiModel := os.Getenv("GEMINI_MODEL")
 	if geminiModel == "" {
-		geminiModel = "gemini-2.5-flash-lite"
+		geminiModel = "gemini-2.5-flash"
 	}
 	url := fmt.Sprintf(
 		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
