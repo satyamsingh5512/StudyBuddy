@@ -587,6 +587,27 @@ export const useDeleteTodo = () => {
 };
 
 /**
+ * Delete all todos scheduled for a specific day.
+ * Accepts a Date and sends its YYYY-MM-DD to the backend.
+ */
+export const useDeleteTodosByDay = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: boolean; count: number }, Error, { date: Date }>({
+    mutationFn: ({ date }) => {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      return apiFetchJSON<{ success: boolean; count: number }>(`/todos/by-day?date=${encodeURIComponent(dateStr)}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyEfficiency(1) });
+    },
+  });
+};
+
+/**
  * Reschedule a todo
  */
 export const useRescheduleTodo = () => {
