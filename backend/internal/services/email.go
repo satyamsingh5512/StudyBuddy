@@ -1,12 +1,17 @@
 package services
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
+	"net/http"
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 )
 
 var ErrEmailServiceNotConfigured = errors.New("email service is not configured")
@@ -14,7 +19,7 @@ var ErrEmailServiceNotConfigured = errors.New("email service is not configured")
 // supportEmailAddress extracts the raw email address from EMAIL_FROM, which may
 // be in either "Display Name <addr@example.com>" or plain "addr@example.com" form.
 func supportEmailAddress() string {
-	from := strings.TrimSpace(os.Getenv("EMAIL_FROM"))
+	from := strings.TrimSpace(strings.Trim(os.Getenv("EMAIL_FROM"), `"`))
 	if from == "" {
 		return "support@studybuddy.app"
 	}
@@ -28,7 +33,78 @@ func supportEmailAddress() string {
 	return from
 }
 
+// emailFromHeader returns the full "Name <addr>" sender string for the From header.
+func emailFromHeader() string {
+	from := strings.TrimSpace(strings.Trim(os.Getenv("EMAIL_FROM"), `"`))
+	if from == "" {
+		return "StudyBuddy <support@studybuddy.app>"
+	}
+	return from
+}
+
+// sendEmail is the main dispatcher. It tries Resend (HTTP API) first since that
+// is the primary configured provider, then falls back to ZeptoMail SMTP.
+func sendEmail(to, subject, htmlBody, textBody string) error {
+	resendKey := strings.TrimSpace(strings.Trim(os.Getenv("RESEND_API_KEY"), `"`))
+	if resendKey != "" {
+		if err := sendViaResend(resendKey, to, subject, htmlBody, textBody); err != nil {
+			// Resend failed — try SMTP fallback before giving up
+			if smtpErr := sendZeptoEmail(to, subject, htmlBody, textBody); smtpErr == nil {
+				return nil
+			}
+			return err
+		}
+		return nil
+	}
+
+	// No Resend key — use ZeptoMail SMTP
+	return sendZeptoEmail(to, subject, htmlBody, textBody)
+}
+
+// sendViaResend sends a transactional email through Resend's HTTP API.
+//
+// Required env:
+//   RESEND_API_KEY – Resend API key (re_...)
+//   EMAIL_FROM     – Sender, e.g. "StudyBuddy <noreply@yourdomain.com>"
+//                    (the domain must be verified in Resend)
+func sendViaResend(apiKey, to, subject, htmlBody, textBody string) error {
+	payload := map[string]interface{}{
+		"from":    emailFromHeader(),
+		"to":      []string{to},
+		"subject": subject,
+		"html":    htmlBody,
+		"text":    textBody,
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("resend: marshal error: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("resend: request build error: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("resend: network error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("resend: API error %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	return nil
+}
+
 // sendZeptoEmail sends a transactional email through ZeptoMail's SMTP relay.
+// Used as a fallback when Resend is not configured.
 //
 // Required environment variables:
 //   ZEPTOMAIL_SMTP_USER     – SMTP username shown in the ZeptoMail mail-agent
@@ -104,15 +180,15 @@ func sendZeptoEmail(to, subject, htmlBody, textBody string) error {
 
 func SendVerificationEmail(to, name, otp string) error {
 	subject, htmlBody, textBody := verificationEmailTemplate(name, otp, supportEmailAddress())
-	return sendZeptoEmail(to, subject, htmlBody, textBody)
+	return sendEmail(to, subject, htmlBody, textBody)
 }
 
 func SendPasswordResetEmail(to, name, otp string) error {
 	subject, htmlBody, textBody := resetEmailTemplate(name, otp, supportEmailAddress())
-	return sendZeptoEmail(to, subject, htmlBody, textBody)
+	return sendEmail(to, subject, htmlBody, textBody)
 }
 
 func SendOnboardingWelcomeEmail(to, name string) error {
 	subject, htmlBody, textBody := onboardingWelcomeTemplate(name, supportEmailAddress())
-	return sendZeptoEmail(to, subject, htmlBody, textBody)
+	return sendEmail(to, subject, htmlBody, textBody)
 }

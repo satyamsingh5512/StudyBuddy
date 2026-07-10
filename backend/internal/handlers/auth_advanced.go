@@ -131,6 +131,10 @@ func ResendOTP(c *fiber.Ctx) error {
 
 	if err := services.SendVerificationEmail(email, "", otp); err != nil {
 		log.Printf("failed to send resend-otp email to %s: %v", email, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to send OTP email. Please try again.",
+			"message": "Failed to send OTP email. Please try again.",
+		})
 	}
 
 	return c.JSON(fiber.Map{"message": "OTP resent successfully"})
