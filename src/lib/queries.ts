@@ -657,3 +657,156 @@ export const useRescheduleTodoToToday = () => {
     },
   });
 };
+
+// ============================================================================
+// SCHEDULE QUERIES (AI Smart Schedule)
+// ============================================================================
+
+export interface TimeBlock {
+  dayOfWeek: number; // 0=Sun … 6=Sat
+  startTime: string; // "08:00"
+  endTime: string;   // "10:00"
+  label?: string;
+}
+
+export interface Availability {
+  id?: string;
+  freeBlocks: TimeBlock[];
+  blockedSlots: TimeBlock[];
+  wakeTime?: string;
+  sleepTime?: string;
+}
+
+export interface ScheduleItem {
+  id: string;
+  taskTitle: string;
+  subject?: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  date: string;
+  priority?: 'low' | 'medium' | 'high';
+  completed: boolean;
+  alarmFired: boolean;
+  pointsAwarded?: number;
+}
+
+export interface Schedule {
+  id: string;
+  userId: string;
+  generatedAt: string;
+  prompt: string;
+  items: ScheduleItem[];
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Extend QUERY_KEYS inline
+export const SCHEDULE_QUERY_KEYS = {
+  schedules: (date?: string) => ['schedules', date ?? 'all'] as const,
+  availability: () => ['availability'] as const,
+};
+
+/**
+ * Fetch user's availability config
+ */
+export const useAvailability = () => {
+  return useQuery<Availability, Error>({
+    queryKey: SCHEDULE_QUERY_KEYS.availability(),
+    queryFn: () => apiFetchJSON<Availability>('/availability'),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+  });
+};
+
+/**
+ * Save/update user's availability
+ */
+export const useUpsertAvailability = () => {
+  const queryClient = useQueryClient();
+  return useMutation<Availability, Error, Omit<Availability, 'id'>>({
+    mutationFn: (data) =>
+      apiFetchJSON<Availability>('/availability', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.availability() });
+    },
+  });
+};
+
+/**
+ * Fetch schedules, optionally filtered by date (YYYY-MM-DD)
+ */
+export const useSchedules = (date?: string) => {
+  return useQuery<Schedule[], Error>({
+    queryKey: SCHEDULE_QUERY_KEYS.schedules(date),
+    queryFn: () =>
+      apiFetchJSON<Schedule[]>(`/schedule${date ? `?date=${date}` : ''}`),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
+    placeholderData: [],
+  });
+};
+
+/**
+ * Generate a new AI schedule using Gemini
+ */
+export const useGenerateSchedule = () => {
+  const queryClient = useQueryClient();
+  return useMutation<Schedule, Error, { prompt: string; date?: string }>({
+    mutationFn: ({ prompt, date }) =>
+      apiFetchJSON<Schedule>('/schedule/generate', {
+        method: 'POST',
+        body: JSON.stringify({ prompt, date }),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules(data.date) });
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+    },
+  });
+};
+
+/**
+ * Delete a schedule
+ */
+export const useDeleteSchedule = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => apiFetchJSON<void>(`/schedule/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+    },
+  });
+};
+
+/**
+ * Update a single item inside a schedule (mark complete, etc.)
+ */
+export const useUpdateScheduleItem = () => {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { success: boolean; pointsAwarded: number },
+    Error,
+    { scheduleId: string; itemId: string; completed: boolean }
+  >({
+    mutationFn: ({ scheduleId, itemId, completed }) =>
+      apiFetchJSON<{ success: boolean; pointsAwarded: number }>(
+        `/schedule/${scheduleId}/items/${itemId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ completed }),
+        }
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+      // Also refresh user stats so points update immediately in the nav/header
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userStats() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+    },
+  });
+};
