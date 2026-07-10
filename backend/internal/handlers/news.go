@@ -177,12 +177,12 @@ func getGeminiAPIKey() string {
 }
 
 // getGeminiModel returns the model ID from GEMINI_MODEL env var,
-// defaulting to gemini-2.0-flash-lite which is available to all API keys.
+// defaulting to gemini-2.5-flash-lite (15 RPM / 1000 req/day free tier).
 func getGeminiModel() string {
 	if m := strings.TrimSpace(os.Getenv("GEMINI_MODEL")); m != "" {
 		return m
 	}
-	return "gemini-2.0-flash-lite"
+	return "gemini-2.5-flash-lite"
 }
 
 // callGeminiNews calls Gemini with Google Search grounding enabled
