@@ -32,7 +32,7 @@ import { SkeletonList } from '@/components/Skeleton';
 import StudyHeatmap from '@/components/StudyHeatmap';
 import StudyTimer from '@/components/StudyTimer';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
-import { useTodos, useDailyEfficiency, useCreateTodo, useUpdateTodo, useDeleteTodo, useRescheduleTodo, useRescheduleAllOverdue, useToggleTodo, useRescheduleTodoToToday } from '@/lib/queries';
+import { useTodos, useDailyEfficiency, useCreateTodo, useUpdateTodo, useDeleteTodo, useDeleteTodosByDay, useRescheduleTodo, useRescheduleAllOverdue, useToggleTodo, useRescheduleTodoToToday } from '@/lib/queries';
 import { soundManager } from '@/lib/sounds';
 import {
   DndContext,
@@ -517,6 +517,7 @@ export default function Dashboard() {
   const createTodoMutation = useCreateTodo();
   const updateTodoMutation = useUpdateTodo();
   const deleteTodoMutation = useDeleteTodo();
+  const deleteTodosByDayMutation = useDeleteTodosByDay();
   const rescheduleTodoMutation = useRescheduleTodo();
   const rescheduleAllOverdueMutation = useRescheduleAllOverdue();
   const toggleTodoMutation = useToggleTodo();
@@ -694,6 +695,37 @@ export default function Dashboard() {
       }
     },
     [rescheduleAllOverdueMutation, toast]
+  );
+
+  const deleteAllForToday = useCallback(
+    async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Destructive bulk action — require explicit confirmation.
+      const confirmed = typeof window === 'undefined'
+        ? true
+        : window.confirm("Delete all of today's tasks? This cannot be undone.");
+      if (!confirmed) return;
+
+      // Optimistic: remove all of today's (non-overdue) tasks from DnD state.
+      const previousTodos = dndTodos;
+      setDndTodos(prev => prev.filter(t => t.isOverdue && !t.completed));
+      soundManager.playDelete();
+
+      try {
+        const result = await deleteTodosByDayMutation.mutateAsync({ date: today });
+        toast({
+          title: 'Tasks cleared',
+          description: `${result.count} task${result.count === 1 ? '' : 's'} deleted for today`,
+        });
+      } catch (error) {
+        console.error('Error deleting all tasks for today:', error);
+        setDndTodos(previousTodos);
+        toast({ title: 'Failed to delete tasks', variant: 'destructive' });
+      }
+    },
+    [dndTodos, deleteTodosByDayMutation, toast]
   );
   const editTodo = useCallback(
     async (id: string, updates: Partial<Todo>) => {
@@ -1055,6 +1087,18 @@ export default function Dashboard() {
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive uppercase tracking-widest ml-2">
                     {overdueCount} overdue
                   </span>
+                )}
+                {regularTodos.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={deleteAllForToday}
+                    title="Delete all of today's tasks"
+                    className="ml-auto h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Clear Day
+                  </Button>
                 )}
               </CardTitle>
             </CardHeader>
