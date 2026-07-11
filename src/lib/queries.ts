@@ -800,7 +800,9 @@ export const useDeleteSchedule = () => {
   return useMutation<void, Error, string>({
     mutationFn: (id) => apiFetchJSON<void>(`/schedule/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+      // Invalidate the ['schedules', ...] prefix so every date-keyed query
+      // (e.g. ['schedules', '2026-07-11']) refetches — not just ['schedules', 'all'].
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
     },
   });
 };
@@ -824,7 +826,8 @@ export const useUpdateScheduleItem = () => {
         }
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+      // Prefix-invalidate so the currently viewed date's schedule refetches.
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
       // Also refresh user stats so points update immediately in the nav/header
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userStats() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile() });

@@ -532,6 +532,19 @@ export default function Auth() {
                                     }
                                 </button>
 
+                                {/* Prominent forgot-password entry for sign-in */}
+                                {authType === 'signin' && (
+                                    <div className="text-center pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setAuthType('forgot-password'); soundManager.playClick(); }}
+                                            className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
+                                        >
+                                            Forgot your password?
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* Google OAuth */}
                                 {(authType === 'signin' || authType === 'signup') && (
                                     <>
