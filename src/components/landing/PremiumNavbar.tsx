@@ -38,7 +38,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
     return (
         <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isLoaded ? "opacity-100" : "opacity-0"} ${isScrolled
-                ? "bg-white/70 dark:bg-black/70 border-b border-black/10 dark:border-white/10 backdrop-blur-xl shadow-sm py-2"
+                ? "glass-panel border-x-0 border-t-0 py-2"
                 : "bg-transparent border-b border-transparent py-4"
                 }`}
         >
@@ -73,7 +73,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                     <ThemeToggle />
                     {user ? (
                         <Link to="/dashboard">
-                            <MagneticButton variant="secondary" className="flex items-center gap-2 font-bold !rounded-xl !border-2 !border-black/10 dark:!border-white/20 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
+                            <MagneticButton variant="secondary" className="glass-control flex items-center gap-2 font-bold !rounded-xl">
                                 <LayoutDashboard size={18} />
                                 Dashboard
                             </MagneticButton>
@@ -81,11 +81,11 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                     ) : (
                         <>
                             <Link to="/auth">
-                                <button className="px-5 py-2 font-bold text-black dark:text-white transition-colors hover:text-black/70 dark:hover:text-white/80 border-2 border-transparent hover:border-black/10 dark:hover:border-white/20 rounded-xl">
+                                <button className="glass-control px-5 py-2 font-bold text-black dark:text-white transition-all hover:-translate-y-0.5 rounded-xl">
                                     Sign In
                                 </button>
                             </Link>
-                            <MagneticButton onClick={() => navigate("/auth")} variant="primary" className="!rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_#757373] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none active:translate-x-[4px] active:translate-y-[4px]">
+                            <MagneticButton onClick={() => navigate("/auth")} variant="primary" className="!rounded-xl border border-white/30 shadow-glass-sm hover:-translate-y-0.5">
                                 Get Started
                             </MagneticButton>
                         </>
@@ -97,7 +97,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                     <PerformanceToggle />
                     <ThemeToggle />
                     <button
-                        className="text-black dark:text-white p-2 border-2 border-black/10 dark:border-white/20 rounded-xl bg-white/50 dark:bg-black/50 backdrop-blur-sm"
+                        className="glass-control text-black dark:text-white p-2 rounded-xl"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     >
                         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -113,7 +113,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="md:hidden absolute top-full left-0 right-0 backdrop-blur-xl bg-white/90 dark:bg-black/90 border-b border-black/10 dark:border-white/10 p-6 space-y-6 shadow-2xl origin-top"
+                        className="glass-strong md:hidden absolute top-full left-0 right-0 border-x-0 border-t-0 p-6 space-y-6 origin-top"
                     >
                         {navLinks.map((link) => (
                             <button
