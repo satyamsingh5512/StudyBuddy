@@ -77,13 +77,13 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col md:flex-row">
-        <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between px-4 sticky top-0 z-40">
+        <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between gap-2 px-3 sm:px-4 sticky top-0 z-40">
           {/* RESPONSIVE FIX: Touch targets min 44x44px */}
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <Logo className="w-5 h-5" />
-            <h1 className="font-bold text-sm tracking-tight">StudyBuddy</h1>
+            <h1 className="truncate font-bold text-sm tracking-tight">StudyBuddy</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -287,7 +287,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
+          <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
             {/* RESPONSIVE FIX: Fluid max-width and padding */}
             <div className="mx-auto h-full w-full" style={{ maxWidth: 'min(1280px, 100%)' }}>
               <PageTransition>{children}</PageTransition>
