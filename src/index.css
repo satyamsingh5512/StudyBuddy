@@ -498,3 +498,55 @@
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
+
+/* Mobile rendering budget: avoid repaint-heavy glass compositing and fixed blur layers
+   while retaining the same surfaces, hierarchy, and controls. */
+@media (max-width: 767px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .glass-card,
+  .glass,
+  .glass-panel,
+  .glass-strong,
+  .glass-control,
+  .glass-subtle,
+  .neo-button,
+  .neo-button-primary,
+  .neo-card {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .glass-card,
+  .glass,
+  .glass-panel {
+    background-color: rgba(var(--glass-bg) / 0.88);
+  }
+
+  .glass-strong {
+    background-color: rgba(var(--glass-bg) / 0.94);
+  }
+
+  .glass-control,
+  .neo-button,
+  .neo-card {
+    background-color: rgba(var(--glass-bg) / 0.78);
+  }
+
+  .sbd-ambient-bg {
+    display: none;
+  }
+
+  .sbd-glass {
+    box-shadow: 0 4px 16px rgba(31, 38, 135, 0.1), inset 0 1px 0 0 var(--sbd-glass-border-inset);
+  }
+
+  .sbd-glass--ambient,
+  .sbd-glass--card,
+  .sbd-glass--elevated {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
