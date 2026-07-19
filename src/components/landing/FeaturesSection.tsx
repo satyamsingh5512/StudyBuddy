@@ -44,16 +44,16 @@ function TiltCard({ feature, index }: { feature: any; index: number }) {
             style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
-            className="group relative bg-white/40 dark:bg-black/40 backdrop-blur-xl border-2 border-black/10 dark:border-white/10 shadow-xl rounded-3xl p-6 sm:p-8 hover:shadow-2xl transition-shadow duration-300 will-change-transform cursor-pointer"
+            className="glass-card group relative rounded-2xl p-6 sm:p-8 transition-[box-shadow,transform] duration-300 hover:shadow-glass-lg will-change-transform cursor-pointer"
         >
             <div style={{ transform: "translateZ(30px)" }}>
                 {/* Badge "Sticker" */}
-                <div className={`absolute -top-3 sm:-top-4 right-4 sm:right-6 px-3 sm:px-4 py-1 sm:py-1.5 border-2 border-black dark:border-black ${feature.color} ${feature.darkColor} text-black text-xs font-bold shadow-neo-sm transform rotate-3 group-hover:rotate-6 transition-transform`}>
+                <div className={`absolute -top-3 sm:-top-4 right-4 sm:right-6 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/50 ${feature.color} ${feature.darkColor} text-black text-xs font-bold shadow-glass-sm transform rotate-3 group-hover:rotate-6 transition-transform`}>
                     {feature.badge}
                 </div>
 
                 {/* RESPONSIVE FIX: Touch target min 44x44px */}
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/60 dark:bg-white/10 border-2 border-black/10 dark:border-white/10 flex items-center justify-center mb-4 sm:mb-6 shadow-sm group-hover:bg-primary group-hover:border-primary transition-colors">
+                <div className="glass-control w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-primary group-hover:border-primary transition-colors">
                     <feature.icon size={24} strokeWidth={2.5} className="text-black dark:text-white group-hover:text-primary-foreground sm:w-7 sm:h-7" />
                 </div>
 
@@ -121,7 +121,7 @@ export function FeaturesSection() {
                     viewport={{ once: true, margin: "-100px" }}
                     className="mb-12 sm:mb-20 text-center space-y-4 sm:space-y-6"
                 >
-                    <div className="inline-block px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black font-bold text-sm transform -rotate-2 shadow-neo-sm dark:shadow-[2px_2px_0px_0px_#757373]">
+                    <div className="glass-control inline-block rounded-full px-4 py-1.5 text-black dark:text-white font-bold text-sm transform -rotate-2">
                         FEATURES
                     </div>
                     {/* RESPONSIVE FIX: clamp() for fluid heading */}
