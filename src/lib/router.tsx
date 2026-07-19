@@ -21,9 +21,10 @@ interface LinkProps {
   children: ReactNode;
   onClick?: () => void;
   title?: string;
+  prefetch?: boolean;
 }
 
-export function Link({ to, className, children, onClick, title }: LinkProps) {
+export function Link({ to, className, children, onClick, title, prefetch = false }: LinkProps) {
   if (to.startsWith('#')) {
     return (
       <a href={to} className={className} onClick={onClick} title={title}>
@@ -33,7 +34,7 @@ export function Link({ to, className, children, onClick, title }: LinkProps) {
   }
 
   return (
-    <NextLink href={to} className={className} onClick={onClick} title={title}>
+    <NextLink href={to} prefetch={prefetch} className={className} onClick={onClick} title={title}>
       {children}
     </NextLink>
   );
