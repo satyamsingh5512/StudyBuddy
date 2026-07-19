@@ -1,147 +1,123 @@
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import {
-    BarChart3,
-    Palette,
-    GitBranch,
-    Smartphone,
-    ArrowUpRight,
-} from "lucide-react";
+import { motion } from 'framer-motion';
+import { BarChart3, CalendarDays, Clock3, Users, ArrowUpRight } from 'lucide-react';
+import { useAtomValue } from 'jotai';
+import { useNavigate } from '@/lib/router';
+import { userAtom } from '@/store/atoms';
 
-// Tilt Card Component for 3D hover effect
-function TiltCard({ feature, index }: { feature: any; index: number }) {
-    const x = useMotionValue(0);
-    const y = useMotionValue(0);
+type Feature = {
+  icon: typeof CalendarDays;
+  title: string;
+  description: string;
+  action: string;
+  path: string;
+  image: string;
+  accent: string;
+};
 
-    const mouseXSpring = useSpring(x);
-    const mouseYSpring = useSpring(y);
-
-    const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
-    const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const width = rect.width;
-        const height = rect.height;
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const xPct = mouseX / width - 0.5;
-        const yPct = mouseY / height - 0.5;
-        x.set(xPct);
-        y.set(yPct);
-    };
-
-    const handleMouseLeave = () => {
-        x.set(0);
-        y.set(0);
-    };
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-            whileInView={{ opacity: 1, y: 0, scale: 1 }}
-            viewport={{ once: true, margin: "-10%" }}
-            transition={{ type: "spring", stiffness: 100, damping: 20, delay: index * 0.15 }}
-            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            className="glass-card group relative rounded-2xl p-6 sm:p-8 transition-[box-shadow,transform] duration-300 hover:shadow-glass-lg will-change-transform cursor-pointer"
-        >
-            <div style={{ transform: "translateZ(30px)" }}>
-                {/* Badge "Sticker" */}
-                <div className={`absolute -top-3 sm:-top-4 right-4 sm:right-6 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/50 ${feature.color} ${feature.darkColor} text-black text-xs font-bold shadow-glass-sm transform rotate-3 group-hover:rotate-6 transition-transform`}>
-                    {feature.badge}
-                </div>
-
-                {/* RESPONSIVE FIX: Touch target min 44x44px */}
-                <div className="glass-control w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-primary group-hover:border-primary transition-colors">
-                    <feature.icon size={24} strokeWidth={2.5} className="text-black dark:text-white group-hover:text-primary-foreground sm:w-7 sm:h-7" />
-                </div>
-
-                {/* RESPONSIVE FIX: clamp() for fluid heading */}
-                <h3 className="font-bold text-black dark:text-white mb-3 sm:mb-4 tracking-tight" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>
-                    {feature.title}
-                </h3>
-
-                {/* RESPONSIVE FIX: clamp() for fluid paragraph */}
-                <p className="text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed mb-6 sm:mb-8" style={{ fontSize: 'clamp(0.9375rem, 2vw, 1.125rem)' }}>
-                    {feature.description}
-                </p>
-
-                <div className="flex items-center text-sm font-bold text-primary dark:text-primary group-hover:translate-x-2 transition-transform">
-                    Explore <ArrowUpRight size={18} className="ml-1" />
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
-const features = [
-    {
-        icon: BarChart3,
-        title: "Learning Analytics",
-        description: "Track completion rates and study sessions with detailed, privacy-first analytics.",
-        badge: "Insightful",
-        color: "bg-green-200",
-        darkColor: "dark:bg-green-500",
-    },
-    {
-        icon: Palette,
-        title: "Beautiful Interface",
-        description: "Start studying instantly with a professionally designed interface you can customize.",
-        badge: "Creative",
-        color: "bg-pink-200",
-        darkColor: "dark:bg-pink-500",
-    },
-    {
-        icon: GitBranch,
-        title: "Study Logic",
-        description: "Create complex study plans without worrying about missing key topics.",
-        badge: "Smart",
-        color: "bg-orange-200",
-        darkColor: "dark:bg-orange-500",
-    },
-    {
-        icon: Smartphone,
-        title: "Mobile First",
-        description: "Flawless studying experience on any device, ensuring you never miss a study streak.",
-        badge: "Responsive",
-        color: "bg-purple-200",
-        darkColor: "dark:bg-purple-500",
-    },
+const features: Feature[] = [
+  {
+    icon: CalendarDays,
+    title: 'Plan around your real day',
+    description: 'Set your available hours and let the AI turn your syllabus into practical time blocks and reminders.',
+    action: 'Create a schedule',
+    path: '/schedule',
+    image: '/assets/landing/feature-timeline.jpg',
+    accent: 'bg-primary/15 text-primary',
+  },
+  {
+    icon: Clock3,
+    title: 'Protect focused study time',
+    description: 'Use structured focus sessions, breaks, and session history to make the next hour count.',
+    action: 'Start a focus session',
+    path: '/dashboard',
+    image: '/assets/landing/feature-timer.jpg',
+    accent: 'bg-amber-400/15 text-amber-600 dark:text-amber-300',
+  },
+  {
+    icon: BarChart3,
+    title: 'Know what is improving',
+    description: 'Review study hours, task completion, streaks, and subject coverage without digging through spreadsheets.',
+    action: 'View my progress',
+    path: '/reports',
+    image: '/assets/landing/feature-growth.jpg',
+    accent: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+  },
+  {
+    icon: Users,
+    title: 'Study with accountability',
+    description: 'Connect with peers, compare momentum on the leaderboard, and make consistent progress visible.',
+    action: 'Find study partners',
+    path: '/friends',
+    image: '/assets/landing/feature-mobile.jpg',
+    accent: 'bg-rose-500/15 text-rose-600 dark:text-rose-300',
+  },
 ];
 
-export function FeaturesSection() {
-    return (
-        <section className="py-12 bg-transparent">
-            {/* RESPONSIVE FIX: Fluid container padding */}
-            <div className="container mx-auto" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
-                <motion.div 
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-100px" }}
-                    className="mb-12 sm:mb-20 text-center space-y-4 sm:space-y-6"
-                >
-                    <div className="glass-control inline-block rounded-full px-4 py-1.5 text-black dark:text-white font-bold text-sm transform -rotate-2">
-                        FEATURES
-                    </div>
-                    {/* RESPONSIVE FIX: clamp() for fluid heading */}
-                    <h2 className="font-bold text-black dark:text-white tracking-tight" style={{ fontSize: 'clamp(2rem, 6vw, 4rem)' }}>
-                        Everything you need. <br />
-                        <span className="italic font-serif font-black">Nothing you don&apos;t.</span>
-                    </h2>
-                    {/* RESPONSIVE FIX: clamp() for fluid paragraph */}
-                    <p className="text-zinc-700 dark:text-zinc-300 max-w-2xl mx-auto font-medium" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
-                        We focused on the features that actually help you study better, not just feature bloat.
-                    </p>
-                </motion.div>
+function FeatureCard({ feature, index }: { feature: Feature; index: number }) {
+  const user = useAtomValue(userAtom);
+  const navigate = useNavigate();
+  const actionPath = user ? feature.path : '/auth';
 
-                {/* RESPONSIVE FIX: CSS Grid with auto-fit for fluid columns, enabling 3D perspective */}
-                <div className="grid gap-6 sm:gap-8 lg:gap-12 perspective-1000" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', perspective: "1000px" }}>
-                    {features.map((feature, index) => (
-                        <TiltCard key={feature.title} feature={feature} index={index} />
-                    ))}
-                </div>
-            </div>
-        </section>
-    );
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-12%' }}
+      transition={{ duration: 0.42, delay: index * 0.06, ease: 'easeOut' }}
+      className="glass-card group grid overflow-hidden rounded-2xl sm:grid-cols-[0.9fr_1.1fr]"
+    >
+      <div className="relative min-h-48 overflow-hidden bg-black/5 dark:bg-white/5">
+        <img
+          src={feature.image}
+          alt=""
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        <div className={`absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl ${feature.accent} backdrop-blur-md`}>
+          <feature.icon size={21} aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-col items-start p-6 sm:p-7">
+        <h3 className="font-heading text-2xl font-semibold text-foreground">{feature.title}</h3>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">{feature.description}</p>
+        <button
+          type="button"
+          onClick={() => navigate(actionPath)}
+          className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-lg px-0 text-sm font-semibold text-primary transition-transform hover:translate-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {feature.action}
+          <ArrowUpRight size={17} aria-hidden="true" />
+        </button>
+      </div>
+    </motion.article>
+  );
+}
+
+export function FeaturesSection() {
+  return (
+    <section className="py-16 sm:py-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-100px' }}
+          className="mx-auto mb-10 max-w-2xl text-center sm:mb-14"
+        >
+          <span className="glass-control inline-flex rounded-full px-4 py-1.5 text-sm font-semibold text-foreground">The complete study loop</span>
+          <h2 className="mt-5 font-heading text-4xl font-semibold text-foreground sm:text-5xl">
+            One place to decide what matters next.
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
+            Planning, focus, evidence, and accountability stay connected, so your effort does not disappear into separate tools.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          {features.map((feature, index) => (
+            <FeatureCard key={feature.title} feature={feature} index={index} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
