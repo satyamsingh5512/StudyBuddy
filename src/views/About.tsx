@@ -12,7 +12,7 @@ export default function About() {
         <UnifiedPageWrapper>
             <div className="min-h-screen flex flex-col">
                 {/* Header */}
-                <header className="border-b bg-background/60 backdrop-blur-md sticky top-0 z-10">
+                <header className="glass-panel border-x-0 border-t-0 sticky top-0 z-10">
                     <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
                         <div className="flex items-center gap-2">
                             <Logo className="w-5 h-5" />
@@ -72,7 +72,7 @@ export default function About() {
                         </Card>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-8 text-center">
+                    <div className="glass-card rounded-2xl p-8 text-center">
                         <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
                         <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto">
                             We believe that education should be accessible, engaging, and collaborative. StudyBuddy was created to break the isolation of studying alone and provide a platform where motivation meets productivity. Whether you're preparing for JEE, NEET, or college exams, we're here to be your companion in success.
