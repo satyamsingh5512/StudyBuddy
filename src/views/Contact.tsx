@@ -34,7 +34,7 @@ export default function Contact() {
         <UnifiedPageWrapper>
             <div className="min-h-screen flex flex-col">
                 {/* Header */}
-                <header className="border-b bg-background/60 backdrop-blur-md sticky top-0 z-10">
+                <header className="glass-panel border-x-0 border-t-0 sticky top-0 z-10">
                     <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
                         <div className="flex items-center gap-2">
                             <Logo className="w-5 h-5" />
@@ -97,7 +97,7 @@ export default function Contact() {
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Message</label>
                                         <textarea
-                                            className="w-full min-h-[150px] rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            className="glass-control w-full min-h-[150px] rounded-xl px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                             placeholder="Tell us what's on your mind..."
                                             value={message}
                                             onChange={(e) => setMessage(e.target.value)}
