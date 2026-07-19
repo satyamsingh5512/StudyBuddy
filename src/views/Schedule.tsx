@@ -249,7 +249,7 @@ export default function Schedule() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                <div className="flex gap-1.5 flex-wrap justify-center">
+                <div className="flex flex-1 justify-center gap-1.5">
                   {[-2, -1, 0, 1, 2].map((offset) => {
                     const d = addDays(new Date(), offset);
                     const ds = toDateStr(d);
@@ -258,7 +258,7 @@ export default function Schedule() {
                       <button
                         key={ds}
                         onClick={() => setSelectedDate(d)}
-                        className={`flex flex-col items-center px-3 py-2 rounded-xl text-sm transition-all duration-200 min-w-14 ${
+                        className={`${Math.abs(offset) === 2 ? 'hidden sm:flex' : 'flex'} min-w-0 flex-1 flex-col items-center rounded-xl px-2 py-2 text-sm transition-all duration-200 sm:min-w-14 sm:px-3 ${
                           isSelected
                             ? 'bg-primary/20 border border-primary/40 text-primary font-bold'
                             : 'bg-secondary/40 border border-transparent hover:border-border/50 text-muted-foreground hover:text-foreground'
