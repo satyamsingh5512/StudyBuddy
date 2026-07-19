@@ -9,11 +9,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-glass-sm hover:bg-primary/90 hover:shadow-glass hover:-translate-y-0.5',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-glass-sm hover:-translate-y-0.5',
-        outline: 'border border-border bg-background/60 backdrop-blur-md hover:bg-accent/80 hover:text-accent-foreground hover:border-border',
-        secondary: 'bg-secondary/80 backdrop-blur-md text-secondary-foreground hover:bg-secondary',
-        ghost: 'hover:bg-accent/60 hover:text-accent-foreground',
+        default: 'bg-primary/90 text-primary-foreground border border-white/30 shadow-glass-sm hover:bg-primary hover:shadow-glass hover:-translate-y-0.5',
+        destructive: 'bg-destructive/90 text-destructive-foreground border border-white/20 hover:bg-destructive hover:shadow-glass hover:-translate-y-0.5',
+        outline: 'glass-control text-foreground hover:bg-white/55 dark:hover:bg-white/10 hover:-translate-y-0.5',
+        secondary: 'glass-control text-secondary-foreground hover:bg-white/55 dark:hover:bg-white/10 hover:-translate-y-0.5',
+        ghost: 'hover:bg-white/40 dark:hover:bg-white/10 hover:text-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
         glass: 'glass text-foreground shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5',
       },
