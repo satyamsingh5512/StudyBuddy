@@ -25,6 +25,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
         { id: "home", label: "Home" },
         { id: "workflow", label: "How it works" },
         { id: "features", label: "Toolkit" },
+        { id: "faq", label: "FAQ" },
     ];
 
     useEffect(() => {
@@ -42,11 +43,11 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                 : "bg-transparent border-b border-transparent py-4"
                 }`}
         >
-            <div className="container mx-auto px-6 flex items-center justify-between">
+            <div className="container mx-auto flex items-center justify-between px-4 sm:px-6">
                 {/* Logo */}
-                <button onClick={() => scrollToId?.("home")} className="flex items-center gap-3 group bg-transparent border-none outline-none">
+                <button onClick={() => scrollToId?.("home")} className="flex min-w-0 items-center gap-2 sm:gap-3 group bg-transparent border-none outline-none">
                     <Logo className="w-8 h-8 text-black dark:text-white group-hover:scale-105 transition-transform" />
-                    <span className="font-[800] text-xl tracking-tight text-black dark:text-white">
+                    <span className="truncate font-[800] text-lg sm:text-xl tracking-tight text-black dark:text-white">
                         StudyBuddy
                     </span>
                 </button>
@@ -93,7 +94,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                 </div>
 
                 {/* Mobile Menu Button */}
-                <div className="flex items-center gap-2 md:hidden">
+                <div className="flex shrink-0 items-center gap-1 md:hidden">
                     <PerformanceToggle />
                     <ThemeToggle />
                     <button
@@ -113,7 +114,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="glass-strong md:hidden absolute top-full left-0 right-0 border-x-0 border-t-0 p-6 space-y-6 origin-top"
+                        className="glass-strong md:hidden absolute top-full left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto border-x-0 border-t-0 p-4 sm:p-6 space-y-6 origin-top"
                     >
                         {navLinks.map((link) => (
                             <button
