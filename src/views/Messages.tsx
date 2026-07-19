@@ -205,7 +205,7 @@ export default function Messages() {
       </div>
 
       {/* Messages */}
-      <Card className="h-[calc(100vh-280px)] flex flex-col">
+      <Card className="flex h-[calc(100dvh-18rem)] min-h-[18rem] flex-col sm:h-[calc(100dvh-17.5rem)]">
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
