@@ -119,7 +119,7 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Daily Reports</h1>
         <Button onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancel' : 'New Report'}
@@ -134,7 +134,7 @@ export default function Reports() {
           <CardTitle>Overall Efficiency</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Today</p>
               <p className="text-sm text-muted-foreground">
@@ -148,7 +148,7 @@ export default function Reports() {
                 </p>
               )}
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <p className="text-3xl font-bold">{dailyEfficiency ? `${Math.round(dailyEfficiency.overallEfficiencyPct)}%` : '--'}</p>
               <p className="text-sm text-muted-foreground">efficiency</p>
             </div>
@@ -157,7 +157,7 @@ export default function Reports() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Efficiency Trend</CardTitle>
           <div className="flex items-center gap-2">
             <Button
@@ -262,7 +262,7 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             <form onSubmit={submitReport} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="tasksPlanned">Tasks Planned</Label>
                   <Input id="tasksPlanned" name="tasksPlanned" type="number" required />
@@ -292,7 +292,7 @@ export default function Reports() {
                   <Input id="understanding" name="understanding" type="number" min="1" max="5" required />
                 </div>
               </div>
-              <Button type="submit">Submit Report</Button>
+              <Button type="submit" className="w-full sm:w-auto">Submit Report</Button>
             </form>
           </CardContent>
         </Card>
@@ -302,8 +302,8 @@ export default function Reports() {
         {reports.map((report: Report) => (
           <Card key={report.id}>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="font-medium">
                     {new Date(report.date).toLocaleDateString()}
                   </p>
