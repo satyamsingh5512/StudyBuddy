@@ -202,13 +202,13 @@ export default function Onboarding() {
 
   return (
     <UnifiedPageWrapper>
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center p-3 sm:p-4">
         <Card className="w-full max-w-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle>Welcome to StudyBuddy!</CardTitle>
             <CardDescription>Let's set up your profile</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 px-4 pb-5 sm:px-6 sm:pb-6">
             {/* Step 1: Username */}
             {step === 1 && (
               <div className="space-y-4">
@@ -371,7 +371,7 @@ export default function Onboarding() {
               <div className="space-y-4">
                 <div>
                   <Label>Choose your avatar style</Label>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="grid gap-3 mt-4 sm:grid-cols-2 sm:gap-4">
                     <button
                       onClick={() => setAvatarType('photo')}
                       className={`p-4 rounded-lg border-2 transition-all ${avatarType === 'photo'
@@ -423,7 +423,7 @@ export default function Onboarding() {
                 {avatarType === 'animated' && (
                   <div>
                     <Label>Select avatar style</Label>
-                    <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3">
                       {AVATAR_STYLES.map((style) => (
                         <button
                           key={style.id}
