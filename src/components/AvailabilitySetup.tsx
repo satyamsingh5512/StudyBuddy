@@ -413,7 +413,7 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
       className="max-w-2xl max-h-[92vh] overflow-hidden flex flex-col"
     >
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 border-b border-border/40 flex-shrink-0">
+      <div className="flex-shrink-0 border-b border-border/40 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10">
@@ -435,7 +435,7 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
         </div>
 
         {/* Wake / Sleep */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
             <Sunrise className="h-4 w-4 text-amber-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
@@ -491,7 +491,7 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
       </div>
 
       {/* Day list — scrollable */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
         {DAYS.map(({ short, full, i }) => (
           <DayPanel
             key={i}
@@ -509,17 +509,17 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-border/40 flex items-center justify-between gap-3 flex-shrink-0">
+      <div className="flex flex-shrink-0 flex-col-reverse gap-3 border-t border-border/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <button
           onClick={() => onOpenChange(false)}
-          className="px-4 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150"
+          className="flex-1 rounded-xl border border-border bg-secondary/80 px-4 py-2 text-sm font-medium text-foreground transition-all duration-150 hover:bg-secondary sm:flex-none"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={upsert.isPending}
-          className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
         >
           {upsert.isPending ? (
             <span className="animate-spin h-4 w-4 border-2 border-white/40 border-t-white rounded-full" />
