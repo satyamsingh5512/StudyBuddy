@@ -11,7 +11,7 @@ export default function Privacy() {
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <header className="border-b bg-background/60 backdrop-blur-md sticky top-0 z-10">
+        <header className="glass-panel border-x-0 border-t-0 sticky top-0 z-10">
           <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
             <div className="flex items-center gap-2">
               <Logo className="w-5 h-5" />
@@ -34,7 +34,7 @@ export default function Privacy() {
             </p>
 
             <div className="grid gap-6 md:grid-cols-2 mt-8">
-              <div className="bg-muted/30 p-6 rounded-2xl border">
+              <div className="glass-card p-6 rounded-2xl">
                 <h3 className="font-semibold text-lg mb-2">What We Collect</h3>
                 <ul className="list-disc pl-4 space-y-2 text-sm text-muted-foreground">
                   <li>Basic account information (Name, Email) for login.</li>
@@ -42,7 +42,7 @@ export default function Privacy() {
                 </ul>
               </div>
 
-              <div className="bg-muted/30 p-6 rounded-2xl border">
+              <div className="glass-card p-6 rounded-2xl">
                 <h3 className="font-semibold text-lg mb-2">How We Use It</h3>
                 <ul className="list-disc pl-4 space-y-2 text-sm text-muted-foreground">
                   <li>To verify your identity.</li>
