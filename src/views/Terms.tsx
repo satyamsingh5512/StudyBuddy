@@ -11,7 +11,7 @@ export default function Terms() {
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <header className="border-b bg-background/60 backdrop-blur-md sticky top-0 z-10">
+        <header className="glass-panel border-x-0 border-t-0 sticky top-0 z-10">
           <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
             <div className="flex items-center gap-2">
               <Logo className="w-5 h-5" />
