@@ -226,7 +226,7 @@ export default function News() {
       </form>
 
       {isSearching && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-secondary/40 px-4 py-2.5 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-secondary/40 px-4 py-2.5 text-sm">
           <span className="text-muted-foreground">
             {searchFetching ? 'Searching for ' : 'Showing results for '}
             <span className="font-semibold text-foreground">&ldquo;{activeSearch}&rdquo;</span>
