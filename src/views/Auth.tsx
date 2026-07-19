@@ -281,7 +281,7 @@ export default function Auth() {
             
             <div className="min-h-screen flex items-center justify-center p-4 relative font-montserrat bg-gradient-to-br from-slate-900 via-blue-900/40 to-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
                 {/* Theme Toggle */}
-                <div className="absolute top-6 right-6 z-50">
+                <div className="absolute right-3 top-3 z-50 sm:right-6 sm:top-6">
                     <ThemeToggle />
                 </div>
 
@@ -289,7 +289,7 @@ export default function Auth() {
                     initial={{ opacity: 0, y: 30, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 0.6 }}
-                    className="flex flex-col md:flex-row w-full max-w-5xl bg-card rounded-3xl shadow-2xl overflow-hidden relative z-10 min-h-[600px]"
+                    className="relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl sm:rounded-3xl md:min-h-[600px] md:flex-row"
                 >
                     {/* Left Panel */}
                     <div className="flex-1 relative overflow-hidden md:block hidden bg-slate-200 dark:bg-slate-800">
@@ -317,7 +317,7 @@ export default function Auth() {
                     </div>
 
                     {/* Right Panel */}
-                    <div className="flex-1 p-8 md:p-12 flex flex-col justify-center bg-background">
+                    <div className="flex flex-1 flex-col justify-center bg-background p-5 pt-16 sm:p-8 sm:pt-16 md:p-12">
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-6">
                                 <Logo className="w-10 h-10 text-foreground" highlighted animated />
@@ -356,7 +356,7 @@ export default function Auth() {
                             >
                                 {/* Name Fields - Show only for signup */}
                                 {authType === 'signup' && (
-                                    <div className="grid grid-cols-2 gap-4 pb-1">
+                                    <div className="grid gap-4 pb-1 sm:grid-cols-2">
                                         <div className="space-y-1.5">
                                             <label htmlFor="firstName" className="block text-sm font-medium text-foreground">First Name</label>
                                             <input
