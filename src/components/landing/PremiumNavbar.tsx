@@ -23,8 +23,8 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
 
     const navLinks = [
         { id: "home", label: "Home" },
-        { id: "features", label: "Features" },
-        { id: "join", label: "Join" },
+        { id: "workflow", label: "How it works" },
+        { id: "features", label: "Toolkit" },
     ];
 
     useEffect(() => {
@@ -86,7 +86,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                                 </button>
                             </Link>
                             <MagneticButton onClick={() => navigate("/auth")} variant="primary" className="!rounded-xl border border-white/30 shadow-glass-sm hover:-translate-y-0.5">
-                                Get Started
+                                Build a plan
                             </MagneticButton>
                         </>
                     )}
@@ -143,7 +143,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                                         </button>
                                     </Link>
                                     <button onClick={() => navigate("/auth")} className="w-full py-3 neo-button-primary rounded-xl">
-                                        Get Started
+                                        Build a plan
                                     </button>
                                 </>
                             )}
