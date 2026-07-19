@@ -161,10 +161,20 @@
 @layer base {
     * {
         @apply border-border;
+        min-width: 0;
+    }
+
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: clip;
     }
 
     html {
         color-scheme: light;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
     }
 
     html.dark {
@@ -190,6 +200,7 @@
         padding-right: env(safe-area-inset-right);
         padding-bottom: env(safe-area-inset-bottom);
         padding-left: env(safe-area-inset-left);
+        overflow-x: hidden;
     }
 
     html, #root {
@@ -230,6 +241,20 @@
     h4 { font-size: clamp(1.125rem, 2.5vw, 1.5rem); line-height: 1.4; }
     h5 { font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.5; }
     h6 { font-size: clamp(0.875rem, 1.75vw, 1.125rem); line-height: 1.5; }
+
+    img,
+    video,
+    canvas {
+        height: auto;
+        max-width: 100%;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+        max-width: 100%;
+    }
 }
 
 @layer utilities {
@@ -399,6 +424,22 @@
 .list-item-optimized {
     content-visibility: auto;
     contain-intrinsic-size: 0 60px;
+}
+
+@media (max-width: 639px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .page-transition {
+    animation-duration: 0.2s;
+  }
+
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
 }
 @layer base {
   html:not(.dark) body {
