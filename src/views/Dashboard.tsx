@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { useNavigate } from '@/lib/router';
 import { Plus, Trash2, Users, TrendingUp, RotateCcw, Calendar, AlertCircle, CheckCircle2, Target, Flame, Trophy, Pencil, Check, X as XIcon, GripVertical, Gauge } from 'lucide-react';
@@ -29,9 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getDaysUntil } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonList } from '@/components/Skeleton';
-import StudyHeatmap from '@/components/StudyHeatmap';
 import StudyTimer from '@/components/StudyTimer';
-import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import { useTodos, useDailyEfficiency, useCreateTodo, useUpdateTodo, useDeleteTodo, useDeleteTodosByDay, useRescheduleTodo, useRescheduleAllOverdue, useToggleTodo, useRescheduleTodoToToday } from '@/lib/queries';
 import { soundManager } from '@/lib/sounds';
 import {
@@ -52,6 +51,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+const StudyHeatmap = dynamic(() => import('@/components/StudyHeatmap'), {
+  loading: () => <div className="h-40 rounded-2xl bg-muted/40 animate-pulse" aria-label="Loading consistency activity" />,
+});
+const AnalyticsDashboard = dynamic(() => import('@/components/AnalyticsDashboard'), {
+  loading: () => <div className="h-64 rounded-2xl bg-muted/40 animate-pulse" aria-label="Loading analytics" />,
+});
 
 /** Stat tiles inside the stats row are intentionally NOT individually glass.
  * Performance budget: capping simultaneous backdrop-filter layers at ~6-8 per
