@@ -1,3 +1,5 @@
+'use client';
+
 import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Shader, ChromaFlow, Swirl } from "shaders/react";
@@ -6,6 +8,9 @@ import { GrainOverlay } from "@/components/ui/grain-overlay";
 import { PremiumNavbar } from "@/components/landing/PremiumNavbar";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { StatsSection } from "@/components/landing/StatsSection";
+import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
+import { FAQSection } from "@/components/landing/FAQSection";
 import UnifiedPageWrapper from "@/components/UnifiedPageWrapper";
 import { Link } from "@/lib/router";
 import { useAtomValue } from "jotai";
@@ -106,7 +111,9 @@ export default function Landing() {
                     <div id="home">
                         <HeroSection />
                     </div>
-                    
+
+                    <StatsSection />
+
                     <section id="workflow" className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
                         <div className="glass-card overflow-hidden rounded-2xl p-6 sm:p-10">
                             <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
@@ -154,14 +161,22 @@ export default function Landing() {
                         <FeaturesSection />
                     </div>
 
+                    <div id="testimonials" className="w-full">
+                        <TestimonialsSection />
+                    </div>
+
+                    <div id="faq" className="w-full">
+                        <FAQSection />
+                    </div>
+
                     <div id="join" className="flex flex-col w-full py-16 sm:py-24">
-                        <div className="flex items-center justify-center px-6">
+                        <div className="flex items-center justify-center px-4 sm:px-6">
                             <motion.div 
                                 initial={{ opacity: 0, scale: 0.95, y: 50 }}
                                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                                 viewport={{ once: true, margin: "-10%" }}
                                 transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
-                                className="text-center space-y-6 max-w-3xl mx-auto glass-card p-12 md:p-16 rounded-[2rem] will-change-transform"
+                                className="text-center space-y-6 max-w-3xl mx-auto glass-card p-6 sm:p-10 md:p-16 rounded-[2rem] will-change-transform"
                             >
                                 <h2 className="font-heading text-4xl font-semibold text-black dark:text-white md:text-6xl">
                                     Give tomorrow&apos;s study time a plan.
@@ -179,9 +194,9 @@ export default function Landing() {
                             </motion.div>
                         </div>
                         <footer className="glass-panel border-x-0 border-b-0 py-8 text-sm text-zinc-600 dark:text-zinc-400">
-                            <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 text-center sm:px-6 md:flex-row md:text-left">
                                 <div className="font-bold text-black dark:text-white">© 2026 StudyBuddy. All rights reserved.</div>
-                                <div className="flex gap-6 font-bold">
+                                <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 font-bold sm:gap-6">
                                     <a href="/terms" className="hover:text-black dark:hover:text-white hover:underline transition-all">Terms</a>
                                     <a href="/privacy" className="hover:text-black dark:hover:text-white hover:underline transition-all">Privacy</a>
                                     <a href="/support" className="hover:text-black dark:hover:text-white hover:underline transition-all">Support</a>
