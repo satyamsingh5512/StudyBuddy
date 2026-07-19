@@ -374,7 +374,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
     <AnimatePresence>
         {modalStatus !== 'closed' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-card/80 border-4 border-border rounded-2xl p-8 w-full max-w-sm flex flex-col items-center gap-4 mx-2">
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="glass-strong relative rounded-2xl p-8 w-full max-w-sm flex flex-col items-center gap-4 mx-2">
                     {(modalStatus === 'error' || modalStatus === 'success') && <button onClick={closeModal} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>}
                     {modalStatus === 'error' && <>
                         <AlertCircle className="w-12 h-12 text-destructive" />
@@ -404,7 +404,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
   );
 
   return (
-    <div className="bg-background min-h-screen w-screen flex flex-col">
+    <div className="min-h-screen w-screen flex flex-col">
         <style>{`
             input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none !important; } input[type="password"]::-webkit-credentials-auto-fill-button, input[type="password"]::-webkit-strong-password-auto-fill-button { display: none !important; } input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 30px transparent inset !important; -webkit-text-fill-color: var(--foreground) !important; background-color: transparent !important; background-clip: content-box !important; transition: background-color 5000s ease-in-out 0s !important; color: var(--foreground) !important; caret-color: var(--foreground) !important; } input:autofill { background-color: transparent !important; background-clip: content-box !important; -webkit-text-fill-color: var(--foreground) !important; color: var(--foreground) !important; } input:-internal-autofill-selected { background-color: transparent !important; background-image: none !important; color: var(--foreground) !important; -webkit-text-fill-color: var(--foreground) !important; } input:-webkit-autofill::first-line { color: var(--foreground) !important; -webkit-text-fill-color: var(--foreground) !important; }
             @property --angle-1 { syntax: "<angle>"; inherits: false; initial-value: -75deg; } @property --angle-2 { syntax: "<angle>"; inherits: false; initial-value: -45deg; }
@@ -423,7 +423,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
 
         <div className={cn("flex w-full flex-1 h-full items-center justify-center bg-card", "relative overflow-hidden")}>
             <div className="absolute inset-0 z-0"><GradientBackground /></div>
-            <fieldset disabled={modalStatus !== 'closed'} className="relative z-10 flex flex-col items-center gap-8 w-[280px] mx-auto p-4">
+            <fieldset disabled={modalStatus !== 'closed'} className="glass-card relative z-10 flex flex-col items-center gap-8 w-[calc(100%_-_2rem)] max-w-[22rem] mx-auto p-6 sm:p-8">
                 <AnimatePresence mode="wait">
                     {authStep === "email" && <motion.div key="email-content" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center gap-4">
                         <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground whitespace-nowrap">{mode === 'signup' ? 'Get started with Us' : 'Welcome back'}</p></div></BlurFade>
