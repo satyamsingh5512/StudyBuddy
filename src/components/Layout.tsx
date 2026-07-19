@@ -76,7 +76,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <UnifiedPageWrapper>
-      <div className="min-h-screen flex flex-col md:flex-row">
+      <div className="min-h-screen flex flex-col md:h-dvh md:min-h-0 md:flex-row md:overflow-hidden">
         <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between gap-2 px-3 sm:px-4 sticky top-0 z-40">
           {/* RESPONSIVE FIX: Touch targets min 44x44px */}
           <div className="flex min-w-0 items-center gap-2">
@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
 
         <aside
           className={`
-          glass-panel fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex flex-col
+          glass-panel fixed inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex flex-col
           transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -218,7 +218,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </aside>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 md:ml-64 md:h-dvh md:min-h-0">
           <header className="glass-panel hidden md:flex h-16 border-x-0 border-t-0 items-center justify-between px-6 sticky top-0 z-30">
             <div className="flex items-center gap-3">
               {studying && (
@@ -287,7 +287,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </header>
 
-          <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
+          <main className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
             {/* RESPONSIVE FIX: Fluid max-width and padding */}
             <div className="mx-auto h-full w-full" style={{ maxWidth: 'min(1280px, 100%)' }}>
               <PageTransition>{children}</PageTransition>
