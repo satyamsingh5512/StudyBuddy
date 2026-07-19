@@ -404,7 +404,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
   );
 
   return (
-    <div className="min-h-screen w-screen flex flex-col">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden">
         <style>{`
             input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none !important; } input[type="password"]::-webkit-credentials-auto-fill-button, input[type="password"]::-webkit-strong-password-auto-fill-button { display: none !important; } input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 30px transparent inset !important; -webkit-text-fill-color: var(--foreground) !important; background-color: transparent !important; background-clip: content-box !important; transition: background-color 5000s ease-in-out 0s !important; color: var(--foreground) !important; caret-color: var(--foreground) !important; } input:autofill { background-color: transparent !important; background-clip: content-box !important; -webkit-text-fill-color: var(--foreground) !important; color: var(--foreground) !important; } input:-internal-autofill-selected { background-color: transparent !important; background-image: none !important; color: var(--foreground) !important; -webkit-text-fill-color: var(--foreground) !important; } input:-webkit-autofill::first-line { color: var(--foreground) !important; -webkit-text-fill-color: var(--foreground) !important; }
             @property --angle-1 { syntax: "<angle>"; inherits: false; initial-value: -75deg; } @property --angle-2 { syntax: "<angle>"; inherits: false; initial-value: -45deg; }
@@ -423,31 +423,31 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
 
         <div className={cn("flex w-full flex-1 h-full items-center justify-center bg-card", "relative overflow-hidden")}>
             <div className="absolute inset-0 z-0"><GradientBackground /></div>
-            <fieldset disabled={modalStatus !== 'closed'} className="glass-card relative z-10 flex flex-col items-center gap-8 w-[calc(100%_-_2rem)] max-w-[22rem] mx-auto p-6 sm:p-8">
+            <fieldset disabled={modalStatus !== 'closed'} className="glass-card relative z-10 mx-auto flex w-[calc(100%_-_2rem)] max-w-[22rem] flex-col items-center gap-8 p-5 sm:p-8">
                 <AnimatePresence mode="wait">
                     {authStep === "email" && <motion.div key="email-content" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center gap-4">
-                        <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground whitespace-nowrap">{mode === 'signup' ? 'Get started with Us' : 'Welcome back'}</p></div></BlurFade>
+                        <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-3xl sm:text-5xl md:text-6xl tracking-tight text-foreground">{mode === 'signup' ? 'Get started with Us' : 'Welcome back'}</p></div></BlurFade>
                         <BlurFade delay={0.25 * 2}><p className="text-sm font-medium text-muted-foreground">Continue with</p></BlurFade>
                         <BlurFade delay={0.25 * 3}><div className="flex items-center justify-center gap-4 w-full">
                             <GlassButton type="button" onClick={handleGoogleAuth} contentClassName="flex items-center justify-center gap-2" size="sm"><GoogleIcon /><span className="font-semibold text-foreground">Continue with Google</span></GlassButton>
                         </div></BlurFade>
-                        <BlurFade delay={0.25 * 4} className="w-[300px]"><div className="flex items-center w-full gap-2 py-2"><hr className="w-full border-border"/><span className="text-xs font-semibold text-muted-foreground">OR</span><hr className="w-full border-border"/></div></BlurFade>
+                        <BlurFade delay={0.25 * 4} className="w-full max-w-[300px]"><div className="flex items-center w-full gap-2 py-2"><hr className="w-full border-border"/><span className="text-xs font-semibold text-muted-foreground">OR</span><hr className="w-full border-border"/></div></BlurFade>
                     </motion.div>}
                     {authStep === "password" && <motion.div key="password-title" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center text-center gap-4">
-                        <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">{mode === 'signup' ? 'Create your password' : 'Enter your password'}</p></div></BlurFade>
+                        <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-3xl sm:text-5xl tracking-tight text-foreground">{mode === 'signup' ? 'Create your password' : 'Enter your password'}</p></div></BlurFade>
                         <BlurFade delay={0.25 * 1}><p className="text-sm font-medium text-muted-foreground">{mode === 'signup' ? 'Your password must be at least 8 characters long.' : 'Enter your password to sign in.'}</p></BlurFade>
                     </motion.div>}
                      {authStep === "confirmPassword" && <motion.div key="confirm-title" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center text-center gap-4">
-                         <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">One Last Step</p></div></BlurFade>
+                         <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-3xl sm:text-5xl tracking-tight text-foreground">One Last Step</p></div></BlurFade>
                          <BlurFade delay={0.25 * 1}><p className="text-sm font-medium text-muted-foreground">Confirm your password to continue</p></BlurFade>
                     </motion.div>}
                     {authStep === "verify" && <motion.div key="verify-title" initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full flex flex-col items-center text-center gap-4">
-                         <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">Verify your email</p></div></BlurFade>
+                         <BlurFade delay={0} className="w-full"><div className="text-center"><p className="font-serif font-light text-3xl sm:text-5xl tracking-tight text-foreground">Verify your email</p></div></BlurFade>
                          <BlurFade delay={0.25 * 1}><p className="text-sm font-medium text-muted-foreground">Enter the 6-digit code sent to {email || 'your inbox'}</p></BlurFade>
                     </motion.div>}
                 </AnimatePresence>
                 
-                <form onSubmit={handleFinalSubmit} className="w-[300px] space-y-6">
+                <form onSubmit={handleFinalSubmit} className="w-full max-w-[300px] space-y-6">
                      <AnimatePresence>
                         {authStep !== 'confirmPassword' && <motion.div key="email-password-fields" exit={{ opacity: 0, filter: 'blur(4px)' }} transition={{ duration: 0.3, ease: "easeOut" }} className="w-full space-y-6">
                             <BlurFade delay={authStep === 'email' ? 0.25 * 5 : 0} inView={true} className="w-full">
@@ -490,7 +490,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
                                 <AnimatePresence>
                                     {confirmPassword.length > 0 && <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }} className="absolute -top-6 left-4 z-10"><label className="text-xs text-muted-foreground font-semibold">Confirm Password</label></motion.div>}
                                 </AnimatePresence>
-                                <div className="glass-input-wrap w-[300px]"><div className="glass-input">
+                                <div className="glass-input-wrap w-full"><div className="glass-input">
                                     <span className="glass-input-text-area"></span>
                                     <div className="relative z-10 flex-shrink-0 flex items-center justify-center w-10 pl-2">
                                         {isConfirmPasswordValid ? <button type="button" aria-label="Toggle confirm password visibility" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-foreground/80 hover:text-foreground transition-colors p-2 rounded-full">{showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button> : <Lock className="h-5 w-5 text-foreground/80 flex-shrink-0" />}
@@ -505,7 +505,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
                     <AnimatePresence>
                         {authStep === 'verify' && <BlurFade key="verify-otp-field" className="w-full">
                             <div className="relative w-full">
-                                <div className="glass-input-wrap w-[300px]"><div className="glass-input">
+                                <div className="glass-input-wrap w-full"><div className="glass-input">
                                     <span className="glass-input-text-area"></span>
                                     <div className="relative z-10 flex-shrink-0 flex items-center justify-center w-10 pl-2"><Mail className="h-5 w-5 text-foreground/80 flex-shrink-0" /></div>
                                     <input ref={otpInputRef} type="text" inputMode="numeric" maxLength={6} placeholder="6-digit code" value={otp} onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVerifyOtp(); } }} className="relative z-10 h-full w-0 flex-grow bg-transparent text-foreground placeholder:text-foreground/60 focus:outline-none tracking-[0.3em]" />
