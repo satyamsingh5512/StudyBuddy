@@ -51,7 +51,7 @@ export default function Landing() {
 
     return (
         <UnifiedPageWrapper>
-            <main className="relative w-full min-h-screen bg-background overflow-x-hidden selection:bg-primary/30">
+            <main className="relative w-full min-h-screen overflow-x-hidden selection:bg-primary/30">
                 <CustomCursor />
                 <GrainOverlay />
 
@@ -91,7 +91,7 @@ export default function Landing() {
                                 opacity={0.97}
                             />
                         </Shader>
-                        <div className="absolute inset-0 bg-white/70 dark:bg-black/60 backdrop-blur-[2px]" />
+                        <div className="absolute inset-0 bg-white/35 dark:bg-[#101319]/45 backdrop-blur-[2px]" />
                     </div>
                 )}
 
@@ -115,7 +115,7 @@ export default function Landing() {
                                 whileInView={{ opacity: 1, scale: 1, y: 0 }}
                                 viewport={{ once: true, margin: "-10%" }}
                                 transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
-                                className="text-center space-y-6 max-w-3xl mx-auto glass-card border-2 border-black/10 dark:border-white/10 p-12 md:p-16 rounded-[2.5rem] shadow-2xl bg-white/40 dark:bg-black/40 backdrop-blur-xl will-change-transform"
+                                className="text-center space-y-6 max-w-3xl mx-auto glass-card p-12 md:p-16 rounded-[2rem] will-change-transform"
                             >
                                 <h2 className="text-4xl md:text-6xl font-bold text-black dark:text-white leading-tight">
                                     Ready to level up<br />your study game?
@@ -125,13 +125,13 @@ export default function Landing() {
                                 </p>
                                 <button
                                     onClick={() => window.location.href = "/auth"}
-                                    className="neo-button-primary mt-8 px-10 py-5 text-xl font-bold rounded-full shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_#757373] hover:translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_#757373] transition-all"
+                                    className="neo-button-primary mt-8 px-10 py-5 text-xl font-bold rounded-full"
                                 >
                                     Get Started
                                 </button>
                             </motion.div>
                         </div>
-                        <footer className="border-t border-black/10 dark:border-white/10 py-8 text-sm text-zinc-600 dark:text-zinc-400 bg-white/30 dark:bg-black/30 backdrop-blur-md">
+                        <footer className="glass-panel border-x-0 border-b-0 py-8 text-sm text-zinc-600 dark:text-zinc-400">
                             <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div className="font-bold text-black dark:text-white">© 2026 StudyBuddy. All rights reserved.</div>
                                 <div className="flex gap-6 font-bold">
