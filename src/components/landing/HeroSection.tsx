@@ -51,7 +51,7 @@ export function HeroSection() {
                 >
                     {/* Top Badge */}
                     <motion.div variants={itemVariants} className="flex justify-center">
-                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-zinc-900 border-2 border-black dark:border-white/20 shadow-neo-sm dark:shadow-none transform hover:-translate-y-1 transition-transform cursor-pointer group">
+                        <span className="glass-control inline-flex items-center gap-2 px-4 py-2 rounded-full transform hover:-translate-y-1 transition-transform cursor-pointer group">
                             <span className="font-bold text-sm text-black dark:text-white">Now it is time to build</span>
                             <ArrowRight size={14} className="stroke-[3px] text-black dark:text-white group-hover:translate-x-1 transition-transform" />
                         </span>
@@ -95,29 +95,25 @@ export function HeroSection() {
                         className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-4"
                     >
                         <Link to="#features">
-                            <button className="neo-button flex items-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
+                            <button className="neo-button flex items-center justify-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
                                 View Features
                             </button>
                         </Link>
-                        <button onClick={() => navigate("/auth")} className="neo-button-primary flex items-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
+                        <button onClick={() => navigate("/auth")} className="neo-button-primary flex items-center justify-center gap-2 rounded-lg min-h-[44px] px-6 py-3 w-full sm:w-auto">
                             Start Studying <Star size={16} fill="currentColor" />
                         </button>
                     </motion.div>
                 </motion.div>
             </div>
 
-            {/* Decorative Scribbles */}
             <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 style={{ y: yDecor, rotate: rotateDecor }}
                 transition={{ delay: 0.8, type: "spring", stiffness: 100, damping: 20 }}
-                className="absolute top-1/4 right-10 w-24 h-24 pointer-events-none hidden lg:block will-change-transform"
+                className="glass-card absolute top-1/4 right-10 hidden h-28 w-28 rounded-[28px] border-white/30 lg:block"
             >
-                <svg viewBox="0 0 100 100" fill="none" className="stroke-black dark:stroke-white stroke-2 opacity-20 md:opacity-100">
-                    <path d="M10 10 Q 50 50 90 10" />
-                    <path d="M10 90 Q 50 50 90 90" />
-                </svg>
+                <div className="absolute inset-4 rounded-[20px] border border-white/40 dark:border-white/10" />
             </motion.div>
         </section>
     );
