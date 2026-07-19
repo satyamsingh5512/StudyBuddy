@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { initTheme } from '@/lib/theme';
@@ -13,7 +13,6 @@ import LoadingScreen from '@/components/LoadingScreen';
 import Maintenance from '@/components/Maintenance';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
-import { Analytics } from '@vercel/analytics/react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useAtom(userAtom);
@@ -84,9 +83,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ErrorBoundary>
         {children}
         <Toaster />
-        <Suspense fallback={null}>
-          <Analytics />
-        </Suspense>
       </ErrorBoundary>
     </QueryClientProvider>
   );
