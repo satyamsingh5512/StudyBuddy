@@ -12,7 +12,7 @@ export default function Support() {
         <UnifiedPageWrapper>
             <div className="min-h-screen flex flex-col">
                 {/* Header */}
-                <header className="border-b bg-background/60 backdrop-blur-md sticky top-0 z-10">
+                <header className="glass-panel border-x-0 border-t-0 sticky top-0 z-10">
                     <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
                         <div className="flex items-center gap-2">
                             <Logo className="w-5 h-5" />
@@ -26,7 +26,7 @@ export default function Support() {
                 </header>
 
                 {/* Hero */}
-                <div className="bg-primary/5 py-12 border-b">
+                <div className="glass-panel border-x-0 py-12">
                     <div className="container mx-auto px-6 max-w-2xl text-center">
                         <h1 className="text-3xl font-bold mb-4">How can we help you?</h1>
                         <div className="relative max-w-md mx-auto">
@@ -46,7 +46,7 @@ export default function Support() {
                                 Frequently Asked Questions
                             </h2>
                             <div className="w-full space-y-4">
-                                <details className="group border rounded-lg bg-card px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
+                                <details className="glass-card group rounded-lg px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
                                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 py-2 font-medium text-foreground outline-none transition-colors hover:text-primary">
                                         How does the study planner work?
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
@@ -56,7 +56,7 @@ export default function Support() {
                                     </p>
                                 </details>
 
-                                <details className="group border rounded-lg bg-card px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
+                                <details className="glass-card group rounded-lg px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
                                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 py-2 font-medium text-foreground outline-none transition-colors hover:text-primary">
                                         Is StudyBuddy free to use?
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
@@ -66,7 +66,7 @@ export default function Support() {
                                     </p>
                                 </details>
 
-                                <details className="group border rounded-lg bg-card px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
+                                <details className="glass-card group rounded-lg px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
                                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 py-2 font-medium text-foreground outline-none transition-colors hover:text-primary">
                                         How do I delete my account?
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
@@ -76,7 +76,7 @@ export default function Support() {
                                     </p>
                                 </details>
 
-                                <details className="group border rounded-lg bg-card px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
+                                <details className="glass-card group rounded-lg px-4 py-2 [&_summary::-webkit-details-marker]:hidden">
                                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 py-2 font-medium text-foreground outline-none transition-colors hover:text-primary">
                                         Can I study offline?
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
@@ -89,7 +89,7 @@ export default function Support() {
                         </section>
 
                         {/* Contact */}
-                        <section className="bg-muted/30 border rounded-xl p-8 text-center">
+                        <section className="glass-card rounded-xl p-8 text-center">
                             <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Mail className="h-6 w-6" />
                             </div>
