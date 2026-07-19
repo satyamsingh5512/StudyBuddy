@@ -389,7 +389,7 @@ export default function Settings() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+          <div className="grid gap-4 pt-4 border-t sm:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">Total Points</p>
               <p className="text-2xl font-bold">{user?.totalPoints}</p>
