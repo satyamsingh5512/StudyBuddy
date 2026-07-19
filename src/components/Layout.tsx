@@ -77,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <UnifiedPageWrapper>
       <div className="min-h-screen flex flex-col md:flex-row">
-        <header className="md:hidden h-14 border-b border-border/50 flex items-center justify-between px-4 bg-background/80 backdrop-blur-xl sticky top-0 z-40 supports-[backdrop-filter]:bg-background/80">
+        <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between px-4 sticky top-0 z-40">
           {/* RESPONSIVE FIX: Touch targets min 44x44px */}
           <div className="flex items-center gap-2">
             <Logo className="w-5 h-5" />
@@ -107,14 +107,14 @@ export default function Layout({ children }: LayoutProps) {
 
         {mobileMenuOpen && (
           <div
-            className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-30 transition-opacity duration-300"
+            className="md:hidden fixed inset-0 bg-background/40 backdrop-blur-sm z-30 transition-opacity duration-300"
             onClick={() => setMobileMenuOpen(false)}
           />
         )}
 
         <aside
           className={`
-          fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 border-r flex flex-col bg-card/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/80
+          glass-panel fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex flex-col
           transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -219,7 +219,7 @@ export default function Layout({ children }: LayoutProps) {
         </aside>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="hidden md:flex h-16 border-b border-border/50 items-center justify-between px-6 bg-background/80 backdrop-blur-xl sticky top-0 z-30 supports-[backdrop-filter]:bg-background/80">
+          <header className="glass-panel hidden md:flex h-16 border-x-0 border-t-0 items-center justify-between px-6 sticky top-0 z-30">
             <div className="flex items-center gap-3">
               {studying && (
                 <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md bg-success/10 text-success transition-all duration-200 border border-success/20">
