@@ -53,7 +53,7 @@ export function GlassModal({ open, onOpenChange, children, className, ariaLabel 
                 ? { duration: 0.01 }
                 : { type: 'spring', stiffness: 350, damping: 28, mass: 0.9 }
             }
-            className={cn('sbd-glass sbd-glass--elevated w-full max-w-md p-0', className)}
+            className={cn('sbd-glass sbd-glass--elevated max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto p-0', className)}
             onClick={(e) => e.stopPropagation()}
           >
             {children}
