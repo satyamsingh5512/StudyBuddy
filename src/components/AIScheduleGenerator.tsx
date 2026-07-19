@@ -61,7 +61,7 @@ export default function AIScheduleGenerator({ onGenerated, selectedDate }: AISch
   return (
     <GlassCard className="overflow-hidden">
       <GlassCardHeader className="pb-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-start gap-3">
           <div className="p-2 rounded-xl bg-primary/10 ring-1 ring-primary/20">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
@@ -71,7 +71,7 @@ export default function AIScheduleGenerator({ onGenerated, selectedDate }: AISch
               Describe what you want to study — AI builds a time-blocked plan
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/60 border border-border/40">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-secondary/60 px-2.5 py-1 sm:ml-auto">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs font-medium">{formatDate(selectedDate)}</span>
           </div>
