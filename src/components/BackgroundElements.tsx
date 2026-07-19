@@ -1,67 +1,33 @@
-import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { useLocation } from '@/lib/router';
-
 interface BackgroundElementsProps {
     isDark?: boolean;
 }
 
 export default function BackgroundElements({ isDark = true }: BackgroundElementsProps) {
-    const location = useLocation();
-    const isLandingPage = location.pathname === '/';
-
-    // A more subtle, premium "dark grid" aesthetic for the SaaS rebrand.
-    // Instead of loud stars and dunes, we use an ambient radial gradient
-    // that slowly pulses, keeping the user focused on the content.
-
-    // Abstract Ambient Glow
-    const glows = useMemo(() => [
-        { id: 1, color: isDark ? 'rgba(108, 71, 255, 0.08)' : 'rgba(108, 71, 255, 0.03)', size: '60vw', top: '-10%', left: '-10%', delay: 0 },
-        { id: 2, color: isDark ? 'rgba(245, 158, 11, 0.05)' : 'rgba(245, 158, 11, 0.03)', size: '50vw', bottom: '-20%', right: '-10%', delay: 2 },
-    ], [isDark]);
-
     return (
-        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-            {/* Base Grid Pattern */}
-            <div className="absolute inset-0 bg-background text-transparent pointer-events-none" style={{
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
+            {/* Subtle architectural grid gives translucent surfaces something to refract. */}
+            <div className="absolute inset-0 text-transparent" style={{
                 backgroundImage: `
-                    linear-gradient(to right, ${isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)'} 1px, transparent 1px),
-                    linear-gradient(to bottom, ${isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)'} 1px, transparent 1px)
+                    linear-gradient(to right, ${isDark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(37, 63, 96, 0.045)'} 1px, transparent 1px),
+                    linear-gradient(to bottom, ${isDark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(37, 63, 96, 0.045)'} 1px, transparent 1px)
                 `,
-                backgroundSize: '40px 40px',
-                maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)'
+                backgroundSize: '52px 52px',
+                maskImage: 'linear-gradient(to bottom, black, transparent 72%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black, transparent 72%)'
             }} />
 
-            {/* Ambient Animated Glows */}
-            {isLandingPage && glows.map((glow) => (
-                <motion.div
-                    key={glow.id}
-                    className="absolute rounded-full blur-3xl"
-                    style={{
-                        background: `radial-gradient(circle, ${glow.color} 0%, transparent 70%)`,
-                        width: glow.size,
-                        height: glow.size,
-                        top: glow.top,
-                        left: glow.left,
-                        bottom: glow.bottom,
-                        right: glow.right,
-                    }}
-                    animate={{
-                        scale: [1, 1.1, 1],
-                        opacity: [0.5, 0.8, 0.5],
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        delay: glow.delay,
-                        ease: "easeInOut"
-                    }}
-                />
-            ))}
+            <div
+                className="absolute -inset-[24%] opacity-80 dark:opacity-70"
+                style={{
+                    background: isDark
+                        ? 'linear-gradient(118deg, transparent 18%, rgba(78, 101, 157, 0.22) 41%, transparent 58%), linear-gradient(298deg, transparent 24%, rgba(43, 129, 122, 0.16) 48%, transparent 68%)'
+                        : 'linear-gradient(118deg, transparent 18%, rgba(161, 201, 255, 0.58) 41%, transparent 58%), linear-gradient(298deg, transparent 24%, rgba(164, 233, 215, 0.38) 48%, transparent 68%)',
+                    filter: 'blur(44px)',
+                    transform: 'rotate(-7deg)'
+                }}
+            />
 
-            {/* Vignette effect to keep focus on center */}
-            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_150px_rgba(0,0,0,0.5)] dark:shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
+            <div className="absolute inset-0 shadow-[inset_0_0_120px_rgba(27,46,71,0.08)] dark:shadow-[inset_0_0_140px_rgba(0,0,0,0.38)]" />
         </div>
     );
 }
