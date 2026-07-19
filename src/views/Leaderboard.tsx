@@ -42,9 +42,9 @@ export default function Leaderboard() {
   };
 
   return (
-    <div className="space-y-12 pb-10 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-8 pb-10 sm:space-y-12">
       <div className="text-center space-y-2 mt-4">
-        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/60">
+        <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/60 sm:text-4xl">
           Global Leaderboard
         </h1>
         <p className="text-muted-foreground">Study consistently to climb the ranks and earn badges.</p>
@@ -58,7 +58,7 @@ export default function Leaderboard() {
         <>
           {/* Top 3 Podium */}
           {topThree.length > 0 && (
-            <div className="flex items-end justify-center gap-4 md:gap-8 mt-16 mb-8 px-4 h-64">
+            <div className="mt-16 mb-8 flex h-64 items-end justify-center gap-2 px-1 sm:gap-4 sm:px-4 md:gap-8">
               {/* Rank 2 */}
               {topThree[1] && (
                 <motion.div
@@ -130,12 +130,12 @@ export default function Leaderboard() {
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{user.name}</p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground sm:gap-3">
                       <span className="flex items-center gap-1 font-medium bg-secondary px-2 py-0.5 rounded-full">
                         <Flame className="h-3 w-3 text-orange-500" />
                         {user.streak} days
                       </span>
-                      <span>{Math.floor(user.totalStudyMinutes / 60)}h {user.totalStudyMinutes % 60}m studied</span>
+                      <span className="hidden sm:inline">{Math.floor(user.totalStudyMinutes / 60)}h {user.totalStudyMinutes % 60}m studied</span>
                     </div>
                   </div>
 
