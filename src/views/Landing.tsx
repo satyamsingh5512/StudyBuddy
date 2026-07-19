@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import { Shader, ChromaFlow, Swirl } from "shaders/react";
 import { CustomCursor } from "@/components/ui/custom-cursor";
 import { GrainOverlay } from "@/components/ui/grain-overlay";
 import { PremiumNavbar } from "@/components/landing/PremiumNavbar";
@@ -17,38 +17,27 @@ import { useAtomValue } from "jotai";
 import { performanceModeAtom, userAtom } from "@/store/atoms";
 import { BarChart3, CalendarClock, Clock3, Sparkles } from "lucide-react";
 
+const ShaderBackground = dynamic(() => import('@/components/landing/ShaderBackground'), { ssr: false });
+
 export default function Landing() {
     const performanceMode = useAtomValue(performanceModeAtom);
     const user = useAtomValue(userAtom);
-    const [isLoaded, setIsLoaded] = useState(false);
-    const shaderContainerRef = useRef<HTMLDivElement>(null);
+    const [shouldRenderShader, setShouldRenderShader] = useState(false);
 
-    // ── Shader ready detection ────────────────────────────────────────────────
+    // WebGL is deferred until the initial page is interactive and never mounted on
+    // touch-size screens, where the existing gradient fallback scrolls far more smoothly.
     useEffect(() => {
-        const checkShaderReady = () => {
-            if (shaderContainerRef.current) {
-                const canvas = shaderContainerRef.current.querySelector("canvas");
-                if (canvas && (canvas.width || 0) > 0 && (canvas.height || 0) > 0) {
-                    setIsLoaded(true);
-                    return true;
-                }
-            }
-            return false;
-        };
+        if (performanceMode) {
+            setShouldRenderShader(false);
+            return;
+        }
 
-        if (checkShaderReady()) return;
+        const canUseShader = window.matchMedia('(min-width: 768px) and (prefers-reduced-motion: no-preference)').matches;
+        if (!canUseShader) return;
 
-        const intervalId = setInterval(() => {
-            if (checkShaderReady()) clearInterval(intervalId);
-        }, 100);
-
-        const fallbackTimer = setTimeout(() => setIsLoaded(true), 1500);
-
-        return () => {
-            clearInterval(intervalId);
-            clearTimeout(fallbackTimer);
-        };
-    }, []);
+        const timer = window.setTimeout(() => setShouldRenderShader(true), 300);
+        return () => window.clearTimeout(timer);
+    }, [performanceMode]);
 
     const scrollToSection = (id: string) => {
         const el = document.getElementById(id);
@@ -63,51 +52,20 @@ export default function Landing() {
                 <CustomCursor />
                 <GrainOverlay />
 
-                {/* Fixed shader or fallback background */}
-                {performanceMode ? (
-                    <div className={`fixed inset-0 z-0 bg-gradient-to-br from-[#6C47FF]/10 via-[#F59E0B]/10 to-[#10B981]/10 transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`} />
-                ) : (
-                    <div
-                        ref={shaderContainerRef}
-                        className={`fixed inset-0 z-0 transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`}
-                        style={{ contain: "strict" }}
-                    >
-                        <Shader className="h-full w-full">
-                            <Swirl
-                                colorA="#6C47FF"
-                                colorB="#F59E0B"
-                                speed={0.8}
-                                detail={0.8}
-                                blend={50}
-                                coarseX={40}
-                                coarseY={40}
-                                mediumX={40}
-                                mediumY={40}
-                                fineX={40}
-                                fineY={40}
-                            />
-                            <ChromaFlow
-                                baseColor="#09090B"
-                                upColor="#6C47FF"
-                                downColor="#F59E0B"
-                                leftColor="#10B981"
-                                rightColor="#6C47FF"
-                                intensity={0.9}
-                                radius={1.8}
-                                momentum={25}
-                                maskType="alpha"
-                                opacity={0.97}
-                            />
-                        </Shader>
+                {/* Gradient renders immediately; the optional desktop shader is deferred. */}
+                <div className="fixed inset-0 z-0 bg-gradient-to-br from-[#6C47FF]/10 via-[#F59E0B]/10 to-[#10B981]/10" />
+                {shouldRenderShader && !performanceMode && (
+                    <div className="fixed inset-0 z-0" style={{ contain: "strict" }}>
+                        <ShaderBackground />
                         <div className="absolute inset-0 bg-white/35 dark:bg-[#101319]/45 backdrop-blur-[2px]" />
                     </div>
                 )}
 
                 {/* Fixed navbar */}
-                <PremiumNavbar scrollToId={scrollToSection} isLoaded={isLoaded} />
+                <PremiumNavbar scrollToId={scrollToSection} />
 
                 {/* Scrollable Content */}
-                <div className={`relative z-10 w-full transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`}>
+                <div className="relative z-10 w-full">
                     <div id="home">
                         <HeroSection />
                     </div>
