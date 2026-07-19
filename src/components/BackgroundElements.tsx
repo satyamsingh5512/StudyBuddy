@@ -6,7 +6,7 @@ export default function BackgroundElements({ isDark = true }: BackgroundElements
     return (
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
             {/* Subtle architectural grid gives translucent surfaces something to refract. */}
-            <div className="absolute inset-0 text-transparent" style={{
+            <div className="absolute inset-0 hidden text-transparent md:block" style={{
                 backgroundImage: `
                     linear-gradient(to right, ${isDark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(37, 63, 96, 0.045)'} 1px, transparent 1px),
                     linear-gradient(to bottom, ${isDark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(37, 63, 96, 0.045)'} 1px, transparent 1px)
@@ -17,7 +17,7 @@ export default function BackgroundElements({ isDark = true }: BackgroundElements
             }} />
 
             <div
-                className="absolute -inset-[24%] opacity-80 dark:opacity-70"
+                className="absolute -inset-[24%] hidden opacity-80 dark:opacity-70 md:block"
                 style={{
                     background: isDark
                         ? 'linear-gradient(118deg, transparent 18%, rgba(78, 101, 157, 0.22) 41%, transparent 58%), linear-gradient(298deg, transparent 24%, rgba(43, 129, 122, 0.16) 48%, transparent 68%)'
