@@ -820,14 +820,14 @@ export default function Dashboard() {
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={item} className="flex items-start justify-between gap-4">
-        <div>
+      <motion.div variants={item} className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Hi, {displayName}! 👋</h1>
           <p className="text-sm text-muted-foreground">
             {daysUntilExam} days until {user?.examGoal}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <GlassButton
             onClick={() => setShowAnalytics(!showAnalytics)}
             size="sm"
@@ -854,8 +854,8 @@ export default function Dashboard() {
         className="sbd-glass sbd-glass--card p-3 xs:p-4 grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-3 xs:gap-4 xl:gap-6 xl:overflow-x-auto xl:pb-1 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent"
       >
         {/* Today's Tasks Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
-          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[180px] xl:flex-shrink-0">
+          <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
@@ -883,8 +883,8 @@ export default function Dashboard() {
 
         {/* Overdue Tasks Card */}
         {overdueCount > 0 && (
-          <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0 line-through-animation">
-            <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+          <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[180px] xl:flex-shrink-0 line-through-animation">
+            <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
               <div className="absolute top-0 right-0 w-24 h-24 bg-destructive/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
@@ -912,8 +912,8 @@ export default function Dashboard() {
         )}
 
         {/* Completed Tasks Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
-          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[180px] xl:flex-shrink-0">
+          <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-24 h-24 bg-success/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
@@ -941,8 +941,8 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Overall Efficiency Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[220px] xl:flex-shrink-0">
-          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[220px] xl:flex-shrink-0">
+          <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
@@ -983,8 +983,8 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Total Points Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
-          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[180px] xl:flex-shrink-0">
+          <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
@@ -1012,8 +1012,8 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Streak Card */}
-        <MotionCard variants={item} whileHover={hoverLift} className="group relative overflow-hidden rounded-xl bg-background/40 min-w-[140px] sm:min-w-[180px] xl:flex-shrink-0">
-          <CardContent className="p-5 sm:p-6 relative h-full flex flex-col justify-between">
+        <MotionCard variants={item} whileHover={hoverLift} className="group relative min-w-0 overflow-hidden rounded-xl bg-background/40 sm:min-w-[180px] xl:flex-shrink-0">
+          <CardContent className="relative flex h-full flex-col justify-between p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-700"></div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-4">
@@ -1041,7 +1041,7 @@ export default function Dashboard() {
         </MotionCard>
 
         {/* Anchored Study Timer Component (Floating out-of-flow beside stats) */}
-        <div className="absolute top-[200px] right-2 sm:right-6 lg:right-10 z-[100] xl:static xl:ml-auto">
+        <div className="absolute inset-0 z-[100] pointer-events-none">
           <StudyTimer />
         </div>
       </motion.div>
