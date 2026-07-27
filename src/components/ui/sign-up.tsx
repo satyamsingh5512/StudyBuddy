@@ -1,6 +1,9 @@
 'use client';
 import { cn } from "@/lib/utils";
 import { API_URL } from "@/config/api";
+import { useRouter } from "next/navigation";
+import { useSetAtom } from "jotai";
+import { userAtom, type User } from "@/store/atoms";
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, useMemo, useCallback, createContext, Children } from "react";
 // Importing class-variance-authority for the built-in button component
 import { cva, type VariantProps } from "class-variance-authority";
@@ -11,7 +14,6 @@ import { AnimatePresence, motion, useInView, Variants, Transition } from "framer
 
 // --- CONFETTI LOGIC ---
 import type { GlobalOptions as ConfettiGlobalOptions, CreateTypes as ConfettiInstance, Options as ConfettiOptions } from "canvas-confetti"
-import confetti from "canvas-confetti"
 
 type Api = { fire: (options?: ConfettiOptions) => void }
 export type ConfettiRef = Api | null
@@ -20,10 +22,15 @@ const ConfettiContext = createContext<Api>({} as Api)
 const Confetti = forwardRef<ConfettiRef, React.ComponentPropsWithRef<"canvas"> & { options?: ConfettiOptions; globalOptions?: ConfettiGlobalOptions; manualstart?: boolean }>((props, ref) => {
   const { options, globalOptions = { resize: true, useWorker: true }, manualstart = false, ...rest } = props
   const instanceRef = useRef<ConfettiInstance | null>(null)
+  // canvas-confetti is only needed once auth succeeds, so it is code-split out of
+  // the initial page chunk and fetched in the background after mount.
   const canvasRef = useCallback((node: HTMLCanvasElement) => {
     if (node !== null) {
       if (instanceRef.current) return
-      instanceRef.current = confetti.create(node, { ...globalOptions, resize: true })
+      import("canvas-confetti").then(({ default: confetti }) => {
+        if (instanceRef.current) return
+        instanceRef.current = confetti.create(node, { ...globalOptions, resize: true })
+      }).catch(() => { /* confetti is decorative — ignore load failures */ })
     } else {
       if (instanceRef.current) {
         instanceRef.current.reset()
@@ -118,6 +125,8 @@ GlassButton.displayName = "GlassButton";
 
 
 // --- THEME-AWARE SVG GRADIENT BACKGROUND WITH SUBTLE ANIMATION ---
+// Kept to a single tonal family (primary → violet → blue) so the page reads as one
+// even surface instead of competing hues.
 const GradientBackground = () => (
     <>
         <style>
@@ -125,20 +134,20 @@ const GradientBackground = () => (
         </style>
         <svg width="100%" height="100%" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" className="absolute top-0 left-0 w-full h-full">
             <defs>
-                <linearGradient id="rev_grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor: 'var(--color-primary)', stopOpacity:0.8}} /><stop offset="100%" style={{stopColor: 'var(--color-chart-3)', stopOpacity:0.6}} /></linearGradient>
-                <linearGradient id="rev_grad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor: 'var(--color-chart-4)', stopOpacity:0.9}} /><stop offset="50%" style={{stopColor: 'var(--color-secondary)', stopOpacity:0.7}} /><stop offset="100%" style={{stopColor: 'var(--color-chart-1)', stopOpacity:0.6}} /></linearGradient>
-                <radialGradient id="rev_grad3" cx="50%" cy="50%" r="50%"><stop offset="0%" style={{stopColor: 'var(--color-destructive)', stopOpacity:0.8}} /><stop offset="100%" style={{stopColor: 'var(--color-chart-5)', stopOpacity:0.4}} /></radialGradient>
-                <filter id="rev_blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="35"/></filter>
-                <filter id="rev_blur2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="25"/></filter>
-                <filter id="rev_blur3" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="45"/></filter>
+                <linearGradient id="rev_grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor: 'var(--color-primary)', stopOpacity:0.45}} /><stop offset="100%" style={{stopColor: 'var(--color-chart-3)', stopOpacity:0.3}} /></linearGradient>
+                <linearGradient id="rev_grad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor: 'var(--color-chart-3)', stopOpacity:0.34}} /><stop offset="100%" style={{stopColor: 'var(--color-chart-1)', stopOpacity:0.26}} /></linearGradient>
+                <radialGradient id="rev_grad3" cx="50%" cy="50%" r="50%"><stop offset="0%" style={{stopColor: 'var(--color-chart-1)', stopOpacity:0.3}} /><stop offset="100%" style={{stopColor: 'var(--color-primary)', stopOpacity:0.16}} /></radialGradient>
+                <filter id="rev_blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="45"/></filter>
+                <filter id="rev_blur2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+                <filter id="rev_blur3" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="55"/></filter>
             </defs>
             <g style={{ animation: 'float1 20s ease-in-out infinite' }}>
                 <ellipse cx="200" cy="500" rx="250" ry="180" fill="url(#rev_grad1)" filter="url(#rev_blur1)" transform="rotate(-30 200 500)"/>
-                <rect x="500" y="100" width="300" height="250" rx="80" fill="url(#rev_grad2)" filter="url(#rev_blur2)" transform="rotate(15 650 225)"/>
+                <ellipse cx="650" cy="225" rx="200" ry="165" fill="url(#rev_grad2)" filter="url(#rev_blur2)"/>
             </g>
             <g style={{ animation: 'float2 25s ease-in-out infinite' }}>
                 <circle cx="650" cy="450" r="150" fill="url(#rev_grad3)" filter="url(#rev_blur3)" opacity="0.7"/>
-                <ellipse cx="50" cy="150" rx="180" ry="120" fill="var(--color-accent)" filter="url(#rev_blur2)" opacity="0.8"/>
+                <ellipse cx="50" cy="150" rx="180" ry="120" fill="var(--color-primary)" filter="url(#rev_blur2)" opacity="0.28"/>
             </g>
         </svg>
     </>
@@ -165,6 +174,8 @@ interface AuthComponentProps {
 }
 
 export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }: AuthComponentProps) => {
+  const router = useRouter();
+  const setUser = useSetAtom(userAtom);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -196,6 +207,48 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
         fire({ ...defaults, particleCount, origin: { x: 0, y: 1 }, angle: 60 });
         fire({ ...defaults, particleCount, origin: { x: 1, y: 1 }, angle: 120 });
     }
+  };
+
+  // The API host sleeps when idle, and the first request after that pays the full
+  // cold start. Wake it on mount so it happens while the user is still typing,
+  // and pull down the post-auth route bundles at the same time.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_URL}/health`, { cache: 'no-store', signal: controller.signal }).catch(() => {});
+    router.prefetch('/dashboard');
+    router.prefetch('/onboarding');
+    return () => controller.abort();
+  }, [router]);
+
+  // Login and verify-otp both return the full user record, so the session can be
+  // primed in place. That avoids a full document reload plus a second /auth/me
+  // round trip before the dashboard renders.
+  const completeAuth = (data: any) => {
+    if (data?.token) localStorage.setItem('auth_token', data.token);
+
+    const nextUser: User | null = data?.user
+        ? {
+            ...data.user,
+            totalPoints: typeof data.user.totalPoints === 'number' ? data.user.totalPoints : 0,
+            streak: typeof data.user.streak === 'number' ? data.user.streak : 0,
+          }
+        : null;
+
+    fireSideCanons();
+    setModalStatus('success');
+
+    const destination = nextUser?.onboardingDone ? '/dashboard' : '/onboarding';
+
+    // Short beat so the success state registers, then a client-side transition.
+    window.setTimeout(() => {
+        if (nextUser) {
+            setUser(nextUser);
+            router.replace(destination);
+        } else {
+            // No user payload — fall back to a reload so Providers rebuilds state.
+            window.location.href = destination;
+        }
+    }, 450);
   };
 
   const handleGoogleAuth = () => {
@@ -262,13 +315,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Verification failed. Check the code and try again.');
 
-        if (data.token) localStorage.setItem('auth_token', data.token);
-
-        fireSideCanons();
-        setModalStatus('success');
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 1800);
+        completeAuth(data);
     } catch (err: any) {
         setModalErrorMessage(err.message || 'Verification failed.');
         setModalStatus('error');
@@ -308,13 +355,7 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
             throw new Error(data.error || 'Login failed. Check your details and try again.');
         }
 
-        if (data.token) localStorage.setItem('auth_token', data.token);
-
-        fireSideCanons();
-        setModalStatus('success');
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 1800);
+        completeAuth(data);
     } catch (err: any) {
         setModalErrorMessage(err.message || 'Login failed.');
         setModalStatus('error');
@@ -358,9 +399,11 @@ export const AuthComponent = ({ logo = <DefaultLogo />, brandName = "EaseMize" }
   };
 
   useEffect(() => {
-    if (authStep === 'password') setTimeout(() => passwordInputRef.current?.focus(), 500);
-    else if (authStep === 'confirmPassword') setTimeout(() => confirmPasswordInputRef.current?.focus(), 500);
-    else if (authStep === 'verify') setTimeout(() => otpInputRef.current?.focus(), 500);
+    // Long enough for the step transition to mount the field, short enough that
+    // typing is never dropped.
+    if (authStep === 'password') setTimeout(() => passwordInputRef.current?.focus(), 120);
+    else if (authStep === 'confirmPassword') setTimeout(() => confirmPasswordInputRef.current?.focus(), 120);
+    else if (authStep === 'verify') setTimeout(() => otpInputRef.current?.focus(), 120);
   }, [authStep]);
 
   useEffect(() => {

@@ -81,7 +81,7 @@ export function PremiumNavbar({ scrollToId, isLoaded = true }: PremiumNavbarProp
                         </Link>
                     ) : (
                         <>
-                            <Link to="/auth">
+                            <Link to="/auth" prefetch>
                                 <button className="glass-control px-5 py-2 font-bold text-black dark:text-white transition-all hover:-translate-y-0.5 rounded-xl">
                                     Sign In
                                 </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, Eye, EyeOff, Mail, ArrowLeft } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail, ArrowLeft, Sparkles, CalendarClock, Clock3 } from 'lucide-react';
 import { soundManager } from '../lib/sounds';
 import { useToast } from '@/components/ui/use-toast';
 import { SuccessConfetti } from '@/components/SuccessConfetti';
@@ -273,60 +273,98 @@ export default function Auth() {
 
     // Stars and Theme elements moved to BackgroundElements.tsx and global styles
 
+    // Shared field styling keeps every control on the same translucent surface
+    // instead of the previous hard-filled boxes.
+    const fieldClass = "w-full h-12 rounded-2xl border border-border/60 bg-foreground/[0.035] text-foreground placeholder:text-muted-foreground/70 outline-none transition-all duration-200 focus:border-primary/45 focus:bg-foreground/[0.055] focus:ring-4 focus:ring-primary/15 dark:bg-white/[0.04] dark:focus:bg-white/[0.07]";
+
     return (
         <UnifiedPageWrapper>
             <AnimatePresence>
                 {showSuccess && <SuccessConfetti />}
             </AnimatePresence>
-            
-            <div className="min-h-screen flex items-center justify-center p-4 relative font-montserrat bg-gradient-to-br from-slate-900 via-blue-900/40 to-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+
+            <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
+                {/* Soft tonal glow so the card sits in the page instead of on top of it */}
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+                    <div className="absolute left-1/2 top-1/2 h-[40rem] w-[40rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[130px]" />
+                </div>
+
                 {/* Theme Toggle */}
                 <div className="absolute right-3 top-3 z-50 sm:right-6 sm:top-6">
                     <ThemeToggle />
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.6 }}
-                    className="relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl sm:rounded-3xl md:min-h-[600px] md:flex-row"
+                {/* Back to home (mobile, where the visual panel is hidden) */}
+                <button
+                    type="button"
+                    onClick={() => (window.location.href = '/')}
+                    aria-label="Back to home"
+                    className="absolute left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-foreground/[0.04] text-muted-foreground transition-colors hover:text-foreground sm:left-6 sm:top-6 md:hidden dark:bg-white/[0.06]"
                 >
-                    {/* Left Panel */}
-                    <div className="flex-1 relative overflow-hidden md:block hidden bg-slate-200 dark:bg-slate-800">
-                        <div className="absolute top-6 left-6 z-10">
+                    <ArrowLeft className="h-5 w-5" />
+                </button>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 24, scale: 0.985 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    className="glass-strong relative z-10 w-full max-w-5xl overflow-hidden rounded-[1.75rem] sm:rounded-[2.25rem] md:grid md:min-h-[620px] md:grid-cols-[0.92fr_1.08fr]"
+                >
+                    {/* Left Panel — same colour family as the app, no grey block */}
+                    <div className="relative hidden overflow-hidden md:block md:border-r md:border-white/10">
+                        <img
+                            src="https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&q=80"
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 h-full w-full object-cover opacity-30 dark:opacity-20"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/85 via-primary/55 to-[#2563EB]/70" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-white/10" />
+
+                        <div className="absolute left-6 top-6 z-10">
                             <button
                                 type="button"
-                                onClick={() => window.location.href = '/'}
-                                className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
+                                onClick={() => (window.location.href = '/')}
+                                aria-label="Back to home"
+                                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:bg-white/20"
                             >
-                                <ArrowLeft className="w-5 h-5 text-white" />
+                                <ArrowLeft className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="absolute inset-0">
-                            <img
-                                src="https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&q=80"
-                                alt="Study Buddy Setup"
-                                className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        </div>
+
                         <div className="absolute bottom-10 left-10 right-10 z-10 text-white">
-                            <h2 className="text-3xl font-bold mb-2">Study Smarter</h2>
-                            <p className="text-white/80">Join our community of students achieving their goals with AI-powered assistance.</p>
+                            <h2 className="font-heading text-3xl font-semibold tracking-tight">Study Smarter</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-white/80">
+                                Join a community of students hitting their goals with AI-guided plans, focused sessions, and honest progress.
+                            </p>
+                            <ul className="mt-7 space-y-3 text-sm text-white/85">
+                                {[
+                                    { icon: CalendarClock, text: 'Plans built around your real availability' },
+                                    { icon: Clock3, text: 'Focused timed sessions with full history' },
+                                    { icon: Sparkles, text: 'AI suggestions tuned to your exam' },
+                                ].map((item) => (
+                                    <li key={item.text} className="flex items-center gap-3">
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10">
+                                            <item.icon size={15} aria-hidden="true" />
+                                        </span>
+                                        {item.text}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     </div>
 
-                    {/* Right Panel */}
-                    <div className="flex flex-1 flex-col justify-center bg-background p-5 pt-16 sm:p-8 sm:pt-16 md:p-12">
+                    {/* Right Panel — inherits the card surface, so there is no colour seam */}
+                    <div className="flex flex-col justify-center p-6 pt-16 sm:p-10 sm:pt-16 md:p-12">
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-6">
                                 <Logo className="w-10 h-10 text-foreground" highlighted animated />
-                                <h1 className="text-xl font-bold tracking-wider uppercase text-foreground" style={{ letterSpacing: '0.15em' }}>
+                                <h1 className="text-lg font-semibold uppercase text-foreground" style={{ letterSpacing: '0.18em' }}>
                                     StudyBuddy
                                 </h1>
                             </div>
                             
-                            <h2 className="text-3xl font-bold text-foreground mb-2">
+                            <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground mb-2">
                                 {authType === 'signin' && 'Welcome Back!'}
                                 {authType === 'signup' && 'Create an Account'}
                                 {(authType === 'verify-signup' || authType === 'verify-reset') && 'Verification'}
@@ -348,9 +386,10 @@ export default function Auth() {
                         <AnimatePresence mode="wait">
                             <motion.form
                                 key={authType}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                                 onSubmit={handleSubmit}
                                 className="space-y-4"
                             >
@@ -365,7 +404,7 @@ export default function Auth() {
                                                 value={firstName}
                                                 onChange={(e) => setFirstName(e.target.value)}
                                                 placeholder="John"
-                                                className="w-full h-11 px-4 rounded-xl border border-input bg-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-montserrat"
+                                                className={`${fieldClass} px-4 text-sm`}
                                                 required
                                             />
                                         </div>
@@ -377,7 +416,7 @@ export default function Auth() {
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
                                                 placeholder="Doe"
-                                                className="w-full h-11 px-4 rounded-xl border border-input bg-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-montserrat"
+                                                className={`${fieldClass} px-4 text-sm`}
                                                 required
                                             />
                                         </div>
@@ -389,14 +428,14 @@ export default function Auth() {
                                     <div className="space-y-1.5">
                                         <label htmlFor="email" className="block text-sm font-medium text-foreground">Email Address</label>
                                         <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Mail size={16} /></div>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"><Mail size={16} /></div>
                                             <input
                                                 type="email"
                                                 id="email"
                                                 placeholder="name@example.com"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
-                                                className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-montserrat"
+                                                className={`${fieldClass} pl-11 pr-4 text-sm disabled:opacity-60`}
                                                 required
                                                 disabled={authType === 'verify-reset'}
                                             />
@@ -411,11 +450,13 @@ export default function Auth() {
                                             <p className="text-sm text-muted-foreground pb-2">Enter the 6-digit code sent to <span className="font-semibold text-foreground">{email}</span></p>
                                             <input
                                                 type="text"
-                                                placeholder="000 000"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                placeholder="000000"
                                                 value={otp}
                                                 onChange={(e) => setOtp(e.target.value)}
                                                 maxLength={6}
-                                                className="w-full h-14 rounded-xl text-center text-3xl tracking-[0.5em] font-bold focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-input text-foreground font-montserrat"
+                                                className={`${fieldClass} h-16 text-center text-3xl font-semibold tracking-[0.4em]`}
                                                 required
                                             />
                                         </div>
@@ -446,20 +487,21 @@ export default function Auth() {
                                             )}
                                         </div>
                                         <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Lock size={16} /></div>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"><Lock size={16} /></div>
                                             <input
                                                 type={showPassword ? 'text' : 'password'}
                                                 id="password"
                                                 placeholder="••••••••"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
-                                                className="w-full h-11 pl-10 pr-12 rounded-xl border border-input bg-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-montserrat"
+                                                className={`${fieldClass} pl-11 pr-12 text-sm`}
                                                 required
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-muted-foreground"
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground dark:hover:bg-white/10"
                                             >
                                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                             </button>
@@ -474,14 +516,14 @@ export default function Auth() {
                                             {authType === 'verify-reset' ? 'Confirm New Password' : 'Confirm Password'}
                                         </label>
                                         <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Lock size={16} /></div>
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"><Lock size={16} /></div>
                                             <input
                                                 type={showPassword ? 'text' : 'password'}
                                                 id="confirmPassword"
                                                 placeholder="••••••••"
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-input focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm font-montserrat"
+                                                className={`${fieldClass} pl-11 pr-4 text-sm`}
                                                 required
                                             />
                                         </div>
@@ -490,26 +532,26 @@ export default function Auth() {
 
                                 {/* Checkboxes */}
                                 {authType === 'signin' && (
-                                    <div className="flex items-center gap-2 pt-1 pb-2">
+                                    <div className="flex items-center gap-2.5 pt-1 pb-2">
                                         <input
                                             type="checkbox"
                                             id="rememberMe"
                                             checked={rememberMe}
                                             onChange={(e) => setRememberMe(e.target.checked)}
-                                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                            className="h-4 w-4 rounded-md border-border accent-primary focus:ring-2 focus:ring-primary/30"
                                         />
                                         <label htmlFor="rememberMe" className="text-sm text-muted-foreground cursor-pointer select-none">Remember me</label>
                                     </div>
                                 )}
 
                                 {authType === 'signup' && (
-                                    <div className="flex items-center gap-2 pt-1 pb-2">
+                                    <div className="flex items-center gap-2.5 pt-1 pb-2">
                                         <input
                                             type="checkbox"
                                             id="agreeTerms"
                                             checked={agreeTerms}
                                             onChange={(e) => setAgreeTerms(e.target.checked)}
-                                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                            className="h-4 w-4 rounded-md border-border accent-primary focus:ring-2 focus:ring-primary/30"
                                         />
                                         <label htmlFor="agreeTerms" className="text-sm text-muted-foreground cursor-pointer select-none">
                                             I agree to the <button type="button" className="text-foreground font-medium hover:underline">Terms & Conditions</button>
@@ -521,7 +563,7 @@ export default function Auth() {
                                 <button
                                     type="submit"
                                     disabled={isLoading || (authType === 'signup' && !agreeTerms)}
-                                    className="w-full h-12 mt-4 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                                    className="mt-4 h-12 w-full rounded-2xl bg-gradient-to-r from-primary to-[#2563EB] text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-12px_hsl(var(--primary)/0.75)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-[1.08] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:brightness-100"
                                 >
                                     {isLoading ? 'Please wait...' :
                                         authType === 'signin' ? 'Sign In' :
@@ -548,15 +590,15 @@ export default function Auth() {
                                 {/* Google OAuth */}
                                 {(authType === 'signin' || authType === 'signup') && (
                                     <>
-                                        <div className="relative flex items-center py-2">
-                                            <div className="flex-1 border-t border-border" />
-                                            <span className="px-4 text-xs text-muted-foreground bg-background">or</span>
-                                            <div className="flex-1 border-t border-border" />
+                                        <div className="relative flex items-center py-3">
+                                            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+                                            <span className="px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">or</span>
+                                            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => { window.location.href = `${API_URL}/auth/google`; }}
-                                            className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-input bg-background hover:bg-muted transition-all text-sm font-medium text-foreground shadow-sm group"
+                                            className="group flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border/60 bg-foreground/[0.035] text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-foreground/[0.06] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                                         >
                                             <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" className="group-hover:scale-110 transition-transform">
                                                 <g fill="none" fillRule="evenodd">

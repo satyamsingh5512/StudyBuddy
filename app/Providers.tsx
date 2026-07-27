@@ -56,12 +56,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
             window.setTimeout(() => soundManager.playLogin(), 100);
             soundPlayed = true;
           }
-          window.setTimeout(() => setIsLoading(false), 500);
+          setIsLoading(false);
         })
         .catch(() => {
           window.clearTimeout(timeoutId);
           setUser(null);
-          window.setTimeout(() => setIsLoading(false), 500);
+          setIsLoading(false);
         });
 
       return () => window.clearTimeout(timeoutId);
