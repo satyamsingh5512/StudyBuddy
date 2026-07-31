@@ -1,30 +1,42 @@
 package routes
 
 import (
+	"context"
+	"time"
+
+	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/handlers"
 	"studybuddy-backend/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func SetupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 
-	api.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok", "message": "StudyBuddy Go API is running"})
-	})
+	healthReady := func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if config.DB == nil || config.DB.RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err() != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "unavailable"})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	}
+	api.Get("/health", healthReady)
+	api.Get("/health/live", func(c *fiber.Ctx) error { return c.JSON(fiber.Map{"status": "ok"}) })
+	api.Get("/health/ready", healthReady)
 
-	// Auth routes
+	// Auth routes use both per-IP throttling here and account-scoped counters in handlers.
 	auth := api.Group("/auth")
-	auth.Post("/login", handlers.Login)
-	auth.Post("/signup", handlers.Signup)
-	auth.Post("/verify-otp", handlers.VerifyOTP)
-	auth.Post("/resend-otp", handlers.ResendOTP)
-	auth.Post("/logout", handlers.Logout)
-	auth.Post("/forgot-password", handlers.ForgotPassword)
-	auth.Post("/reset-password", handlers.ResetPassword)
-	auth.Get("/google", handlers.GoogleAuth)
-	auth.Get("/google/callback", handlers.GoogleCallback)
+	auth.Post("/login", middleware.RateLimit(10, 15*time.Minute), handlers.Login)
+	auth.Post("/signup", middleware.RateLimit(5, time.Hour), handlers.Signup)
+	auth.Post("/verify-otp", middleware.RateLimit(10, 10*time.Minute), handlers.VerifyOTP)
+	auth.Post("/resend-otp", middleware.RateLimit(3, 10*time.Minute), handlers.ResendOTP)
+	auth.Post("/forgot-password", middleware.RateLimit(5, time.Hour), handlers.ForgotPassword)
+	auth.Post("/reset-password", middleware.RateLimit(10, 15*time.Minute), handlers.ResetPassword)
+	auth.Get("/google", middleware.RateLimit(20, 15*time.Minute), handlers.GoogleAuth)
+	auth.Get("/google/callback", middleware.RateLimit(20, 15*time.Minute), handlers.GoogleCallback)
 
 	// Public routes
 	api.Get("/notices", handlers.GetNotices)
@@ -41,20 +53,21 @@ func SetupRoutes(app *fiber.App) {
 
 	// Protected Auth
 	protected.Get("/auth/me", handlers.Me)
+	protected.Post("/auth/logout", handlers.Logout)
 
 	// Avatar
 	protected.Post("/upload/avatar", handlers.UploadAvatar)
 	protected.Delete("/upload/avatar", handlers.DeleteAvatar)
 
 	// News
-	protected.Get("/news/:examType", handlers.GetNews)
-	protected.Get("/news/:examType/dates", handlers.GetNewsDates)
-	protected.Post("/news/:examType/search", handlers.SearchNews)
-	protected.Post("/news/cache/clear", handlers.ClearNewsCache)
+	protected.Get("/news/:examType", middleware.RateLimit(20, time.Hour), handlers.GetNews)
+	protected.Get("/news/:examType/dates", middleware.RateLimit(20, time.Hour), handlers.GetNewsDates)
+	protected.Post("/news/:examType/search", middleware.RateLimit(10, time.Hour), handlers.SearchNews)
+	protected.Post("/news/cache/clear", middleware.RequireAdmin, handlers.ClearNewsCache)
 
 	// Messages
 	messages := protected.Group("/messages")
-	messages.Post("/", handlers.SendMessage)
+	messages.Post("/", middleware.RateLimit(60, time.Minute), handlers.SendMessage)
 	messages.Get("/conversations", handlers.GetConversations)
 	messages.Get("/:userId", handlers.GetMessages)
 
@@ -122,7 +135,7 @@ func SetupRoutes(app *fiber.App) {
 	schedule.Get("/", handlers.GetSchedules)
 	schedule.Delete("/:id", handlers.DeleteSchedule)
 	schedule.Patch("/:id/items/:itemId", handlers.UpdateScheduleItem)
-	schedule.Post("/generate", handlers.GenerateSchedule)
+	schedule.Post("/generate", middleware.RateLimit(5, time.Hour), handlers.GenerateSchedule)
 
 	// Availability (user's weekly free/blocked time)
 	availability := protected.Group("/availability")

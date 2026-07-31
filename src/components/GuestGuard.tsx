@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -10,23 +10,20 @@ export default function GuestGuard({ children }: { children: React.ReactNode }) 
   const [user] = useAtom(userAtom);
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  // Public/legal routes remain renderable regardless of auth bootstrap. Only strict
+  // guest entry points redirect once an authenticated user is already known.
+  const isStrictGuestPage =
+    pathname === '/' || pathname === '/auth' || pathname === '/reset-password';
+  const shouldRedirect = Boolean(user && isStrictGuestPage);
 
   useEffect(() => {
-    // We only want to auto-redirect from auth pages if user is already logged in
-    // But some public pages (like /about, /terms) should be accessible even if logged in.
-    const isStrictGuestPage = pathname === '/' || pathname === '/auth' || pathname === '/reset-password';
-
-    if (user && isStrictGuestPage) {
+    if (user && shouldRedirect) {
       const needsOnboarding = !('onboardingDone' in user && user.onboardingDone);
       router.replace(needsOnboarding ? '/onboarding' : '/dashboard');
-      return;
     }
+  }, [user, router, shouldRedirect]);
 
-    setIsAuthorized(true);
-  }, [user, router, pathname]);
-
-  if (!isAuthorized) {
+  if (shouldRedirect) {
     return <LoadingScreen />;
   }
 

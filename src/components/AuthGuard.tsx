@@ -1,44 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAtom } from 'jotai';
-import { userAtom } from '@/store/atoms';
+import { authLoadingAtom, userAtom } from '@/store/atoms';
 import LoadingScreen from '@/components/LoadingScreen';
 
-export default function AuthGuard({ 
-  children, 
-  requireOnboarding = true 
-}: { 
+export default function AuthGuard({
+  children,
+  requireOnboarding = true,
+}: {
   children: React.ReactNode;
   requireOnboarding?: boolean;
 }) {
   const [user] = useAtom(userAtom);
+  const [authLoading] = useAtom(authLoadingAtom);
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const needsOnboarding = Boolean(user && !('onboardingDone' in user && user.onboardingDone));
+  let redirectPath: string | null = null;
+
+  if (!authLoading) {
+    if (!user) {
+      redirectPath = '/';
+    } else if (requireOnboarding && needsOnboarding) {
+      redirectPath = '/onboarding';
+    } else if (!requireOnboarding && !needsOnboarding) {
+      redirectPath = '/dashboard';
+    }
+  }
 
   useEffect(() => {
-    if (!user) {
-      router.replace('/');
-      return;
+    if (redirectPath) {
+      router.replace(redirectPath);
     }
+  }, [redirectPath, router]);
 
-    const needsOnboarding = !('onboardingDone' in user && user.onboardingDone);
-    
-    if (requireOnboarding && needsOnboarding) {
-      router.replace('/onboarding');
-      return;
-    }
-    
-    if (!requireOnboarding && !needsOnboarding) {
-      router.replace('/dashboard');
-      return;
-    }
-
-    setIsAuthorized(true);
-  }, [user, router, requireOnboarding]);
-
-  if (!isAuthorized) {
+  if (authLoading || redirectPath || !user) {
     return <LoadingScreen />;
   }
 

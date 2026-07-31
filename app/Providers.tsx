@@ -1,22 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { initTheme } from '@/lib/theme';
 import { useAtom } from 'jotai';
-import { userAtom } from '@/store/atoms';
+import { authLoadingAtom, userAtom } from '@/store/atoms';
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 import { useNetworkStatus } from '@/lib/networkStatus';
-import LoadingScreen from '@/components/LoadingScreen';
 import Maintenance from '@/components/Maintenance';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useAtom(userAtom);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setUser] = useAtom(userAtom);
+  const [, setAuthLoading] = useAtom(authLoadingAtom);
 
   useNetworkStatus();
 
@@ -27,17 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const initializeApp = async () => {
       soundManager.initialize();
 
-      // If OAuth callback returned a token in hash, persist it before bootstrapping auth state.
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const googleToken = hashParams.get('google_token');
-      if (googleToken) {
-        localStorage.setItem('auth_token', googleToken);
-        window.history.replaceState({}, '', window.location.pathname + window.location.search);
-      }
-
       const timeoutId = window.setTimeout(() => {
         setUser(null);
-        setIsLoading(false);
+        setAuthLoading(false);
       }, 10000);
 
       apiFetch('/auth/me')
@@ -56,26 +47,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
             window.setTimeout(() => soundManager.playLogin(), 100);
             soundPlayed = true;
           }
-          setIsLoading(false);
+          setAuthLoading(false);
         })
         .catch(() => {
           window.clearTimeout(timeoutId);
           setUser(null);
-          setIsLoading(false);
+          setAuthLoading(false);
         });
 
       return () => window.clearTimeout(timeoutId);
     };
 
     initializeApp();
-  }, [setUser]);
+  }, [setAuthLoading, setUser]);
 
   if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true') {
     return <Maintenance />;
-  }
-
-  if (isLoading) {
-    return <LoadingScreen />;
   }
 
   return (

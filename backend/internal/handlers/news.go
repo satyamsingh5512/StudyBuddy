@@ -26,9 +26,34 @@ type CachedNews struct {
 
 var newsCache = sync.Map{}
 
-// 6 hours — dramatically reduces API calls across server restarts and
-// multiple users hitting the same exam type.
-var CACHE_DURATION int64 = 6 * 3600 * 1000
+const (
+	cacheDurationMillis = int64(6 * 60 * 60 * 1000)
+	maxNewsCacheEntries = 100
+)
+
+func storeNewsCache(key string, value CachedNews) {
+	now := time.Now().UnixMilli()
+	count := 0
+	var oldestKey interface{}
+	oldestTimestamp := int64(^uint64(0) >> 1)
+	newsCache.Range(func(existingKey, existingValue interface{}) bool {
+		cached, ok := existingValue.(CachedNews)
+		if !ok || now-cached.Timestamp >= cacheDurationMillis {
+			newsCache.Delete(existingKey)
+			return true
+		}
+		count++
+		if cached.Timestamp < oldestTimestamp {
+			oldestTimestamp = cached.Timestamp
+			oldestKey = existingKey
+		}
+		return true
+	})
+	if count >= maxNewsCacheEntries && oldestKey != nil {
+		newsCache.Delete(oldestKey)
+	}
+	newsCache.Store(key, value)
+}
 
 // ─────────────────────────────────────────────
 // Config helpers
@@ -245,7 +270,7 @@ func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
 			var secs float64
 			if _, parseErr := fmt.Sscanf(ra, "%f", &secs); parseErr == nil && secs > 0 {
-				retryDelay = time.Duration((secs+1)*float64(time.Second))
+				retryDelay = time.Duration((secs + 1) * float64(time.Second))
 			}
 		}
 		return "", retryDelay, fmt.Errorf("rate limited (429)")
@@ -295,7 +320,7 @@ func GetNews(c *fiber.Ctx) error {
 	currentTime := time.Now().UnixMilli()
 	if val, ok := newsCache.Load(examTypeUpper); ok {
 		cached := val.(CachedNews)
-		if currentTime-cached.Timestamp < CACHE_DURATION {
+		if currentTime-cached.Timestamp < cacheDurationMillis {
 			return c.JSON(fiber.Map{"news": cached.Data, "cached": true})
 		}
 	}
@@ -344,7 +369,7 @@ Rules:
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	newsCache.Store(examTypeUpper, CachedNews{Data: normalizedNews, Timestamp: currentTime})
+	storeNewsCache(examTypeUpper, CachedNews{Data: normalizedNews, Timestamp: currentTime})
 	return c.JSON(fiber.Map{"news": normalizedNews, "cached": false})
 }
 
@@ -424,7 +449,7 @@ func SearchNews(c *fiber.Ctx) error {
 	currentTime := time.Now().UnixMilli()
 	if val, ok := newsCache.Load(cacheKey); ok {
 		cached := val.(CachedNews)
-		if currentTime-cached.Timestamp < CACHE_DURATION {
+		if currentTime-cached.Timestamp < cacheDurationMillis {
 			return c.JSON(fiber.Map{"news": cached.Data, "cached": true, "query": query})
 		}
 	}
@@ -470,7 +495,7 @@ Rules:
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	newsCache.Store(cacheKey, CachedNews{Data: normalizedNews, Timestamp: currentTime})
+	storeNewsCache(cacheKey, CachedNews{Data: normalizedNews, Timestamp: currentTime})
 	return c.JSON(fiber.Map{"news": normalizedNews, "cached": false, "query": query})
 }
 

@@ -17,6 +17,7 @@ import (
 // Optional query params:
 //   - q:     case-insensitive search across title, content and tags
 //   - color: filter by highlight color
+//
 // Results are sorted with pinned notes first, then most recently updated.
 func GetNotes(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
@@ -44,7 +45,7 @@ func GetNotes(c *fiber.Ctx) error {
 	opts := options.Find().SetSort(bson.D{
 		{Key: "pinned", Value: -1},
 		{Key: "updatedAt", Value: -1},
-	})
+	}).SetLimit(500)
 
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {

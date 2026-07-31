@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetTodos(c *fiber.Ctx) error {
@@ -18,7 +19,9 @@ func GetTodos(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{"userId": user.ID})
+	cursor, err := collection.Find(ctx, bson.M{"userId": user.ID}, options.Find().
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
+		SetLimit(500))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch todos"})
 	}
@@ -36,12 +39,12 @@ func GetTodos(c *fiber.Ctx) error {
 }
 
 type CreateTodoRequest struct {
-	Title          string     `json:"title"`
-	Subject        string     `json:"subject"`
-	Difficulty     string     `json:"difficulty"`
-	QuestionsTarget int       `json:"questionsTarget"`
-	DueDate        *time.Time `json:"dueDate"`
-	ScheduledDate  *time.Time `json:"scheduledDate"`
+	Title           string     `json:"title"`
+	Subject         string     `json:"subject"`
+	Difficulty      string     `json:"difficulty"`
+	QuestionsTarget int        `json:"questionsTarget"`
+	DueDate         *time.Time `json:"dueDate"`
+	ScheduledDate   *time.Time `json:"scheduledDate"`
 }
 
 func CreateTodo(c *fiber.Ctx) error {
@@ -53,15 +56,15 @@ func CreateTodo(c *fiber.Ctx) error {
 	}
 
 	todo := models.Todo{
-		UserID:    user.ID,
-		Title:     req.Title,
-		Subject:   req.Subject,
-		Difficulty: req.Difficulty,
+		UserID:          user.ID,
+		Title:           req.Title,
+		Subject:         req.Subject,
+		Difficulty:      req.Difficulty,
 		QuestionsTarget: req.QuestionsTarget,
-		Completed: false,
-		DueDate:   req.DueDate,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Completed:       false,
+		DueDate:         req.DueDate,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 	if todo.Subject == "" {
 		todo.Subject = "General"
@@ -104,13 +107,13 @@ func UpdateTodo(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Title          *string    `json:"title"`
-		Subject        *string    `json:"subject"`
-		Difficulty     *string    `json:"difficulty"`
-		QuestionsTarget *int      `json:"questionsTarget"`
-		Completed      *bool      `json:"completed"`
-		DueDate        *time.Time `json:"dueDate"`
-		ScheduledDate  *time.Time `json:"scheduledDate"`
+		Title           *string    `json:"title"`
+		Subject         *string    `json:"subject"`
+		Difficulty      *string    `json:"difficulty"`
+		QuestionsTarget *int       `json:"questionsTarget"`
+		Completed       *bool      `json:"completed"`
+		DueDate         *time.Time `json:"dueDate"`
+		ScheduledDate   *time.Time `json:"scheduledDate"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {

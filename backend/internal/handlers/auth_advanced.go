@@ -2,22 +2,28 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log"
-	"math/rand"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/security"
 	"studybuddy-backend/internal/services"
+	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const maxCodeAttempts = 5
+
+var invalidCodeResponse = fiber.Map{
+	"error":   "Invalid or expired code",
+	"message": "Invalid or expired code",
+}
 
 type VerifyOTPRequest struct {
 	Email string `json:"email"`
@@ -27,72 +33,51 @@ type VerifyOTPRequest struct {
 func VerifyOTP(c *fiber.Ctx) error {
 	var req VerifyOTPRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
+	}
+	email, err := security.NormalizeEmail(req.Email)
+	if err != nil || len(req.OTP) != 6 {
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 
-	if req.Email == "" || req.OTP == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email and OTP are required", "message": "Email and OTP are required"})
-	}
-
-	email := strings.ToLower(req.Email)
-	usersCollection := config.DB.Collection("users")
+	users := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var user models.User
-	err := usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
+	if err := users.FindOne(ctx, bson.M{"email": email}).Decode(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
+	}
+	if user.EmailVerified {
+		return badRequest(c, "Email is already verified")
+	}
+	if user.VerificationAttempts >= maxCodeAttempts || time.Now().After(user.OtpExpiry) ||
+		!security.VerifyOneTimeCode(user.VerificationOtp, req.OTP) {
+		_, _ = users.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"verificationAttempts": 1}})
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 
-	if user.VerificationOtp != req.OTP {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid OTP", "message": "Invalid OTP"})
-	}
-
-	if time.Now().After(user.OtpExpiry) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "OTP expired", "message": "OTP expired"})
-	}
-
-	_, err = usersCollection.UpdateOne(
-		ctx,
-		bson.M{"email": email},
-		bson.M{"$set": bson.M{"emailVerified": true, "verificationOtp": nil, "otpExpiry": nil}},
-	)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify email"})
-	}
-
-	secret := os.Getenv("SESSION_SECRET")
-	if secret == "" {
-		secret = "supersecret_studybuddy_dev_key"
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":   user.ID.Hex(),
-		"email": user.Email,
-		"role":  user.Role,
-		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(),
+	result, err := users.UpdateOne(ctx, bson.M{
+		"_id":             user.ID,
+		"emailVerified":   false,
+		"verificationOtp": user.VerificationOtp,
+	}, bson.M{
+		"$set":   bson.M{"emailVerified": true, "verificationAttempts": 0},
+		"$unset": bson.M{"verificationOtp": "", "otpExpiry": ""},
 	})
-
-	tokenString, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token generation failed"})
+	if err != nil || result.ModifiedCount != 1 {
+		return serverError(c)
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "connect.sid",
-		Value:    tokenString,
-		Expires:  time.Now().Add(time.Hour * 24 * 30),
-		HTTPOnly: true,
-		SameSite: "lax",
-	})
+	tokenString, err := session.Issue(user.ID.Hex(), user.Email, user.Role, user.SessionVersion)
+	if err != nil {
+		return serverError(c)
+	}
+	setSessionCookie(c, tokenString)
 
 	user.EmailVerified = true
-	user.VerificationOtp = ""
-
 	return c.JSON(fiber.Map{
 		"message": "Email verified successfully",
-		"token":   tokenString,
 		"user":    user,
 	})
 }
@@ -104,96 +89,85 @@ type EmailRequest struct {
 func ResendOTP(c *fiber.Ctx) error {
 	var req EmailRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
+	}
+	email, err := security.NormalizeEmail(req.Email)
+	if err != nil {
+		return badRequest(c, err.Error())
 	}
 
-	if req.Email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email is required", "message": "Email is required"})
+	otp, otpHash, err := security.NewOneTimeCode()
+	if err != nil {
+		return serverError(c)
 	}
-
-	email := strings.ToLower(req.Email)
-	usersCollection := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	otp := strconv.Itoa(100000 + rand.Intn(900000))
-	otpExpiry := time.Now().Add(10 * time.Minute)
-
-	res, err := usersCollection.UpdateOne(
-		ctx,
-		bson.M{"email": email},
-		bson.M{"$set": bson.M{"verificationOtp": otp, "otpExpiry": otpExpiry}},
-	)
-
-	if err != nil || res.MatchedCount == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found", "message": "User not found"})
+	result, err := config.DB.Collection("users").UpdateOne(ctx, bson.M{
+		"email": email, "emailVerified": false,
+	}, bson.M{"$set": bson.M{
+		"verificationOtp":      otpHash,
+		"otpExpiry":            time.Now().Add(10 * time.Minute),
+		"verificationAttempts": 0,
+	}})
+	if err != nil {
+		return serverError(c)
+	}
+	if result.MatchedCount > 0 {
+		if err := services.SendVerificationEmail(email, "", otp); err != nil {
+			log.Printf("resend verification email failed: %v", err)
+		}
 	}
 
-	if err := services.SendVerificationEmail(email, "", otp); err != nil {
-		log.Printf("failed to send resend-otp email to %s: %v", email, err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to send OTP email. Please try again.",
-			"message": "Failed to send OTP email. Please try again.",
-		})
-	}
-
-	return c.JSON(fiber.Map{"message": "OTP resent successfully"})
+	return c.JSON(fiber.Map{"message": "If the account requires verification, a new code has been sent."})
 }
 
 func Logout(c *fiber.Ctx) error {
-	c.Cookie(&fiber.Cookie{
-		Name:     "connect.sid",
-		Value:    "",
-		Expires:  time.Now().Add(-1 * time.Hour), // expire immediately
-		HTTPOnly: true,
-		SameSite: "lax",
-	})
+	user := c.Locals("user").(models.User)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
+	if _, err := config.DB.Collection("users").UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
+		"$inc": bson.M{"sessionVersion": 1},
+	}); err != nil {
+		return serverError(c)
+	}
+	clearSessionCookie(c)
 	return c.JSON(fiber.Map{"success": true})
 }
 
 func ForgotPassword(c *fiber.Ctx) error {
 	var req EmailRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
 	}
-
-	if req.Email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email is required", "message": "Email is required"})
-	}
-
-	email := strings.ToLower(req.Email)
-	usersCollection := config.DB.Collection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Generic response used regardless of whether the account exists. This
-	// prevents user-enumeration: an attacker cannot tell registered emails
-	// apart from unregistered ones by probing this endpoint.
-	genericResponse := fiber.Map{"message": "If an account with that email exists, a password reset code has been sent."}
-
-	otp := strconv.Itoa(100000 + rand.Intn(900000))
-	otpExpiry := time.Now().Add(10 * time.Minute)
-
-	res, err := usersCollection.UpdateOne(
-		ctx,
-		bson.M{"email": email},
-		bson.M{"$set": bson.M{"resetToken": otp, "resetTokenExpiry": otpExpiry}},
-	)
-
+	email, err := security.NormalizeEmail(req.Email)
 	if err != nil {
-		log.Printf("forgot-password: database error for %s: %v", email, err)
+		return badRequest(c, err.Error())
+	}
+
+	genericResponse := fiber.Map{"message": "If an account with that email exists, a password reset code has been sent."}
+	otp, otpHash, err := security.NewOneTimeCode()
+	if err != nil {
 		return c.JSON(genericResponse)
 	}
 
-	// Only send an email when a matching account was actually found. Either
-	// way we return the same generic response to the caller.
-	if res.MatchedCount > 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	result, err := config.DB.Collection("users").UpdateOne(ctx, bson.M{"email": email}, bson.M{"$set": bson.M{
+		"resetToken":       otpHash,
+		"resetTokenExpiry": time.Now().Add(10 * time.Minute),
+		"resetAttempts":    0,
+	}})
+	if err != nil {
+		log.Printf("forgot-password database update failed: %v", err)
+		return c.JSON(genericResponse)
+	}
+	if result.MatchedCount > 0 {
 		if err := services.SendPasswordResetEmail(email, "", otp); err != nil {
-			log.Printf("failed to send password reset email to %s: %v", email, err)
+			log.Printf("password reset email failed: %v", err)
 		}
 	}
-
 	return c.JSON(genericResponse)
 }
 
@@ -206,46 +180,50 @@ type ResetPasswordRequest struct {
 func ResetPassword(c *fiber.Ctx) error {
 	var req ResetPasswordRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
+	}
+	if err := security.ValidatePassword(req.Password); err != nil {
+		return badRequest(c, err.Error())
+	}
+	email, err := security.NormalizeEmail(req.Email)
+	if err != nil || len(req.OTP) != 6 {
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 
-	if req.Email == "" || req.OTP == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing fields", "message": "Missing fields"})
-	}
-
-	email := strings.ToLower(req.Email)
-	usersCollection := config.DB.Collection("users")
+	users := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var user models.User
-	err := usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err := users.FindOne(ctx, bson.M{"email": email}).Decode(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
+	}
+	if user.ResetAttempts >= maxCodeAttempts || time.Now().After(user.ResetTokenExpiry) ||
+		!security.VerifyOneTimeCode(user.ResetToken, req.OTP) {
+		_, _ = users.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"resetAttempts": 1}})
+		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		// Use a generic error so callers cannot distinguish "no such account"
-		// from "wrong code".
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
+		return serverError(c)
 	}
-
-	if user.ResetToken == "" || user.ResetToken != req.OTP {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
-	}
-
-	if time.Now().After(user.ResetTokenExpiry) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired reset code", "message": "Invalid or expired reset code"})
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Hashing error", "message": "Hashing error"})
-	}
-
-	_, err = usersCollection.UpdateOne(
-		ctx,
-		bson.M{"email": email},
-		bson.M{"$set": bson.M{"password": string(hashedPassword), "resetToken": nil, "resetTokenExpiry": nil}},
-	)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reset password"})
+	result, err := users.UpdateOne(ctx, bson.M{
+		"_id": user.ID, "resetToken": user.ResetToken,
+	}, bson.M{
+		"$set": bson.M{"password": string(hashedPassword), "resetAttempts": 0},
+		"$inc": bson.M{"sessionVersion": 1},
+		"$unset": bson.M{
+			"resetToken":       "",
+			"resetTokenExpiry": "",
+			"loginLockedUntil": "",
+		},
+	})
+	if err != nil || result.ModifiedCount != 1 {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
+		}
+		return serverError(c)
 	}
 
 	return c.JSON(fiber.Map{"message": "Password reset successful"})

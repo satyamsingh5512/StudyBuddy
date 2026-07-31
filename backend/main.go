@@ -1,19 +1,27 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/url"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 
 	"studybuddy-backend/internal/config"
-	"studybuddy-backend/internal/routes"
 	"studybuddy-backend/internal/middleware"
+	"studybuddy-backend/internal/routes"
+	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/joho/godotenv"
 )
 
@@ -79,21 +87,32 @@ func main() {
 	if os.Getenv("NODE_ENV") != "production" {
 		_ = godotenv.Load("../.env")
 	}
+	if err := session.ValidateConfiguration(); err != nil {
+		log.Fatalf("invalid session configuration: %v", err)
+	}
 
 	app := fiber.New(fiber.Config{
-		AppName: "StudyBuddy API",
+		AppName:      "StudyBuddy API",
+		BodyLimit:    2 * 1024 * 1024,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 120 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	})
 
+	app.Use(requestid.New())
+	app.Use(recover.New())
+	app.Use(helmet.New())
 	app.Use(logger.New())
 	allowedOrigins := buildAllowedOrigins()
 	log.Printf("CORS allowed origins: %s", allowedOrigins)
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowHeaders:     "Origin, Content-Type, Accept",
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+	app.Use(middleware.TrustedOrigin())
 
 	config.ConnectDB()
 
@@ -109,8 +128,19 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Server starting on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatal(err)
+	shutdown, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Printf("Server starting on port %s", port)
+		if err := app.Listen(":" + port); err != nil {
+			log.Printf("server stopped: %v", err)
+		}
+	}()
+
+	<-shutdown.Done()
+	log.Println("Shutting down server")
+	if err := app.ShutdownWithTimeout(10 * time.Second); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
 	}
 }

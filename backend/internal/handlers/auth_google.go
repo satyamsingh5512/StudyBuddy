@@ -14,9 +14,9 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -255,32 +255,12 @@ func GoogleCallback(c *fiber.Ctx) error {
 		user.Role = "user"
 	}
 
-	secret := os.Getenv("SESSION_SECRET")
-	if secret == "" {
-		secret = "supersecret_studybuddy_dev_key"
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":   user.ID.Hex(),
-		"email": user.Email,
-		"role":  user.Role,
-		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(secret))
+	tokenString, err := session.Issue(user.ID.Hex(), user.Email, user.Role, user.SessionVersion)
 	if err != nil {
 		return c.Redirect(googleErrorRedirect("google_failed"))
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "connect.sid",
-		Value:    tokenString,
-		Expires:  time.Now().Add(time.Hour * 24 * 30),
-		HTTPOnly: true,
-		SameSite: "lax",
-		Secure:   c.Protocol() == "https",
-	})
+	setSessionCookie(c, tokenString)
 
-	// Redirect through /auth so frontend can persist token for API Authorization header.
-	return c.Redirect(fmt.Sprintf("%s/auth#google_token=%s", clientURL, url.QueryEscape(tokenString)))
+	return c.Redirect(clientURL + "/auth?oauth=success")
 }

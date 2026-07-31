@@ -64,7 +64,6 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = async () => {
     soundManager.playClick();
-    localStorage.removeItem('auth_token');
     await apiFetch('/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };
@@ -76,6 +75,12 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <UnifiedPageWrapper>
+      <a
+        href="#main-content"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-background px-4 py-2 text-foreground shadow-lg focus:not-sr-only"
+      >
+        Skip to main content
+      </a>
       <div className="min-h-screen flex flex-col md:h-dvh md:min-h-0 md:flex-row md:overflow-hidden">
         <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between gap-2 px-3 sm:px-4 sticky top-0 z-40">
           {/* RESPONSIVE FIX: Touch targets min 44x44px */}
@@ -90,6 +95,7 @@ export default function Layout({ children }: LayoutProps) {
               onClick={handleLogout}
               className="h-11 w-11 p-0 text-muted-foreground hover:text-destructive"
               title="Sign out"
+              aria-label="Sign out"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -98,6 +104,9 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="app-navigation"
               className="h-11 w-11 p-0"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -113,10 +122,11 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         <aside
+          id="app-navigation"
           className={`
-          glass-panel fixed inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex flex-col
-          transform transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          glass-panel fixed inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex-col
+          transition-transform duration-300 ease-in-out shadow-2xl md:flex md:shadow-none
+          ${mobileMenuOpen ? 'flex translate-x-0' : 'hidden -translate-x-full md:translate-x-0'}
         `}
         >
           <div className="p-6 border-b border-border/50 flex items-center justify-between">
@@ -135,6 +145,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close navigation"
               className="md:hidden h-8 w-8 p-0"
             >
               <X className="h-5 w-5" />
@@ -150,8 +161,9 @@ export default function Layout({ children }: LayoutProps) {
                   className="h-10 w-10 rounded-full ring-2 ring-border"
                 />
                 <span
-                  className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-green-500' : 'bg-red-500'
-                    }`}
+                  className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                    isOnline ? 'bg-green-500' : 'bg-red-500'
+                  }`}
                 ></span>
                 {studying && (
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
@@ -176,6 +188,7 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.path}
                     to={item.path}
                     onClick={handleNavClick}
+                    aria-current={isActive ? 'page' : undefined}
                     className="block w-full"
                   >
                     <div
@@ -183,20 +196,22 @@ export default function Layout({ children }: LayoutProps) {
                       flex items-center gap-3 px-3 py-2.5 mx-1 rounded-md text-sm font-medium
                       transition-all duration-200 ease-out group relative overflow-hidden
                       min-h-[44px]
-                      ${isActive
+                      ${
+                        isActive
                           ? 'bg-primary/10 text-primary'
                           : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                        }
+                      }
                     `}
                     >
                       {isActive && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                       )}
                       <Icon
-                        className={`h-[18px] w-[18px] flex-shrink-0 ${isActive
+                        className={`h-[18px] w-[18px] flex-shrink-0 ${
+                          isActive
                             ? 'text-primary'
                             : 'text-muted-foreground group-hover:text-foreground transition-colors'
-                          }`}
+                        }`}
                       />
                       {item.label}
                     </div>
@@ -241,7 +256,9 @@ export default function Layout({ children }: LayoutProps) {
                       <p className="text-sm font-semibold tracking-tight text-foreground">
                         {(user as any)?.username ? `@${(user as any).username}` : user?.name}
                       </p>
-                      <p className="text-xs text-muted-foreground font-mono">{user?.totalPoints || 0} XP</p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {user?.totalPoints || 0} XP
+                      </p>
                     </div>
                     <div className="relative">
                       <img
@@ -250,15 +267,21 @@ export default function Layout({ children }: LayoutProps) {
                         className="h-8 w-8 rounded-md ring-1 ring-border group-hover:ring-primary/50 transition-all duration-200 object-cover"
                       />
                       <span
-                        className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-success' : 'bg-destructive'
-                          }`}
+                        className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                          isOnline ? 'bg-success' : 'bg-destructive'
+                        }`}
                       ></span>
                     </div>
                     <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors duration-200" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 bg-background border border-border shadow-md rounded-xl p-2 z-50">
-                  <DropdownMenuLabel className="font-bold text-sm tracking-wide text-foreground px-2 py-1.5">My Account</DropdownMenuLabel>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-64 bg-background border border-border shadow-md rounded-xl p-2 z-50"
+                >
+                  <DropdownMenuLabel className="font-bold text-sm tracking-wide text-foreground px-2 py-1.5">
+                    My Account
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-border my-1" />
                   <DropdownMenuItem
                     onClick={() => navigate('/settings')}
@@ -287,7 +310,12 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </header>
 
-          <main className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto" style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto"
+            style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}
+          >
             {/* RESPONSIVE FIX: Fluid max-width and padding */}
             <div className="mx-auto h-full w-full" style={{ maxWidth: 'min(1280px, 100%)' }}>
               <PageTransition>{children}</PageTransition>

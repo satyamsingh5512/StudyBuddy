@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetFriendRequests(c *fiber.Ctx) error {
@@ -45,14 +46,14 @@ func GetFriendRequests(c *fiber.Ctx) error {
 		response = append(response, fiber.Map{
 			"id": r.ID.Hex(),
 			"sender": fiber.Map{
-				"id":         requester.ID.Hex(),
-				"name":       requester.Name,
-				"username":   requester.Username,
-				"avatar":     requester.Avatar,
-				"avatarType": requester.AvatarType,
-				"examGoal":   requester.ExamGoal,
+				"id":          requester.ID.Hex(),
+				"name":        requester.Name,
+				"username":    requester.Username,
+				"avatar":      requester.Avatar,
+				"avatarType":  requester.AvatarType,
+				"examGoal":    requester.ExamGoal,
 				"totalPoints": requester.TotalPoints,
-				"lastActive": requester.LastActive,
+				"lastActive":  requester.LastActive,
 			},
 			"createdAt": r.CreatedAt,
 		})
@@ -203,19 +204,11 @@ func BlockUser(c *fiber.Ctx) error {
 	_, err = blocksColl.UpdateOne(
 		ctx,
 		bson.M{"blockerId": user.ID, "blockedId": blockedObjID},
-		bson.M{"$set": bson.M{"blockerId": user.ID, "blockedId": blockedObjID, "createdAt": time.Now()}},
-		// Here we would normally use upsert option, but mgo update options require a struct. Let's do it manually.
+		bson.M{"$setOnInsert": bson.M{"blockerId": user.ID, "blockedId": blockedObjID, "createdAt": time.Now()}},
+		options.Update().SetUpsert(true),
 	)
 	if err != nil {
-		// Just try to insert if update fails
-		blocksColl.InsertOne(ctx, bson.M{"blockerId": user.ID, "blockedId": blockedObjID, "createdAt": time.Now()})
-	} else {
-		// Just to be safe, standard upsert isn't directly exposed easily without options pkg
-		var existing bson.M
-		err = blocksColl.FindOne(ctx, bson.M{"blockerId": user.ID, "blockedId": blockedObjID}).Decode(&existing)
-		if err != nil {
-			blocksColl.InsertOne(ctx, bson.M{"blockerId": user.ID, "blockedId": blockedObjID, "createdAt": time.Now()})
-		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Unable to block user"})
 	}
 
 	friendsColl.DeleteMany(ctx, bson.M{

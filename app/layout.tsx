@@ -6,10 +6,25 @@ import '../src/index.css';
 import '../src/styles/dashboard-glass-tokens.css';
 import '../src/styles/dashboard-glass.css';
 import { Analytics } from '@vercel/analytics/next';
+import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
 
 import { Providers } from './Providers';
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit', display: 'swap' });
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
+
+const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sbd.satym.in';
+const metadataBase = new URL(
+  configuredAppUrl.includes('://') ? configuredAppUrl : `https://${configuredAppUrl}`
+);
+
 export const metadata = {
+  metadataBase,
   title: 'StudyBuddy - AI-Powered Study Platform',
   description: 'AI-Powered Mentoring Platform for Students - Your personal study companion',
 };
@@ -21,8 +36,6 @@ export const viewport = {
   ],
 };
 
-export const dynamic = 'force-dynamic';
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -30,12 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/favicon.svg" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -64,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body>
+      <body className={`${inter.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
         <Providers>{children}</Providers>
         <Analytics />
       </body>

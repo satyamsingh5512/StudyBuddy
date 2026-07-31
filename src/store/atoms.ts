@@ -20,6 +20,7 @@ export interface User {
 }
 
 export const userAtom = atom<User | null>(null);
+export const authLoadingAtom = atom(true);
 export const studyingAtom = atom(false);
 export const studyTimeAtom = atom(0);
 export const timerSessionStartAtom = atom<string | null>(null);

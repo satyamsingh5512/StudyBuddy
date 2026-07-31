@@ -2,25 +2,31 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log"
-	"math/rand"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/security"
 	"studybuddy-backend/internal/services"
+	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const (
+	maxLoginAttempts  = 5
+	loginLockDuration = 15 * time.Minute
+)
+
+var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("studybuddy-invalid-login-password"), bcrypt.DefaultCost)
 
 type SignupRequest struct {
 	Email    string `json:"email"`
@@ -31,69 +37,76 @@ type SignupRequest struct {
 func Signup(c *fiber.Ctx) error {
 	var req SignupRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
 	}
 
-	if req.Email == "" || req.Password == "" || req.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing fields", "message": "Missing fields"})
+	email, err := security.NormalizeEmail(req.Email)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+	if err := security.ValidatePassword(req.Password); err != nil {
+		return badRequest(c, err.Error())
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" || len([]rune(name)) > 100 {
+		return badRequest(c, "Name must be between 1 and 100 characters")
 	}
 
-	email := strings.ToLower(req.Email)
 	usersCollection := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var existingUser models.User
-	err := usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&existingUser)
+	err = usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&existingUser)
 	if err == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email already exists", "message": "Email already exists"})
-	} else if err != mongo.ErrNoDocuments {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error", "message": "Database error"})
+		return badRequest(c, "Unable to create account with those details")
+	}
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return serverError(c)
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Hashing error", "message": "Hashing error"})
+		return serverError(c)
+	}
+	otp, otpHash, err := security.NewOneTimeCode()
+	if err != nil {
+		return serverError(c)
 	}
 
-	otp := strconv.Itoa(100000 + rand.Intn(900000))
-	otpExpiry := time.Now().Add(10 * time.Minute)
-
-	baseUsername := strings.ToLower(req.Name)
-	username := baseUsername + "_" + uuid.New().String()[:8]
-
+	now := time.Now().UTC()
+	username := strings.ToLower(strings.ReplaceAll(name, " ", "")) + "_" + uuid.New().String()[:8]
 	newUser := models.User{
 		Email:           email,
 		Password:        string(hashedPassword),
-		Name:            req.Name,
+		Name:            name,
 		Username:        username,
 		Role:            "user",
 		EmailVerified:   false,
-		VerificationOtp: otp,
-		OtpExpiry:       otpExpiry,
+		VerificationOtp: otpHash,
+		OtpExpiry:       now.Add(10 * time.Minute),
 		OnboardingDone:  false,
-		TotalPoints:     0,
-		TotalStudyMins:  0,
-		Streak:          0,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-		LastActive:      time.Now(),
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		LastActive:      now,
 		ShowProfile:     true,
 	}
 
 	result, err := usersCollection.InsertOne(ctx, newUser)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error", "message": "Database error"})
+		if mongo.IsDuplicateKeyError(err) {
+			return badRequest(c, "Unable to create account with those details")
+		}
+		return serverError(c)
 	}
-
 	newUser.ID = result.InsertedID.(primitive.ObjectID)
+
 	if err := services.SendVerificationEmail(newUser.Email, newUser.Name, otp); err != nil {
-		log.Printf("failed to send signup verification email to %s: %v", newUser.Email, err)
+		log.Printf("signup verification email failed for user %s: %v", newUser.ID.Hex(), err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Signup successful. Please verify your email.",
-		"user":    newUser,
+		"message": "If the details are valid, a verification code has been sent.",
 	})
 }
 
@@ -105,57 +118,94 @@ type LoginRequest struct {
 func Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "message": "Invalid request body"})
+		return badRequest(c, "Invalid request body")
 	}
 
-	email := strings.ToLower(req.Email)
+	email, emailErr := security.NormalizeEmail(req.Email)
+	if emailErr != nil || req.Password == "" || len([]rune(req.Password)) > security.MaxPasswordLength {
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
+		return invalidCredentials(c)
+	}
+
 	usersCollection := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var user models.User
 	err := usersCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
+		return invalidCredentials(c)
+	}
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials", "message": "Invalid credentials"})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error", "message": "Database error"})
+		return serverError(c)
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials", "message": "Invalid credentials"})
+	now := time.Now().UTC()
+	if user.LoginLockedUntil != nil && user.LoginLockedUntil.After(now) {
+		c.Set(fiber.HeaderRetryAfter, "900")
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error": "Too many sign-in attempts. Please try again later.",
+		})
 	}
 
-	secret := os.Getenv("SESSION_SECRET")
-	if secret == "" {
-		secret = "supersecret_studybuddy_dev_key"
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
+		recordFailedLogin(ctx, usersCollection, user, now)
+		return invalidCredentials(c)
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":   user.ID.Hex(),
-		"email": user.Email,
-		"role":  user.Role,
-		"exp":   time.Now().Add(time.Hour * 24 * 30).Unix(),
+	if !user.EmailVerified {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Verify your email before signing in.",
+			"code":  "EMAIL_NOT_VERIFIED",
+		})
+	}
+
+	_, _ = usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
+		"$set":   bson.M{"failedLoginAttempts": 0, "lastActive": now},
+		"$unset": bson.M{"loginLockedUntil": ""},
 	})
 
-	tokenString, err := token.SignedString([]byte(secret))
+	tokenString, err := session.Issue(user.ID.Hex(), user.Email, user.Role, user.SessionVersion)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token generation failed", "message": "Token generation failed"})
+		return serverError(c)
 	}
 
-	c.Cookie(&fiber.Cookie{
-		Name:     "connect.sid",
-		Value:    tokenString,
-		Expires:  time.Now().Add(time.Hour * 24 * 30),
-		HTTPOnly: true,
-		SameSite: "lax",
-	})
+	setSessionCookie(c, tokenString)
 
 	return c.JSON(fiber.Map{
 		"message": "Login successful",
-		"token":   tokenString,
 		"user":    user,
+	})
+}
+
+func recordFailedLogin(ctx context.Context, users *mongo.Collection, user models.User, now time.Time) {
+	attempts := user.FailedLoginAttempts + 1
+	update := bson.M{"$set": bson.M{"failedLoginAttempts": attempts}}
+	if attempts >= maxLoginAttempts {
+		update = bson.M{"$set": bson.M{
+			"failedLoginAttempts": 0,
+			"loginLockedUntil":    now.Add(loginLockDuration),
+		}}
+	}
+	_, _ = users.UpdateOne(ctx, bson.M{"_id": user.ID}, update)
+}
+
+func invalidCredentials(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		"error":   "Invalid email or password",
+		"message": "Invalid email or password",
+	})
+}
+
+func badRequest(c *fiber.Ctx, message string) error {
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": message, "message": message})
+}
+
+func serverError(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		"error":   "Unable to complete the request",
+		"message": "Unable to complete the request",
 	})
 }
 

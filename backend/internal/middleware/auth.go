@@ -3,15 +3,13 @@ package middleware
 import (
 	"context"
 	"log"
-	"os"
-	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,44 +18,17 @@ import (
 
 func RequireAuth(c *fiber.Ctx) error {
 	tokenString := c.Cookies("connect.sid")
-	if tokenString == "" {
-		authHeader := c.Get("Authorization")
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = authHeader[7:]
-		}
-	}
 
 	if tokenString == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
 	}
 
-	secret := os.Getenv("SESSION_SECRET")
-	if secret == "" {
-		secret = "supersecret_studybuddy_dev_key"
-	}
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fiber.ErrUnauthorized
-		}
-		return []byte(secret), nil
-	})
-
-	if err != nil || !token.Valid {
+	claims, err := session.Parse(tokenString)
+	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
-	}
-
-	sub, ok := claims["sub"].(string)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
-	}
-
-	objID, err := primitive.ObjectIDFromHex(sub)
+	objID, err := primitive.ObjectIDFromHex(claims.Subject)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
 	}
@@ -67,7 +38,7 @@ func RequireAuth(c *fiber.Ctx) error {
 
 	var user models.User
 	err = config.DB.Collection("users").FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
-	if err != nil {
+	if err != nil || user.SessionVersion != claims.SessionVersion {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
 	}
 
@@ -115,10 +86,18 @@ func SetupIndexes() {
 		"daily_reports": {
 			{bson.D{{Key: "userId", Value: 1}, {Key: "date", Value: -1}}, options.Index().SetName("idx_reports_userId_date")},
 		},
-		"messages": {
-			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_messages_userId")},
-			{bson.D{{Key: "toUserId", Value: 1}}, options.Index().SetName("idx_messages_toUserId")},
-			{bson.D{{Key: "createdAt", Value: -1}}, options.Index().SetName("idx_messages_createdAt")},
+		"direct_messages": {
+			{bson.D{{Key: "senderId", Value: 1}, {Key: "receiverId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_direct_messages_sender_receiver_created")},
+			{bson.D{{Key: "receiverId", Value: 1}, {Key: "senderId", Value: 1}, {Key: "read", Value: 1}}, options.Index().SetName("idx_direct_messages_receiver_sender_read")},
+		},
+		"friend_requests": {
+			{bson.D{{Key: "senderId", Value: 1}, {Key: "receiverId", Value: 1}}, options.Index().SetName("idx_friend_requests_pair")},
+			{bson.D{{Key: "receiverId", Value: 1}, {Key: "status", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_friend_requests_receiver_status")},
+			{bson.D{{Key: "senderId", Value: 1}, {Key: "status", Value: 1}}, options.Index().SetName("idx_friend_requests_sender_status")},
+		},
+		"blocks": {
+			{bson.D{{Key: "blockerId", Value: 1}, {Key: "blockedId", Value: 1}}, options.Index().SetName("idx_blocks_pair").SetUnique(true)},
+			{bson.D{{Key: "blockedId", Value: 1}, {Key: "blockerId", Value: 1}}, options.Index().SetName("idx_blocks_reverse_pair")},
 		},
 		"notes": {
 			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_notes_userId")},
