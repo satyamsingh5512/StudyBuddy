@@ -6,7 +6,7 @@ import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useConversations, useSendMessage, useMessagesWithUser } from '@/lib/queries';
+import { useConversations, useFriends, useSendMessage, useMessagesWithUser } from '@/lib/queries';
 
 interface Message {
   id: string;
@@ -48,6 +48,7 @@ export default function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversationsData = [] } = useConversations();
+  const { data: friendsData = [] } = useFriends();
   const { data: messagesData = [], isLoading } = useMessagesWithUser(userId);
   const sendMessageMutation = useSendMessage();
 
@@ -94,24 +95,15 @@ export default function Messages() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const fetchUserDetails = useCallback(async (id: string) => {
-    try {
-      const response = await fetch('/api/friends/list');
-      if (response.ok) {
-        const friends = await response.json();
-        const friend = friends.find((f: Friend) => f.id === id);
-        if (friend) setSelectedUser(friend);
-      }
-    } catch (error) {
-      console.error('Error fetching user details:', error);
-    }
-  }, []);
-
   useEffect(() => {
-    if (userId) {
-      fetchUserDetails(userId);
+    if (!userId) {
+      setSelectedUser(null);
+      return;
     }
-  }, [userId, fetchUserDetails]);
+
+    const friend = (friendsData as Friend[]).find((candidate) => candidate.id === userId) ?? null;
+    setSelectedUser(friend);
+  }, [friendsData, userId]);
 
   if (!userId) {
     return (

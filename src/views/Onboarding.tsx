@@ -187,7 +187,8 @@ export default function Onboarding() {
         const displayName = updatedUser?.name || username;
         toast({
           title: `Welcome, ${displayName}`,
-          description: 'Your profile has been set up successfully. You can now access your dashboard and start planning your study schedule.',
+          description:
+            'Your profile has been set up successfully. You can now access your dashboard and start planning your study schedule.',
         });
       } else {
         const error = await res.json();
@@ -205,8 +206,19 @@ export default function Onboarding() {
       <div className="flex min-h-screen items-center justify-center p-3 sm:p-4">
         <Card className="w-full max-w-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader>
+            <p className="text-sm font-medium text-primary" aria-live="polite">
+              Step {step} of 3
+            </p>
+            <div className="flex gap-2" aria-hidden="true">
+              {[1, 2, 3].map((item) => (
+                <span
+                  key={item}
+                  className={`h-1.5 flex-1 rounded-full ${item <= step ? 'bg-primary' : 'bg-muted'}`}
+                />
+              ))}
+            </div>
             <CardTitle>Welcome to StudyBuddy!</CardTitle>
-            <CardDescription>Let's set up your profile</CardDescription>
+            <CardDescription>Let&apos;s set up your profile</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-4 pb-5 sm:px-6 sm:pb-6">
             {/* Step 1: Username */}
@@ -242,12 +254,17 @@ export default function Onboarding() {
                       <SelectValue placeholder="Select exam" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(EXAMS.reduce((acc, exam) => {
-                        const category = exam.category || 'Other';
-                        if (!acc[category]) acc[category] = [];
-                        acc[category].push(exam);
-                        return acc;
-                      }, {} as Record<string, typeof EXAMS>)).map(([category, exams]) => (
+                      {Object.entries(
+                        EXAMS.reduce(
+                          (acc, exam) => {
+                            const category = exam.category || 'Other';
+                            if (!acc[category]) acc[category] = [];
+                            acc[category].push(exam);
+                            return acc;
+                          },
+                          {} as Record<string, typeof EXAMS>
+                        )
+                      ).map(([category, exams]) => (
                         <div key={category}>
                           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30">
                             {category}
@@ -373,11 +390,14 @@ export default function Onboarding() {
                   <Label>Choose your avatar style</Label>
                   <div className="grid gap-3 mt-4 sm:grid-cols-2 sm:gap-4">
                     <button
+                      type="button"
+                      aria-pressed={avatarType === 'photo'}
                       onClick={() => setAvatarType('photo')}
-                      className={`p-4 rounded-lg border-2 transition-all ${avatarType === 'photo'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                        }`}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        avatarType === 'photo'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
                     >
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -391,11 +411,14 @@ export default function Onboarding() {
                     </button>
 
                     <button
+                      type="button"
+                      aria-pressed={avatarType === 'animated'}
                       onClick={() => setAvatarType('animated')}
-                      className={`p-4 rounded-lg border-2 transition-all ${avatarType === 'animated'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                        }`}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        avatarType === 'animated'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
                     >
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -426,12 +449,15 @@ export default function Onboarding() {
                     <div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-3">
                       {AVATAR_STYLES.map((style) => (
                         <button
+                          type="button"
+                          aria-pressed={selectedStyle === style.id}
                           key={style.id}
                           onClick={() => setSelectedStyle(style.id)}
-                          className={`p-3 rounded-lg border-2 transition-all ${selectedStyle === style.id
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                            }`}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            selectedStyle === style.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50'
+                          }`}
                         >
                           <img
                             src={`https://api.dicebear.com/7.x/${style.id}/svg?seed=${username || 'preview'}`}
