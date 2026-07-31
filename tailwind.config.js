@@ -4,11 +4,11 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}', './app/**/*.{js,ts,jsx,tsx}'],
   theme: {
     screens: {
-      'xs': '475px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
+      xs: '475px',
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
       '2xl': '1536px',
       /* RESPONSIVE FIX: Extended breakpoints for 4K and ultrawide displays */
       '3xl': '1920px',
@@ -53,12 +53,12 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        "pastel-blue": "#c9daff",
+        'pastel-blue': '#c9daff',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        heading: ['Outfit', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['var(--font-inter)', 'sans-serif'],
+        heading: ['var(--font-outfit)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -66,17 +66,18 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        "neo": "4px 4px 0px 0px #000000",
-        "neo-sm": "2px 2px 0px 0px #000000",
-        "neo-lg": "8px 8px 0px 0px #000000",
-        "neo-dark": "4px 4px 0px 0px #757373",
-        "neo-sm-dark": "2px 2px 0px 0px #757373",
-        "neo-lg-dark": "8px 8px 0px 0px #757373",
+        neo: '4px 4px 0px 0px #000000',
+        'neo-sm': '2px 2px 0px 0px #000000',
+        'neo-lg': '8px 8px 0px 0px #000000',
+        'neo-dark': '4px 4px 0px 0px #757373',
+        'neo-sm-dark': '2px 2px 0px 0px #757373',
+        'neo-lg-dark': '8px 8px 0px 0px #757373',
         /* iOS / glassmorphic soft shadows */
-        "glass": "0 8px 32px -8px rgba(17, 12, 46, 0.12), 0 2px 8px -2px rgba(17, 12, 46, 0.06)",
-        "glass-lg": "0 24px 64px -16px rgba(17, 12, 46, 0.20), 0 8px 24px -8px rgba(17, 12, 46, 0.10)",
-        "glass-sm": "0 2px 12px -4px rgba(17, 12, 46, 0.10)",
-        "ios": "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px -4px rgba(0,0,0,0.10)",
+        glass: '0 8px 32px -8px rgba(17, 12, 46, 0.12), 0 2px 8px -2px rgba(17, 12, 46, 0.06)',
+        'glass-lg':
+          '0 24px 64px -16px rgba(17, 12, 46, 0.20), 0 8px 24px -8px rgba(17, 12, 46, 0.10)',
+        'glass-sm': '0 2px 12px -4px rgba(17, 12, 46, 0.10)',
+        ios: '0 1px 2px rgba(0,0,0,0.04), 0 4px 16px -4px rgba(0,0,0,0.10)',
       },
       backdropBlur: {
         xs: '2px',
@@ -94,38 +95,38 @@ export default {
         },
         aurora: {
           from: {
-            backgroundPosition: "50% 50%, 50% 50%",
+            backgroundPosition: '50% 50%, 50% 50%',
           },
           to: {
-            backgroundPosition: "350% 50%, 350% 50%",
+            backgroundPosition: '350% 50%, 350% 50%',
           },
         },
-        "slide-in": {
-          from: { transform: "translateY(10px)", opacity: "0" },
-          to: { transform: "translateY(0)", opacity: "1" },
+        'slide-in': {
+          from: { transform: 'translateY(10px)', opacity: '0' },
+          to: { transform: 'translateY(0)', opacity: '1' },
         },
-        "fade-in": {
-          from: { opacity: "0" },
-          to: { opacity: "1" },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
         },
         spotlight: {
-          "0%": {
-            opacity: "0",
-            transform: "translate(-72%, -62%) scale(0.5)",
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-72%, -62%) scale(0.5)',
           },
-          "100%": {
-            opacity: "1",
-            transform: "translate(-50%,-40%) scale(1)",
+          '100%': {
+            opacity: '1',
+            transform: 'translate(-50%,-40%) scale(1)',
           },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        aurora: "aurora 60s linear infinite",
-        "slide-in": "slide-in 0.3s ease-out",
-        "fade-in": "fade-in 0.2s ease-out",
-        "spotlight": "spotlight 2s ease .75s 1 forwards",
+        aurora: 'aurora 60s linear infinite',
+        'slide-in': 'slide-in 0.3s ease-out',
+        'fade-in': 'fade-in 0.2s ease-out',
+        spotlight: 'spotlight 2s ease .75s 1 forwards',
       },
     },
   },

@@ -1,84 +1,110 @@
-name: Deploy StudyBuddy
+name: StudyBuddy CI and Deploy
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
-    name: Build & Lint
+  frontend:
+    name: Frontend quality gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '20.19.6'
+          cache: npm
 
-      - run: npm ci
+      - name: Install locked dependencies
+        run: npm ci --include=dev
 
-      - name: TypeScript Check
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check
         run: npx tsc --noEmit
 
-      - name: Build Web
+      - name: Production build
         run: npm run build
 
-  deploy-staging:
-    name: Deploy to Staging
-    needs: build-and-test
-    if: github.ref == 'refs/heads/dev'
+      # Current stable Next bundles a PostCSS release with an upstream high advisory.
+      # Critical findings still fail releases; the exception is tracked in production-readiness.md.
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=critical
+
+  backend:
+    name: Backend quality gates
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - name: Deploy to Render (Staging)
-        run: |
-          curl -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
-          echo "Triggered staging deployment"
+      - uses: actions/checkout@v4
 
-      - name: Wait for Deploy
-        run: sleep 60
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: backend/go.sum
 
-      - name: Health Check
+      - name: Test with race detector
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: [frontend, backend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Trigger Render deployment
+        run: curl --fail --show-error --silent -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
+
+      - name: Wait for deployment readiness
         run: |
-          for i in {1..5}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api-staging.satym.in/health)
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Staging health check passed"
+          sleep 60
+          for attempt in {1..5}; do
+            if curl --fail --show-error --silent --output /dev/null https://api-staging.satym.in/api/health/ready; then
+              echo "Staging readiness check passed"
               exit 0
             fi
-            echo "⏳ Attempt $i: Status $STATUS, waiting..."
+            echo "Attempt ${attempt} failed; retrying in 10 seconds"
             sleep 10
           done
-          echo "❌ Staging health check failed"
+          echo "Staging readiness check failed"
           exit 1
 
   deploy-production:
-    name: Deploy to Production
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    name: Deploy to production
+    needs: [frontend, backend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Deploy to Render (Production)
-        run: |
-          curl -X POST "${{ secrets.RENDER_PROD_DEPLOY_HOOK }}"
-          echo "Triggered production deployment"
+      - name: Trigger Render deployment
+        run: curl --fail --show-error --silent -X POST "${{ secrets.RENDER_PROD_DEPLOY_HOOK }}"
 
-      - name: Wait for Deploy
-        run: sleep 90
-
-      - name: Health Check
+      - name: Wait for deployment readiness
         run: |
-          for i in {1..5}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.satym.in/health)
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Production health check passed"
+          sleep 90
+          for attempt in {1..5}; do
+            if curl --fail --show-error --silent --output /dev/null https://api.satym.in/api/health/ready; then
+              echo "Production readiness check passed"
               exit 0
             fi
-            echo "⏳ Attempt $i: Status $STATUS, waiting..."
+            echo "Attempt ${attempt} failed; retrying in 15 seconds"
             sleep 15
           done
-          echo "❌ Production health check failed"
+          echo "Production readiness check failed"
           exit 1
