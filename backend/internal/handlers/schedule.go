@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -204,6 +205,139 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 }
 
 // ─────────────────────────────────────────────
+// Clock helpers
+// ─────────────────────────────────────────────
+
+// scheduleLocation resolves an IANA timezone name sent by the client. The
+// server clock is used when the name is missing or unknown, so generation never
+// fails because of a bad timezone string.
+func scheduleLocation(name string) *time.Location {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return time.Now().Location()
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return time.Now().Location()
+	}
+	return loc
+}
+
+// parseClockMinutes accepts the formats models tend to emit ("9:00", "09:00",
+// "9 PM", "09:30 pm", "21:00") and returns minutes past midnight.
+func parseClockMinutes(value string) (int, bool) {
+	raw := strings.ToUpper(strings.TrimSpace(value))
+	if raw == "" {
+		return 0, false
+	}
+
+	suffix := ""
+	for _, marker := range []string{"AM", "PM"} {
+		if strings.HasSuffix(raw, marker) {
+			suffix = marker
+			raw = strings.TrimSpace(strings.TrimSuffix(raw, marker))
+			break
+		}
+	}
+
+	var hour, minute int
+	switch parts := strings.Split(raw, ":"); len(parts) {
+	case 1:
+		if _, err := fmt.Sscanf(parts[0], "%d", &hour); err != nil {
+			return 0, false
+		}
+	case 2, 3:
+		if _, err := fmt.Sscanf(parts[0], "%d", &hour); err != nil {
+			return 0, false
+		}
+		if _, err := fmt.Sscanf(parts[1], "%d", &minute); err != nil {
+			return 0, false
+		}
+	default:
+		return 0, false
+	}
+
+	switch suffix {
+	case "AM":
+		if hour == 12 {
+			hour = 0
+		}
+	case "PM":
+		if hour != 12 {
+			hour += 12
+		}
+	}
+
+	if hour < 0 || hour > 24 || minute < 0 || minute > 59 {
+		return 0, false
+	}
+	total := hour*60 + minute
+	if total > 24*60 {
+		return 0, false
+	}
+	return total, true
+}
+
+func formatClockMinutes(total int) string {
+	if total >= 24*60 {
+		total = 24*60 - 1
+	}
+	if total < 0 {
+		total = 0
+	}
+	return fmt.Sprintf("%02d:%02d", total/60, total%60)
+}
+
+// ceilToQuarterHour rounds forward to the next quarter hour so a plan generated
+// at 13:41 starts at a clean 13:45 rather than mid-minute.
+func ceilToQuarterHour(total int) int {
+	if remainder := total % 15; remainder != 0 {
+		total += 15 - remainder
+	}
+	return total
+}
+
+// normalizeScheduleItems rewrites times into strict "HH:MM", drops blocks that
+// already finished, trims a block that straddles earliestMin, and returns the
+// remaining items ordered by start time. earliestMin < 0 disables the cutoff.
+func normalizeScheduleItems(items []models.ScheduleItem, earliestMin int) []models.ScheduleItem {
+	kept := make([]models.ScheduleItem, 0, len(items))
+
+	for _, item := range items {
+		start, okStart := parseClockMinutes(item.StartTime)
+		end, okEnd := parseClockMinutes(item.EndTime)
+		if !okStart || !okEnd || end <= start {
+			continue
+		}
+
+		if earliestMin >= 0 {
+			if end <= earliestMin {
+				// Entirely in the past.
+				continue
+			}
+			if start < earliestMin {
+				start = earliestMin
+			}
+			if end <= start {
+				continue
+			}
+		}
+
+		item.StartTime = formatClockMinutes(start)
+		item.EndTime = formatClockMinutes(end)
+		kept = append(kept, item)
+	}
+
+	sort.SliceStable(kept, func(i, j int) bool {
+		left, _ := parseClockMinutes(kept[i].StartTime)
+		right, _ := parseClockMinutes(kept[j].StartTime)
+		return left < right
+	})
+
+	return kept
+}
+
+// ─────────────────────────────────────────────
 // Gemini AI Schedule Generation
 // ─────────────────────────────────────────────
 
@@ -212,14 +346,35 @@ func GenerateSchedule(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
 
 	var body struct {
-		Prompt string `json:"prompt"`
-		Date   string `json:"date"` // "2026-07-10"
+		Prompt   string `json:"prompt"`
+		Date     string `json:"date"`     // "2026-07-10"
+		Timezone string `json:"timezone"` // IANA name, e.g. "Asia/Kolkata"
 	}
 	if err := c.BodyParser(&body); err != nil || body.Prompt == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Prompt is required"})
 	}
+
+	loc := scheduleLocation(body.Timezone)
+	now := time.Now().In(loc)
 	if body.Date == "" {
-		body.Date = time.Now().Format("2006-01-02")
+		body.Date = now.Format("2006-01-02")
+	}
+
+	// When planning the current day, the plan must begin at the upcoming
+	// quarter hour. Past-dated requests keep the full day available.
+	earliestMin := -1
+	timingRule := "This date is not today, so plan the full available day."
+	if body.Date == now.Format("2006-01-02") {
+		earliestMin = ceilToQuarterHour(now.Hour()*60 + now.Minute())
+		if earliestMin >= 24*60-30 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Too little time left today. Generate a schedule for tomorrow instead.",
+			})
+		}
+		timingRule = fmt.Sprintf(
+			"The current local time is %s. This schedule is for TODAY, so the FIRST block must start at %s and no block may be placed before %s. Plan only the remaining hours of the day.",
+			now.Format("15:04"), formatClockMinutes(earliestMin), formatClockMinutes(earliestMin),
+		)
 	}
 
 	// Fetch availability context
@@ -237,15 +392,17 @@ func GenerateSchedule(c *fiber.Ctx) error {
 
 User: %s | Goal: %s | Date: %s
 Availability: %s
+Timing: %s
 
 Request: %s
 
 Return a JSON array where each object has EXACTLY these fields:
 [{"taskTitle":"...","subject":"...","description":"...","startTime":"HH:MM","endTime":"HH:MM","date":"%s","priority":"low|medium|high"}]
 
-Rules: 6-10 blocks, no overlaps, include breaks, 24-hour time format, specific task titles. Output ONLY the JSON array.`,
+Rules: 6-10 blocks, no overlaps, include breaks, 24-hour zero-padded time format, specific task titles, respect the Timing constraint above. Output ONLY the JSON array.`,
 		user.Name, user.ExamGoal, body.Date,
 		availContext,
+		timingRule,
 		body.Prompt,
 		body.Date,
 	)
@@ -254,6 +411,15 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour time format, specific t
 	scheduleItems, err := callGemini(systemPrompt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "AI generation failed: " + err.Error()})
+	}
+
+	// Enforce the timing constraint rather than trusting the model: normalize the
+	// clock format, drop finished blocks, and trim one straddling the cutoff.
+	scheduleItems = normalizeScheduleItems(scheduleItems, earliestMin)
+	if len(scheduleItems) == 0 {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"error": "The AI only returned time blocks that have already passed. Please try again.",
+		})
 	}
 
 	// Assign ObjectIDs to each item + normalize fields
@@ -533,7 +699,7 @@ func doScheduleRequest(endpoint, apiKey, model, userPrompt string, mergeSystem b
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
 			var secs float64
 			if _, scanErr := fmt.Sscanf(ra, "%f", &secs); scanErr == nil && secs > 0 {
-				retryDelay = time.Duration((secs+1)*float64(time.Second))
+				retryDelay = time.Duration((secs + 1) * float64(time.Second))
 			}
 		}
 		return nil, retryDelay, fmt.Errorf("rate limited (429)")

@@ -43,8 +43,12 @@ import ScheduleAlarmManager from '@/components/ScheduleAlarmManager';
 // Helpers
 // ─────────────────────────────────────────────
 
+// Local calendar date key. Using toISOString() here would roll the date back a
+// day for timezones ahead of UTC during early-morning hours.
 function toDateStr(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
 }
 
 function formatDateLabel(d: Date): string {
@@ -359,7 +363,7 @@ export default function Schedule() {
                   Time-Blocked Timeline
                 </GlassCardTitle>
               </GlassCardHeader>
-              <GlassCardContent className="px-4 pb-6 overflow-x-auto">
+              <GlassCardContent className="px-2 pb-6 sm:px-4">
                 <ScheduleTimeline
                   items={activeSchedule.items}
                   onToggleItem={handleToggleItem}

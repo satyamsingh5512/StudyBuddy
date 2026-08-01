@@ -775,7 +775,10 @@ export const useSchedules = (date?: string) => {
 };
 
 /**
- * Generate a new AI schedule using Gemini
+ * Generate a new AI schedule.
+ *
+ * The browser timezone is always sent so the backend can anchor a same-day plan
+ * to the user's current local time instead of the server clock.
  */
 export const useGenerateSchedule = () => {
   const queryClient = useQueryClient();
@@ -783,7 +786,11 @@ export const useGenerateSchedule = () => {
     mutationFn: ({ prompt, date }) =>
       apiFetchJSON<Schedule>('/schedule/generate', {
         method: 'POST',
-        body: JSON.stringify({ prompt, date }),
+        body: JSON.stringify({
+          prompt,
+          date,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules(data.date) });
