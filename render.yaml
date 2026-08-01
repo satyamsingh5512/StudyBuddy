@@ -3,9 +3,14 @@ services:
     name: studybuddy-go-backend
     env: go
     rootDir: backend
-    buildCommand: go mod download && go build -o studybuddy-api main.go
+    # -s -w drops the symbol table and DWARF data, which shrinks the uploaded
+    # binary and speeds up instance start.
+    buildCommand: go build -trimpath -ldflags="-s -w" -o studybuddy-api .
     startCommand: ./studybuddy-api
-    healthCheckPath: /api/health
+    # Deploys go live as soon as the process answers. Render requires a response
+    # within five seconds, so this must not depend on MongoDB round trips.
+    # Use /api/health/ready for database-backed readiness monitoring.
+    healthCheckPath: /api/health/live
     envVars:
       - key: PORT
         value: 8080

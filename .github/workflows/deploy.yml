@@ -73,10 +73,9 @@ jobs:
 
       - name: Wait for deployment readiness
         run: |
-          sleep 60
-          for attempt in {1..5}; do
+          for attempt in {1..30}; do
             if curl --fail --show-error --silent --output /dev/null https://api-staging.satym.in/api/health/ready; then
-              echo "Staging readiness check passed"
+              echo "Staging readiness check passed on attempt ${attempt}"
               exit 0
             fi
             echo "Attempt ${attempt} failed; retrying in 10 seconds"
@@ -97,10 +96,9 @@ jobs:
 
       - name: Wait for deployment readiness
         run: |
-          sleep 90
-          for attempt in {1..5}; do
+          for attempt in {1..30}; do
             if curl --fail --show-error --silent --output /dev/null https://api.satym.in/api/health/ready; then
-              echo "Production readiness check passed"
+              echo "Production readiness check passed on attempt ${attempt}"
               exit 0
             fi
             echo "Attempt ${attempt} failed; retrying in 15 seconds"

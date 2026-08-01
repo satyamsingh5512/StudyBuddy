@@ -3,7 +3,7 @@
 # StudyBuddy Keepalive Script
 # Pings the backend server every 3 minutes to prevent sleep
 
-URL="https://studybuddy-go-backend.onrender.com/api/health"
+URL="https://studybuddy-go-backend.onrender.com/api/health/live"
 LOG_FILE="/var/log/keepalive.log"
 
 echo "$(date): Starting keepalive script" >> $LOG_FILE

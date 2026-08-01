@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping Render Health Endpoint
         env:
-          HEALTHCHECK_URL: https://studybuddy-go-backend.onrender.com/api/health
+          HEALTHCHECK_URL: https://studybuddy-go-backend.onrender.com/api/health/live
         run: |
           set -euo pipefail
           STATUS_CODE=$(curl -sS -L \

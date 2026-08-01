@@ -116,12 +116,16 @@ func main() {
 
 	config.ConnectDB()
 
-	// Setup MongoDB indexes (run once on startup)
-	log.Println("Setting up MongoDB indexes...")
-	middleware.SetupIndexes()
-	log.Println("MongoDB indexes setup complete")
-
 	routes.SetupRoutes(app)
+
+	// Index creation is idempotent maintenance work, not a prerequisite for
+	// serving traffic. Running it in the background lets the process start
+	// listening immediately instead of making every deploy wait for index
+	// reconciliation before the port opens.
+	go func() {
+		log.Println("Setting up MongoDB indexes...")
+		middleware.SetupIndexes()
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {

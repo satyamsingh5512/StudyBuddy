@@ -36,7 +36,8 @@ The general route limiter is process-local. MongoDB-backed account lockouts rema
 - Compound indexes cover direct messages, friend requests, blocks, todos, notes, timers, reports, and user lookup patterns. Block writes are atomic idempotent upserts.
 - Todo and note collections return bounded, deterministic result sets. AI endpoints have account quotas; AI news cache storage is bounded; cache clearing is admin-only.
 - The API has request IDs, panic recovery, security headers, CORS with credentials, a 2 MiB body limit, read/write/idle timeouts, and graceful shutdown.
-- `/api/health/live` reports process liveness. `/api/health/ready` and `/api/health` verify MongoDB readiness.
+- `/api/health/live` reports process liveness and performs no database work. Platform health checks use this path so deploys go live as soon as the process answers. `/api/health/ready` and `/api/health` verify MongoDB readiness.
+- MongoDB index reconciliation runs in the background after startup instead of blocking the listener, so deploy time does not scale with index count.
 
 ## Shipped frontend and accessibility work
 
