@@ -16,7 +16,7 @@ This is a code-readiness statement, not evidence that a specific deployment is r
 - Session JWT issuance and parsing are centralized in `backend/internal/session`. Tokens use HS256, require expiration, and carry the persisted user `sessionVersion`.
 - Auth middleware loads the current user and rejects otherwise-valid tokens whose version has been revoked. Logout and password reset increment `sessionVersion`, currently signing the account out on every device.
 - `SESSION_SECRET` is mandatory, must contain at least 32 bytes, and has no fallback. Rotating it invalidates all sessions.
-- Production cookies are `Secure; HttpOnly; SameSite=None; Path=/` so separately hosted app and API sites can authenticate. Unsafe browser methods are additionally checked against configured trusted origins.
+- Production cookies are `Secure; HttpOnly; SameSite=None; Path=/`. Browser API traffic uses the app's same-origin `/api` proxy so privacy controls do not classify the session as a third-party cookie; trusted-origin checks still protect state-changing calls at the backend.
 - Frontend requests use `credentials: include`. React Query owns safe query caching/deduplication, while mutations are independent and are not automatically retried.
 
 ### Authentication abuse controls
@@ -74,12 +74,14 @@ Required backend settings:
 
 Required frontend settings:
 
-- `NEXT_PUBLIC_API_URL`, including the `/api` prefix
+- `BACKEND_API_URL`, including the `/api` prefix; this server-only value is the target of the Next.js `/api` proxy
 - `NEXT_PUBLIC_APP_URL`, preferably as a full HTTPS origin
+
+`NEXT_PUBLIC_API_URL` remains a compatibility fallback for selecting the server-side proxy target, but browser code no longer calls that cross-site URL directly.
 
 Optional integrations use `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, provider model variables, email provider credentials, and admin identity variables where those features are enabled.
 
-For a cross-site deployment, both sites must use HTTPS, the API must emit `Secure; SameSite=None`, frontend fetches must include credentials, CORS must allow credentials for the exact app origin, and trusted-origin middleware must recognize that same origin. Validate signup, verification, password login, refresh-on-navigation, OAuth callback, unsafe mutations, logout, and password reset in every supported target browser. CLI requests do not validate browser cookie or CORS policy.
+The backend may be hosted on another site, but browsers must call only the app's HTTPS, same-origin `/api` path. The API must emit `Secure` cookies, frontend fetches must include credentials, and CORS/trusted-origin middleware must recognize the exact app origin forwarded by the proxy. For Google OAuth, register `https://<app-origin>/api/auth/google/callback` as an authorized redirect URI; set `GOOGLE_CALLBACK_URL` to that exact value or leave it unset so `CLIENT_URL` is used. Validate signup, verification, password login, refresh-on-navigation, OAuth callback, unsafe mutations, logout, and password reset in every supported target browser. CLI requests do not validate browser cookie policy.
 
 ## Release validation
 

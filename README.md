@@ -54,8 +54,10 @@ Required backend variables:
 
 Required frontend variables:
 
-- `NEXT_PUBLIC_API_URL`: public API base URL including `/api`, for example `https://api.example.com/api`.
+- `BACKEND_API_URL`: server-side API base URL including `/api`, for example `https://api.example.com/api`. Next.js proxies the browser-visible `/api` path to this URL.
 - `NEXT_PUBLIC_APP_URL`: canonical app origin, for example `https://app.example.com`.
+
+`NEXT_PUBLIC_API_URL` is accepted only as a backwards-compatible proxy-target fallback. Browser requests always use the same-origin `/api` path so `connect.sid` remains a first-party cookie.
 
 Optional integrations require their corresponding Google OAuth, AI provider, and email provider variables. See the deployment platform configuration rather than committing secrets to the repository.
 
@@ -63,7 +65,7 @@ Optional integrations require their corresponding Google OAuth, AI provider, and
 
 Browser authentication is cookie-only through the `connect.sid` HttpOnly cookie. Tokens are not returned to JavaScript, stored in local storage, placed in URLs, or accepted as bearer credentials. Logout and password reset revoke outstanding sessions for the account.
 
-Production app and API endpoints must use HTTPS. If they are cross-site, the browser must accept `Secure; SameSite=None` cookies, the frontend must send credentialed requests, and the exact frontend origin must be configured in the backend trusted-origin variables above. Validate this topology in a real target browser before release; command-line API checks do not exercise browser cookie policy.
+Production app and API endpoints must use HTTPS. Browsers must call the app's same-origin `/api` path rather than the backend hostname directly; the exact frontend origin must still be configured in the backend trusted-origin variables because the proxy forwards browser origins. If Google OAuth is enabled, authorize `https://<app-origin>/api/auth/google/callback` in Google Cloud and use that value for `GOOGLE_CALLBACK_URL`, or leave it unset so `CLIENT_URL` supplies the app origin. Validate the flow in a real target browser; command-line API checks do not exercise browser cookie policy.
 
 Health endpoints are:
 

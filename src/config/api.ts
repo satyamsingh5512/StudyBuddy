@@ -5,12 +5,10 @@
  * and active-query deduplication; writes are always sent independently.
  */
 
-const PROD_FALLBACK_API_URL = 'https://studybuddy-go-backend.onrender.com/api';
-const DEV_FALLBACK_API_URL = 'http://localhost:8080/api';
-const DEFAULT_API_URL =
-  process.env.NODE_ENV === 'production' ? PROD_FALLBACK_API_URL : DEV_FALLBACK_API_URL;
-
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).replace(/\/+$/, '');
+// Keep browser requests on the application origin. Next.js proxies this path to
+// the backend, so auth cookies remain first-party even when the backend is hosted
+// on another site (for example, Vercel in front of Render).
+export const API_URL = '/api';
 
 export const apiUrl = (path: string) => `${API_URL}${path}`;
 
