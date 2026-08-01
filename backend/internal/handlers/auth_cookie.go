@@ -12,8 +12,12 @@ import (
 
 const sessionCookieName = "connect.sid"
 
+func secureCookie(c *fiber.Ctx) bool {
+	return os.Getenv("NODE_ENV") == "production" || c.Protocol() == "https"
+}
+
 func setSessionCookie(c *fiber.Ctx, token string) {
-	secure := os.Getenv("NODE_ENV") == "production" || c.Protocol() == "https"
+	secure := secureCookie(c)
 	sameSite := "lax"
 	if secure {
 		// Production may serve the API from a separate site. Secure is mandatory
@@ -33,7 +37,7 @@ func setSessionCookie(c *fiber.Ctx, token string) {
 }
 
 func clearSessionCookie(c *fiber.Ctx) {
-	secure := os.Getenv("NODE_ENV") == "production" || c.Protocol() == "https"
+	secure := secureCookie(c)
 	sameSite := "lax"
 	if secure {
 		sameSite = "none"

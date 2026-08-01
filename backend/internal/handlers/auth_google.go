@@ -35,12 +35,15 @@ func appClientURL() string {
 	return strings.TrimRight(clientURL, "/")
 }
 
-func googleCallbackURL(c *fiber.Ctx) string {
+func googleCallbackURL(_ *fiber.Ctx) string {
 	callback := strings.TrimSpace(os.Getenv("GOOGLE_CALLBACK_URL"))
 	if callback != "" {
 		return callback
 	}
-	return fmt.Sprintf("%s/api/auth/google/callback", strings.TrimRight(c.BaseURL(), "/"))
+
+	// Return through the frontend's same-origin /api proxy. Sending the callback
+	// directly to a separately hosted API makes the session cookie third-party.
+	return fmt.Sprintf("%s/api/auth/google/callback", appClientURL())
 }
 
 func googleErrorRedirect(code string) string {
@@ -72,7 +75,7 @@ func GoogleAuth(c *fiber.Ctx) error {
 		Expires:  time.Now().Add(10 * time.Minute),
 		HTTPOnly: true,
 		SameSite: "lax",
-		Secure:   c.Protocol() == "https",
+		Secure:   secureCookie(c),
 	})
 
 	redirectUri := googleCallbackURL(c)
@@ -116,7 +119,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 		SameSite: "lax",
-		Secure:   c.Protocol() == "https",
+		Secure:   secureCookie(c),
 	})
 
 	if returnedState == "" || storedState == "" || returnedState != storedState {
