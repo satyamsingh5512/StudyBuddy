@@ -54,11 +54,57 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
         'pastel-blue': '#c9daff',
+
+        /* ---- StudyBuddy design language ----
+         * Flat surfaces, one electric-blue accent, low-alpha ink hairlines.
+         * Use these for anything authored in the current idiom; the HSL tokens
+         * above are kept so pre-existing views keep compiling.
+         */
+        page: 'var(--page)',
+        surface: {
+          DEFAULT: 'var(--surface)',
+          muted: 'var(--surface-muted)',
+        },
+        /* Channel-based so opacity modifiers work: `bg-ink/[0.03]`, `ring-brand/20`. */
+        ink: 'rgb(var(--ink-rgb) / <alpha-value>)',
+        'muted-ink': 'var(--muted-ink)',
+        brand: {
+          DEFAULT: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          light: 'var(--accent-light)',
+          subtle: 'var(--accent-subtle)',
+        },
+        'on-accent': {
+          DEFAULT: 'var(--on-accent)',
+          muted: 'var(--on-accent-muted)',
+        },
+        hairline: {
+          DEFAULT: 'var(--hairline)',
+          strong: 'var(--hairline-strong)',
+          accent: 'var(--border-accent)',
+          'accent-strong': 'var(--border-accent-strong)',
+        },
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
-        heading: ['var(--font-outfit)', 'sans-serif'],
+        /* JetBrains Mono is the body face, not just for code. */
+        sans: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        heading: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         mono: ['var(--font-mono)', 'monospace'],
+        /* Editorial serif for pull quotes / empty states. */
+        serif: ['var(--font-newsreader)', 'Georgia', 'serif'],
+        /* Kept so anything still asking for Inter/Outfit renders deliberately. */
+        inter: ['var(--font-inter)', 'sans-serif'],
+      },
+      transitionTimingFunction: {
+        brand: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        pop: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'out-soft': 'cubic-bezier(0, 0, 0.2, 1)',
+      },
+      transitionDuration: {
+        400: '400ms',
+        700: '700ms',
+      },
+      transitionDelay: {
+        400: '400ms',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -119,6 +165,47 @@ export default {
             transform: 'translate(-50%,-40%) scale(1)',
           },
         },
+
+        /* ---- StudyBuddy motion set ---- */
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'sheet-up': {
+          '0%': { opacity: '0', transform: 'translateY(100%)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'cell-pop': {
+          '0%': { opacity: '0', transform: 'scale(0.6)' },
+          '50%': { transform: 'scale(1.15)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'task-check': {
+          '0%': { opacity: '0', transform: 'scale(0)' },
+          '50%': { transform: 'scale(1.2)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'task-done': {
+          '0%': { opacity: '1', transform: 'translateX(0)' },
+          '100%': { opacity: '0', transform: 'translateX(12px)' },
+        },
+        'tap-pulse': {
+          '0%': { opacity: '1', transform: 'scale(1)' },
+          '70%, 100%': { opacity: '0', transform: 'scale(1.08)' },
+        },
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateY(-100%)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'toast-out': {
+          '0%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { opacity: '0', transform: 'translateY(-100%)' },
+        },
+        'blob-drift': {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(3%, -4%) scale(1.06)' },
+          '66%': { transform: 'translate(-3%, 3%) scale(0.96)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -127,6 +214,17 @@ export default {
         'slide-in': 'slide-in 0.3s ease-out',
         'fade-in': 'fade-in 0.2s ease-out',
         spotlight: 'spotlight 2s ease .75s 1 forwards',
+
+        /* ---- StudyBuddy motion set ---- */
+        'fade-up': 'fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        'sheet-up': 'sheet-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        'cell-pop': 'cell-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'task-check': 'task-check 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'task-done': 'task-done 0.3s ease-out 0.4s forwards',
+        'tap-pulse': 'tap-pulse 1.8s ease-out infinite',
+        'toast-in': 'toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'toast-out': 'toast-out 0.3s ease-in forwards',
+        'blob-drift': 'blob-drift 24s ease-in-out infinite',
       },
     },
   },

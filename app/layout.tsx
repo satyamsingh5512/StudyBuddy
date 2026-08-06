@@ -5,13 +5,22 @@ import '../src/index.css';
 // it has no visual effect on any other route.
 import '../src/styles/dashboard-glass-tokens.css';
 import '../src/styles/dashboard-glass.css';
+// StudyBuddy design language. Imported LAST so its token overrides win
+// the cascade. Removing this single line reverts the app to the previous theme.
+import '../src/styles/studybuddy-theme.css';
 import { Analytics } from '@vercel/analytics/next';
-import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
+import { Inter, JetBrains_Mono, Newsreader } from 'next/font/google';
 
 import { Providers } from './Providers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit', display: 'swap' });
+// Editorial serif, used sparingly for quotes and empty states.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+  display: 'swap',
+});
+// Primary body + heading face for the whole product.
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
@@ -31,8 +40,8 @@ export const metadata = {
 
 export const viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+    { media: '(prefers-color-scheme: light)', color: '#f5f5f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e0f10' },
   ],
 };
 
@@ -71,7 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${inter.variable} ${outfit.variable} ${jetBrainsMono.variable}`}>
+      <body className={`${inter.variable} ${newsreader.variable} ${jetBrainsMono.variable}`}>
         <Providers>{children}</Providers>
         <Analytics />
       </body>

@@ -4,24 +4,38 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { soundManager } from '@/lib/sounds';
 
+/**
+ * Button — StudyBuddy idiom.
+ *
+ * Buttons are flat: no shadow, no hover lift. Depth comes only from a
+ * low-alpha ink hairline, and feedback is a 2% scale press plus a 3% ink wash
+ * on hover. Radius is a generous 1rem (`rounded-2xl`) on every size.
+ *
+ * Variant names are unchanged from the previous glass theme so existing call
+ * sites pick up the new language without edits.
+ */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-95',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-[15px] font-medium tracking-[-0.01em] transition-all duration-150 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] cursor-pointer',
   {
     variants: {
       variant: {
-        default: 'bg-primary/90 text-primary-foreground border border-white/30 shadow-glass-sm hover:bg-primary hover:shadow-glass hover:-translate-y-0.5',
-        destructive: 'bg-destructive/90 text-destructive-foreground border border-white/20 hover:bg-destructive hover:shadow-glass hover:-translate-y-0.5',
-        outline: 'glass-control text-foreground hover:bg-white/55 dark:hover:bg-white/10 hover:-translate-y-0.5',
-        secondary: 'glass-control text-secondary-foreground hover:bg-white/55 dark:hover:bg-white/10 hover:-translate-y-0.5',
-        ghost: 'hover:bg-white/40 dark:hover:bg-white/10 hover:text-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
-        glass: 'glass text-foreground shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5',
+        default: 'bg-brand text-on-accent hover:brightness-110',
+        destructive: 'bg-destructive text-destructive-foreground hover:brightness-110',
+        outline:
+          'border border-hairline bg-surface text-ink hover:bg-ink/[0.03] dark:hover:bg-white/[0.04]',
+        secondary: 'bg-surface-muted text-ink hover:bg-ink/[0.05] dark:hover:bg-white/[0.06]',
+        ghost: 'text-ink hover:bg-ink/[0.04] dark:hover:bg-white/[0.05]',
+        link: 'text-brand underline-offset-4 hover:underline',
+        /* Tinted accent button: reads as primary without the full blue fill. */
+        subtle: 'bg-brand-subtle text-brand border border-hairline-accent hover:bg-brand-light',
+        /* Retained alias so `variant="glass"` call sites keep compiling. */
+        glass: 'border border-hairline bg-surface text-ink hover:bg-ink/[0.03]',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-lg px-3',
-        lg: 'h-11 rounded-xl px-8',
-        icon: 'h-10 w-10',
+        default: 'h-11 px-4 py-2',
+        sm: 'h-9 px-3 text-sm',
+        lg: 'h-[52px] px-6',
+        icon: 'h-11 w-11',
       },
     },
     defaultVariants: {
@@ -83,7 +97,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(
           buttonVariants({ variant, size, className }),
-          isPressed && !disabled && 'scale-95 transition-transform'
+          isPressed && !disabled && 'scale-[0.98] transition-transform'
         )}
         ref={ref}
         onClick={handleClick}

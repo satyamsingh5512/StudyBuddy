@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,15 +25,28 @@ import (
 
 const googleOAuthStateCookie = "google_oauth_state"
 
+// appClientURL resolves the absolute app origin used to build user-facing
+// redirects. It must always return an absolute URL: a schemeless value would be
+// treated as a relative path by the browser and resolve against whatever origin
+// the user is currently on (e.g. http://localhost:<port>/example.com/auth).
 func appClientURL() string {
 	clientURL := strings.TrimSpace(os.Getenv("CLIENT_URL"))
 	if clientURL == "" {
 		clientURL = strings.TrimSpace(os.Getenv("NEXT_PUBLIC_APP_URL"))
 	}
 	if clientURL == "" {
+		if os.Getenv("NODE_ENV") == "production" {
+			log.Println("auth: CLIENT_URL and NEXT_PUBLIC_APP_URL are unset; user-facing redirects will point at localhost")
+		}
 		clientURL = "http://localhost:3000"
 	}
-	return strings.TrimRight(clientURL, "/")
+	clientURL = strings.TrimRight(clientURL, "/")
+
+	// Guarantee an absolute origin even when the variable omits the scheme.
+	if !strings.HasPrefix(clientURL, "http://") && !strings.HasPrefix(clientURL, "https://") {
+		clientURL = "https://" + clientURL
+	}
+	return clientURL
 }
 
 func googleCallbackURL(_ *fiber.Ctx) string {

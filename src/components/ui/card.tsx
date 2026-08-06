@@ -1,13 +1,17 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
+/**
+ * Card — StudyBuddy idiom: flat surface, 1px low-alpha ink hairline, 1rem radius,
+ * no shadow and no hover lift. Hover only firms the border slightly.
+ */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'glass-card rounded-2xl text-card-foreground transition-[transform,box-shadow] duration-300',
-        'hover:shadow-glass-lg',
+        'rounded-2xl border border-hairline bg-surface text-ink',
+        'transition-colors duration-300 ease-out-soft hover:border-hairline-strong',
         className
       )}
       {...props}

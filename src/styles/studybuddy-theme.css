@@ -1,0 +1,223 @@
+/**
+ * studybuddy-theme.css — the StudyBuddy design language.
+ *
+ * Two jobs:
+ *  1. Re-point the existing shadcn-style HSL tokens (`--background`, `--primary`,
+ *     `--border`, ...) at the current palette, so every already-built view inherits
+ *     the new look without being rewritten.
+ *  2. Add the palette's native tokens (`--page`, `--surface`, `--ink`, `--accent-*`)
+ *     for new components authored directly in this language.
+ *
+ * This file is imported LAST in app/layout.tsx so it wins the cascade.
+ * Delete that one import line to revert the entire theme.
+ *
+ * Palette reference
+ *   accent          #1d4dff   electric blue
+ *   accent-light    #e8edff
+ *   light: page #f5f5f5 · surface #fff · ink #0a0a0a · muted #999
+ *   dark:  page #0e0f10 · surface #1a1b1d · ink #ececec · muted #8a8a8a
+ */
+
+:root {
+  /* ---- native palette tokens (raw hex/rgb, no hsl() wrapper) ---- */
+  --page: #f5f5f5;
+  --surface: #ffffff;
+  --surface-muted: #f3f4f6;
+  --ink: #0a0a0a;
+  --ink-rgb: 10 10 10;
+  --muted-ink: #999999;
+
+  --accent-raw: #1d4dff;
+  --accent-rgb: 29 77 255;
+  --accent-light: #e8edff;
+  --accent-subtle: rgba(29, 77, 255, 0.06);
+  --on-accent: #ffffff;
+  --on-accent-muted: rgba(255, 255, 255, 0.6);
+
+  --hairline: rgba(10, 10, 10, 0.1);
+  --hairline-strong: rgba(10, 10, 10, 0.16);
+  --border-accent: rgba(29, 77, 255, 0.25);
+  --border-accent-strong: rgba(29, 77, 255, 0.45);
+
+  /* Motion — CSS transitions with a long, soft settle. */
+  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0, 0, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-base: 300ms;
+  --dur-slow: 400ms;
+  --dur-reveal: 700ms;
+
+  /* ---- re-point existing shadcn HSL tokens onto the new palette ---- */
+  --background: 0 0% 96%; /* #f5f5f5 */
+  --foreground: 0 0% 4%; /* #0a0a0a */
+
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+
+  --primary: 227 100% 56%; /* #1d4dff */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 14% 96%; /* #f3f4f6 */
+  --secondary-foreground: 0 0% 4%;
+
+  --muted: 220 14% 96%;
+  --muted-foreground: 0 0% 60%; /* #999 */
+
+  /* `accent` was amber; the palette has a single accent, so it mirrors primary. */
+  --accent: 227 100% 56%;
+  --accent-foreground: 0 0% 100%;
+
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --info: 227 100% 56%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 227 100% 56%;
+
+  /* Flat and generously rounded: a single 1rem radius everywhere. */
+  --radius: 1rem;
+
+  /* Neutralise the glassmorphism layer — the new language has no frosted panels. */
+  --glass-bg: 255 255 255;
+  --glass-opacity: 1;
+  --glass-border: 10 10 10;
+  --glass-border-opacity: 0.1;
+  --glass-shadow: none;
+  --glass-shadow-hover: none;
+  --glass-inset: transparent;
+
+  /* SVG gradient background component tokens */
+  --color-primary: #1d4dff;
+  --color-secondary: #f3f4f6;
+  --color-accent: #1d4dff;
+  --color-destructive: #ef4444;
+}
+
+.dark {
+  --page: #0e0f10;
+  --surface: #1a1b1d;
+  --surface-muted: #1f2022;
+  --ink: #ececec;
+  --ink-rgb: 236 236 236;
+  --muted-ink: #8a8a8a;
+
+  --accent-light: rgba(29, 77, 255, 0.16);
+  --accent-subtle: rgba(29, 77, 255, 0.1);
+
+  --hairline: rgba(236, 236, 236, 0.1);
+  --hairline-strong: rgba(236, 236, 236, 0.16);
+
+  --background: 210 5% 6%; /* #0e0f10 */
+  --foreground: 0 0% 93%; /* #ececec */
+
+  --card: 220 4% 11%; /* #1a1b1d */
+  --card-foreground: 0 0% 93%;
+  --popover: 220 4% 13%;
+  --popover-foreground: 0 0% 93%;
+
+  --primary: 227 100% 56%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 4% 13%; /* #1f2022 */
+  --secondary-foreground: 0 0% 93%;
+
+  --muted: 220 4% 13%;
+  --muted-foreground: 0 0% 54%; /* #8a8a8a */
+
+  --accent: 227 100% 56%;
+  --accent-foreground: 0 0% 100%;
+
+  --border: 220 4% 18%;
+  --input: 220 4% 18%;
+  --ring: 227 100% 56%;
+
+  --glass-bg: 26 27 29;
+  --glass-opacity: 1;
+  --glass-border: 236 236 236;
+  --glass-border-opacity: 0.1;
+  --glass-shadow: none;
+  --glass-shadow-hover: none;
+  --glass-inset: transparent;
+
+  --color-secondary: #1f2022;
+}
+
+/* The mono face is the *body* font, not just for code. */
+body {
+  background-color: var(--page);
+  color: var(--ink);
+  font-family:
+    var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    monospace;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tight tracking on headings is a big part of the feel. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.03em;
+}
+
+/* Hairline borders: never a solid 1px grey, always a low-alpha ink. */
+.border-hairline {
+  border-color: var(--hairline);
+}
+.border-hairline-strong {
+  border-color: var(--hairline-strong);
+}
+
+/* The interaction signature: soft lift on hover, physical press on click. */
+.press {
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft),
+    transform var(--dur-fast) var(--ease-out-soft);
+}
+.press:active {
+  transform: scale(0.98);
+}
+
+/* Staggered reveal used by the landing/auth entrance.
+ *
+ * Implemented as a CSS animation rather than a JS-toggled transition so it
+ * plays on first paint. A transition needs a class flip after mount, which
+ * leaves the hero at opacity:0 until React hydrates — an empty page if JS is
+ * slow or blocked. `forwards` holds the end state once it finishes.
+ *
+ * Delay rides `--reveal-delay`, set inline per element. */
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  --reveal-delay: 0ms;
+  opacity: 0;
+  animation: reveal-rise var(--dur-reveal) var(--ease-brand) var(--reveal-delay) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+  .press:active {
+    transform: none;
+  }
+}

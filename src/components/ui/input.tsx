@@ -21,7 +21,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          'flex h-10 w-full rounded-xl border border-input bg-background/60 backdrop-blur-md px-3.5 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:border-ring/60 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200',
+          // StudyBuddy idiom: flat field, ink hairline, accent border on focus, no blur.
+          'flex h-12 w-full rounded-2xl border border-hairline bg-surface px-4 py-3 text-[15px] tracking-[-0.01em] text-ink',
+          'file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-ink',
+          'transition-colors duration-150 ease-out-soft',
+          'focus-visible:border-hairline-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20',
+          'disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
         onFocus={handleFocus}
