@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+const tailwindConfig = {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}', './app/**/*.{js,ts,jsx,tsx}'],
   theme: {
@@ -230,3 +230,5 @@ export default {
   },
   plugins: [require('tailwindcss-animate')],
 };
+
+export default tailwindConfig;

@@ -86,3 +86,12 @@ Proprietary software. All rights reserved.
 ## Contact
 
 Visit [sbd.satym.in](https://sbd.satym.in) for support and inquiries.
+
+
+## Personalization, reminders, and PWA
+
+Authenticated users can show, hide, and reorder an allowlisted set of dashboard widgets. Compact widgets include a daily summary, weekly check-in link, achievement preview, and batch Quick Show-up with per-goal results. Profile preferences also store an IANA timezone, sans/mono/serif font, accessible accent selection, foreground show-up reminder schedule, and Mentor journal-context default.
+
+Show-up and schedule reminders are foreground browser helpers: in-app toasts work only while StudyBuddy is open, and optional browser notifications require an explicit permission action in Settings. They do not guarantee closed-app or background delivery.
+
+StudyBuddy includes an installable web app manifest and a static-only service worker. The worker caches versioned public assets only; it never caches `/api` traffic, navigation HTML, authentication/private responses, schedules, or account data. Authenticated content and AI functionality require a network connection. See the protected `/help` page for platform-specific installation guidance and browser limitations.
