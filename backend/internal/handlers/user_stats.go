@@ -35,7 +35,7 @@ func reconcileUserStats(ctx context.Context, user *models.User, loc *time.Locati
 	}
 
 	if user.LastStudyAt != nil && !user.LastStudyAt.IsZero() && user.Streak > 0 {
-		gapDays := int(dayStartInLocation(now, loc).Sub(dayStartInLocation(*user.LastStudyAt, loc)).Hours() / 24)
+		gapDays := localDayGap(*user.LastStudyAt, now, loc)
 		if gapDays > 1 {
 			updateSet["streak"] = 0
 			user.Streak = 0
@@ -54,4 +54,3 @@ func reconcileUserStats(ctx context.Context, user *models.User, loc *time.Locati
 
 	return updateSet, nil
 }
-

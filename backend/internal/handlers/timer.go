@@ -173,6 +173,14 @@ func localDayGap(from, to time.Time, loc *time.Location) int {
 	return int(toStamp.Sub(fromStamp).Hours() / 24)
 }
 
+func timerUserStatsUpdate(durationMinutes, pointsEarned, bestStreakCandidate int, updateSet bson.M) bson.M {
+	return bson.M{
+		"$inc": bson.M{"totalStudyMinutes": durationMinutes, "totalPoints": pointsEarned},
+		"$set": updateSet,
+		"$max": bson.M{"bestStreak": bestStreakCandidate},
+	}
+}
+
 func SaveTimerSession(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
 
@@ -210,9 +218,12 @@ func SaveTimerSession(c *fiber.Ctx) error {
 
 	now := time.Now()
 	location := time.UTC
-	if req.Timezone != "" {
-		if tz, err := time.LoadLocation(req.Timezone); err == nil {
-			location = tz
+	for _, timezone := range []string{req.Timezone, user.Timezone} {
+		if timezone != "" {
+			if tz, err := time.LoadLocation(timezone); err == nil {
+				location = tz
+				break
+			}
 		}
 	}
 
@@ -287,10 +298,14 @@ func SaveTimerSession(c *fiber.Ctx) error {
 		}
 	}
 
-	usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
-		"$inc": bson.M{"totalStudyMinutes": durationMinutes, "totalPoints": pointsEarned},
-		"$set": updateSet,
-	})
+	bestStreakCandidate := user.BestStreak
+	if user.Streak > bestStreakCandidate {
+		bestStreakCandidate = user.Streak
+	}
+	if streakAfterSave > bestStreakCandidate {
+		bestStreakCandidate = streakAfterSave
+	}
+	usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, timerUserStatsUpdate(durationMinutes, pointsEarned, bestStreakCandidate, updateSet))
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message":      "Session saved",

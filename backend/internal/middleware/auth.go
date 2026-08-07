@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func RequireAuth(c *fiber.Ctx) error {
@@ -42,6 +41,7 @@ func RequireAuth(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized", "message": "Unauthorized"})
 	}
 
+	models.NormalizeUserPreferences(&user)
 	c.Locals("user", user)
 	return c.Next()
 }
@@ -59,54 +59,7 @@ func SetupIndexes() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	type indexSpec struct {
-		keys bson.D
-		opts *options.IndexOptions
-	}
-
-	collectionIndexes := map[string][]indexSpec{
-		"users": {
-			{bson.D{{Key: "email", Value: 1}}, options.Index().SetName("idx_users_email").SetUnique(true)},
-			{bson.D{{Key: "username", Value: 1}}, options.Index().SetName("idx_users_username").SetUnique(true)},
-			{bson.D{{Key: "lastActive", Value: -1}}, options.Index().SetName("idx_users_lastActive")},
-			{bson.D{{Key: "totalPoints", Value: -1}}, options.Index().SetName("idx_users_totalPoints")},
-		},
-		"todos": {
-			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_todos_userId")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "dueDate", Value: -1}}, options.Index().SetName("idx_todos_userId_dueDate")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "scheduledDate", Value: -1}}, options.Index().SetName("idx_todos_userId_scheduledDate")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "completed", Value: 1}}, options.Index().SetName("idx_todos_userId_completed")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "scheduledDate", Value: -1}, {Key: "completed", Value: 1}}, options.Index().SetName("idx_todos_userId_scheduled_completed")},
-		},
-		"timer_sessions": {
-			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_timer_userId")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "startTime", Value: -1}}, options.Index().SetName("idx_timer_userId_startTime")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_timer_userId_createdAt")},
-		},
-		"daily_reports": {
-			{bson.D{{Key: "userId", Value: 1}, {Key: "date", Value: -1}}, options.Index().SetName("idx_reports_userId_date")},
-		},
-		"direct_messages": {
-			{bson.D{{Key: "senderId", Value: 1}, {Key: "receiverId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_direct_messages_sender_receiver_created")},
-			{bson.D{{Key: "receiverId", Value: 1}, {Key: "senderId", Value: 1}, {Key: "read", Value: 1}}, options.Index().SetName("idx_direct_messages_receiver_sender_read")},
-		},
-		"friend_requests": {
-			{bson.D{{Key: "senderId", Value: 1}, {Key: "receiverId", Value: 1}}, options.Index().SetName("idx_friend_requests_pair")},
-			{bson.D{{Key: "receiverId", Value: 1}, {Key: "status", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_friend_requests_receiver_status")},
-			{bson.D{{Key: "senderId", Value: 1}, {Key: "status", Value: 1}}, options.Index().SetName("idx_friend_requests_sender_status")},
-		},
-		"blocks": {
-			{bson.D{{Key: "blockerId", Value: 1}, {Key: "blockedId", Value: 1}}, options.Index().SetName("idx_blocks_pair").SetUnique(true)},
-			{bson.D{{Key: "blockedId", Value: 1}, {Key: "blockerId", Value: 1}}, options.Index().SetName("idx_blocks_reverse_pair")},
-		},
-		"notes": {
-			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_notes_userId")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "pinned", Value: -1}}, options.Index().SetName("idx_notes_userId_pinned")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_notes_userId_createdAt")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "color", Value: 1}}, options.Index().SetName("idx_notes_userId_color")},
-			{bson.D{{Key: "userId", Value: 1}, {Key: "tags", Value: 1}}, options.Index().SetName("idx_notes_userId_tags")},
-		},
-	}
+	collectionIndexes := indexSpecifications()
 
 	for collectionName, specs := range collectionIndexes {
 		coll := config.DB.Collection(collectionName)

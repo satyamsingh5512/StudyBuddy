@@ -16,16 +16,24 @@ import (
 )
 
 type Report struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	UserID        primitive.ObjectID `bson:"userId" json:"-"`
-	Date          time.Time          `bson:"date" json:"date"`
-	StudyHours    float64            `bson:"studyHours" json:"studyHours"`
-	HoursLogged   float64            `bson:"hoursLogged" json:"hoursLogged"`
-	PointsEarned  int                `bson:"pointsEarned" json:"pointsEarned"`
-	CompletionPct float64            `bson:"completionPct" json:"completionPct"`
-	Notes         string             `bson:"notes" json:"notes"`
-	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
+	ID                 primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID             primitive.ObjectID `bson:"userId" json:"-"`
+	Date               time.Time          `bson:"date" json:"date"`
+	TasksPlanned       int                `bson:"tasksPlanned" json:"tasksPlanned"`
+	TasksCompleted     int                `bson:"tasksCompleted" json:"tasksCompleted"`
+	QuestionsPlanned   int                `bson:"questionsPlanned" json:"questionsPlanned"`
+	QuestionsCompleted int                `bson:"questionsCompleted" json:"questionsCompleted"`
+	QuestionsEasy      int                `bson:"questionsEasy,omitempty" json:"questionsEasy"`
+	QuestionsMedium    int                `bson:"questionsMedium,omitempty" json:"questionsMedium"`
+	QuestionsHard      int                `bson:"questionsHard,omitempty" json:"questionsHard"`
+	StudyHours         float64            `bson:"studyHours" json:"studyHours"`
+	Understanding      float64            `bson:"understanding" json:"understanding"`
+	HoursLogged        float64            `bson:"hoursLogged" json:"hoursLogged"`
+	PointsEarned       int                `bson:"pointsEarned" json:"pointsEarned"`
+	CompletionPct      float64            `bson:"completionPct" json:"completionPct"`
+	Notes              string             `bson:"notes" json:"notes"`
+	CreatedAt          time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt          time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 type DailyEfficiencyResponse struct {
@@ -71,20 +79,20 @@ type dailyEfficiencyRaw struct {
 }
 
 const (
-	focusSessionThresholdMinutes         = 20
-	shortStartThresholdMinutes           = 8
-	dailyMinutesBenchmark                = 180.0
-	maxEfficiencyTrendDays               = 90
-	weightTaskCompletion                 = 0.40
-	weightFocusCompletion                = 0.35
-	weightTimerUsage                     = 0.15
-	weightTimerMinutes                   = 0.10
-	abandonedStartPenaltyWeight          = 0.55
-	shortStartPenaltyWeight              = 0.30
-	abandonedStartCountPenaltyWeight     = 2.0
-	shortStartCountPenaltyWeight         = 0.75
-	abandonedCountPenaltyCap             = 24.0
-	shortCountPenaltyCap                 = 10.0
+	focusSessionThresholdMinutes     = 20
+	shortStartThresholdMinutes       = 8
+	dailyMinutesBenchmark            = 180.0
+	maxEfficiencyTrendDays           = 90
+	weightTaskCompletion             = 0.40
+	weightFocusCompletion            = 0.35
+	weightTimerUsage                 = 0.15
+	weightTimerMinutes               = 0.10
+	abandonedStartPenaltyWeight      = 0.55
+	shortStartPenaltyWeight          = 0.30
+	abandonedStartCountPenaltyWeight = 2.0
+	shortStartCountPenaltyWeight     = 0.75
+	abandonedCountPenaltyCap         = 24.0
+	shortCountPenaltyCap             = 10.0
 )
 
 func clampPct(value float64) float64 {
@@ -127,7 +135,7 @@ func collectDailyEfficiencyRaw(
 	loc *time.Location,
 ) (map[string]*dailyEfficiencyRaw, error) {
 	byDay := map[string]*dailyEfficiencyRaw{}
-	for day := startDay; day.Before(endDay); day = day.Add(24 * time.Hour) {
+	for day := startDay; day.Before(endDay); day = day.AddDate(0, 0, 1) {
 		byDay[day.Format("2006-01-02")] = &dailyEfficiencyRaw{}
 	}
 
@@ -253,9 +261,9 @@ func buildDailyEfficiencyResponse(day time.Time, raw *dailyEfficiencyRaw) DailyE
 
 	strictPenaltyPoints :=
 		(abandonRatePct * abandonedStartPenaltyWeight) +
-		(shortStartRatePct * shortStartPenaltyWeight) +
-		abandonedCountPenalty +
-		shortCountPenalty
+			(shortStartRatePct * shortStartPenaltyWeight) +
+			abandonedCountPenalty +
+			shortCountPenalty
 
 	baseScore :=
 		(taskCompletionPct * weightTaskCompletion) +
@@ -303,10 +311,13 @@ func GetDailyEfficiency(c *fiber.Ctx) error {
 	}
 
 	now := time.Now()
-	loc := now.Location()
+	loc, locationErr := reportLocation(c, user, "")
+	if locationErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": locationErr.Error()})
+	}
 	startOfToday := dayStartInLocation(now, loc)
 	rangeStart := startOfToday.AddDate(0, 0, -(days - 1))
-	rangeEnd := startOfToday.Add(24 * time.Hour)
+	rangeEnd := startOfToday.AddDate(0, 0, 1)
 	activityStart := rangeStart
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -391,12 +402,34 @@ func GetReports(c *fiber.Ctx) error {
 }
 
 type CreateReportRequest struct {
-	Date          string  `json:"date"`
-	StudyHours    float64 `json:"studyHours"`
-	HoursLogged   float64 `json:"hoursLogged"`
-	PointsEarned  int     `json:"pointsEarned"`
-	CompletionPct float64 `json:"completionPct"`
-	Notes         string  `json:"notes"`
+	Date               string  `json:"date"`
+	Timezone           string  `json:"timezone"`
+	TasksPlanned       int     `json:"tasksPlanned"`
+	TasksCompleted     int     `json:"tasksCompleted"`
+	QuestionsPlanned   int     `json:"questionsPlanned"`
+	QuestionsCompleted int     `json:"questionsCompleted"`
+	QuestionsEasy      int     `json:"questionsEasy"`
+	QuestionsMedium    int     `json:"questionsMedium"`
+	QuestionsHard      int     `json:"questionsHard"`
+	StudyHours         float64 `json:"studyHours"`
+	Understanding      float64 `json:"understanding"`
+	HoursLogged        float64 `json:"hoursLogged"`
+	PointsEarned       int     `json:"pointsEarned"`
+	CompletionPct      float64 `json:"completionPct"`
+	Notes              string  `json:"notes"`
+}
+
+func normalizeLegacyReportRequest(req *CreateReportRequest) {
+	legacyQuestions := req.QuestionsEasy + req.QuestionsMedium + req.QuestionsHard
+	if req.QuestionsCompleted == 0 && legacyQuestions > 0 {
+		req.QuestionsCompleted = legacyQuestions
+	}
+	if req.QuestionsPlanned == 0 {
+		req.QuestionsPlanned = req.QuestionsCompleted
+	}
+	if req.HoursLogged == 0 {
+		req.HoursLogged = req.StudyHours
+	}
 }
 
 func CreateReport(c *fiber.Ctx) error {
@@ -406,35 +439,36 @@ func CreateReport(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
-
-	reportDate, err := time.Parse(time.RFC3339, req.Date)
-	if err != nil {
-		// Fallback to simple date parsing if RFC3339 fails (since JS Date string might differ based on frontend)
-		reportDate, _ = time.Parse("2006-01-02", req.Date) 
+	normalizeLegacyReportRequest(&req)
+	if err := validateReportRequest(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
-
+	location, err := reportLocation(c, user, req.Timezone)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	reportDate, err := parseReportDate(req.Date, location, time.Now())
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	now := time.Now().UTC()
 	newReport := Report{
-		UserID:        user.ID,
-		Date:          reportDate,
-		StudyHours:    req.StudyHours,
-		HoursLogged:   req.HoursLogged,
-		PointsEarned:  req.PointsEarned,
-		CompletionPct: req.CompletionPct,
-		Notes:         req.Notes,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		UserID: user.ID, Date: reportDate,
+		TasksPlanned: req.TasksPlanned, TasksCompleted: req.TasksCompleted,
+		QuestionsPlanned: req.QuestionsPlanned, QuestionsCompleted: req.QuestionsCompleted,
+		QuestionsEasy: req.QuestionsEasy, QuestionsMedium: req.QuestionsMedium, QuestionsHard: req.QuestionsHard,
+		StudyHours: req.StudyHours, Understanding: req.Understanding, HoursLogged: req.HoursLogged,
+		PointsEarned: req.PointsEarned, CompletionPct: req.CompletionPct, Notes: req.Notes,
+		CreatedAt: now, UpdatedAt: now,
 	}
 
 	collection := config.DB.Collection("daily_reports")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	res, err := collection.InsertOne(ctx, newReport)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create report"})
 	}
-
 	newReport.ID = res.InsertedID.(primitive.ObjectID)
-
 	return c.Status(fiber.StatusCreated).JSON(newReport)
 }

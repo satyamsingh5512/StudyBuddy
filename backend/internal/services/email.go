@@ -64,9 +64,10 @@ func sendEmail(to, subject, htmlBody, textBody string) error {
 // sendViaResend sends a transactional email through Resend's HTTP API.
 //
 // Required env:
-//   RESEND_API_KEY – Resend API key (re_...)
-//   EMAIL_FROM     – Sender, e.g. "StudyBuddy <noreply@yourdomain.com>"
-//                    (the domain must be verified in Resend)
+//
+//	RESEND_API_KEY – Resend API key (re_...)
+//	EMAIL_FROM     – Sender, e.g. "StudyBuddy <noreply@yourdomain.com>"
+//	                 (the domain must be verified in Resend)
 func sendViaResend(apiKey, to, subject, htmlBody, textBody string) error {
 	payload := map[string]interface{}{
 		"from":    emailFromHeader(),
@@ -107,13 +108,15 @@ func sendViaResend(apiKey, to, subject, htmlBody, textBody string) error {
 // Used as a fallback when Resend is not configured.
 //
 // Required environment variables:
-//   ZEPTOMAIL_SMTP_USER     – SMTP username shown in the ZeptoMail mail-agent
-//   ZEPTOMAIL_SMTP_PASSWORD – SMTP token / password for the mail-agent
-//   EMAIL_FROM              – Sender address, e.g. "StudyBuddy <noreply@studybuddy.app>"
+//
+//	ZEPTOMAIL_SMTP_USER     – SMTP username shown in the ZeptoMail mail-agent
+//	ZEPTOMAIL_SMTP_PASSWORD – SMTP token / password for the mail-agent
+//	EMAIL_FROM              – Sender address, e.g. "StudyBuddy <noreply@studybuddy.app>"
 //
 // Optional environment variables (sensible defaults are applied):
-//   ZEPTOMAIL_SMTP_HOST     – defaults to smtp.zeptomail.in
-//   ZEPTOMAIL_SMTP_PORT     – defaults to 587
+//
+//	ZEPTOMAIL_SMTP_HOST     – defaults to smtp.zeptomail.in
+//	ZEPTOMAIL_SMTP_PORT     – defaults to 587
 func sendZeptoEmail(to, subject, htmlBody, textBody string) error {
 	smtpUser := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_USER"))
 	smtpPass := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_PASSWORD"))

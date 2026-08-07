@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
@@ -13,15 +16,131 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type todoListQuery struct {
+	filter bson.M
+	limit  int64
+	offset int64
+}
+
+func todoListLocation(requestTimezone, profileTimezone string) (*time.Location, error) {
+	requestTimezone = strings.TrimSpace(requestTimezone)
+	if requestTimezone != "" {
+		location, err := time.LoadLocation(requestTimezone)
+		if err != nil {
+			return nil, fmt.Errorf("timezone must be a valid IANA timezone")
+		}
+		return location, nil
+	}
+	if location, ok := loadGoalLocation(profileTimezone); ok {
+		return location, nil
+	}
+	return time.UTC, nil
+}
+
+func buildTodoListQuery(
+	userID primitive.ObjectID,
+	dateValue string,
+	overdueValue string,
+	completedValue string,
+	limitValue string,
+	offsetValue string,
+	timezoneValue string,
+	profileTimezone string,
+	now time.Time,
+) (todoListQuery, error) {
+	location, err := todoListLocation(timezoneValue, profileTimezone)
+	if err != nil {
+		return todoListQuery{}, err
+	}
+	clauses := bson.A{bson.M{"userId": userID}}
+
+	if completedValue != "" {
+		completed, err := strconv.ParseBool(completedValue)
+		if err != nil {
+			return todoListQuery{}, fmt.Errorf("completed must be true or false")
+		}
+		clauses = append(clauses, bson.M{"completed": completed})
+	}
+
+	if dateValue != "" {
+		dayStart, err := parseDateOnlyInLocation(dateValue, location)
+		if err != nil {
+			return todoListQuery{}, fmt.Errorf("date must use YYYY-MM-DD")
+		}
+		dayEnd := dayStart.AddDate(0, 0, 1)
+		clauses = append(clauses, bson.M{"$or": bson.A{
+			bson.M{"scheduledDate": bson.M{"$gte": dayStart.UTC(), "$lt": dayEnd.UTC()}},
+			bson.M{"dueDate": bson.M{"$gte": dayStart.UTC(), "$lt": dayEnd.UTC()}},
+		}})
+	}
+
+	if overdueValue != "" {
+		overdue, err := strconv.ParseBool(overdueValue)
+		if err != nil {
+			return todoListQuery{}, fmt.Errorf("overdue must be true or false")
+		}
+		if overdue {
+			today := localGoalDay(now, location).UTC()
+			clauses = append(clauses,
+				bson.M{"completed": false},
+				bson.M{"$or": bson.A{
+					bson.M{"scheduledDate": bson.M{"$lt": today}},
+					bson.M{"dueDate": bson.M{"$lt": today}},
+				}},
+			)
+		}
+	}
+
+	limit := int64(200)
+	if limitValue != "" {
+		parsed, err := strconv.ParseInt(limitValue, 10, 64)
+		if err != nil || parsed < 1 || parsed > 500 {
+			return todoListQuery{}, fmt.Errorf("limit must be between 1 and 500")
+		}
+		limit = parsed
+	}
+
+	offset := int64(0)
+	if offsetValue != "" {
+		parsed, err := strconv.ParseInt(offsetValue, 10, 64)
+		if err != nil || parsed < 0 || parsed > 10000 {
+			return todoListQuery{}, fmt.Errorf("offset must be between 0 and 10000")
+		}
+		offset = parsed
+	}
+
+	return todoListQuery{
+		filter: bson.M{"$and": clauses},
+		limit:  limit,
+		offset: offset,
+	}, nil
+}
+
 func GetTodos(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
 	collection := config.DB.Collection("todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{"userId": user.ID}, options.Find().
+	query, err := buildTodoListQuery(
+		user.ID,
+		c.Query("date"),
+		c.Query("overdue"),
+		c.Query("completed"),
+		c.Query("limit"),
+		c.Query("offset"),
+		c.Query("timezone"),
+		user.Timezone,
+		time.Now(),
+	)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	cursor, err := collection.Find(ctx, query.filter, options.Find().
 		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
-		SetLimit(500))
+		SetSkip(query.offset).
+		SetLimit(query.limit))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch todos"})
 	}
@@ -53,6 +172,15 @@ func CreateTodo(c *fiber.Ctx) error {
 	var req CreateTodoRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	req.Subject = strings.TrimSpace(req.Subject)
+	if req.Title == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Task title is required"})
+	}
+	if len([]rune(req.Title)) > 300 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Task title must be 300 characters or fewer"})
 	}
 
 	todo := models.Todo{
@@ -332,10 +460,11 @@ func RescheduleTodo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot reschedule a completed task"})
 	}
 
+	updatedAt := time.Now()
 	_, err = collection.UpdateOne(
 		ctx,
 		bson.M{"_id": objID, "userId": user.ID},
-		bson.M{"$set": bson.M{"dueDate": newScheduledDate, "scheduledDate": newScheduledDate, "updatedAt": time.Now()}, "$inc": bson.M{"rescheduledCount": 1}},
+		bson.M{"$set": bson.M{"dueDate": newScheduledDate, "scheduledDate": newScheduledDate, "updatedAt": updatedAt}, "$inc": bson.M{"rescheduledCount": 1}},
 	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reschedule"})
@@ -345,6 +474,9 @@ func RescheduleTodo(c *fiber.Ctx) error {
 	usersColl.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"totalPoints": 1}, "$set": bson.M{"lastActive": time.Now()}})
 
 	existingTodo.DueDate = &newScheduledDate
+	existingTodo.ScheduledDate = &newScheduledDate
+	existingTodo.RescheduledCount++
+	existingTodo.UpdatedAt = updatedAt
 	return c.JSON(existingTodo)
 }
 

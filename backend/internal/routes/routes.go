@@ -96,6 +96,36 @@ func SetupRoutes(app *fiber.App) {
 	todos.Patch("/:id/reschedule", handlers.RescheduleTodo)
 	todos.Post("/:id/reschedule-to-today", handlers.RescheduleToToday)
 
+	// Goals and show-up tracking
+	goals := protected.Group("/goals")
+	goals.Get("/", handlers.GetGoals)
+	goals.Post("/", handlers.CreateGoal)
+	// Keep collection-level batch paths before all /:id routes.
+	goals.Post("/show-ups/batch", handlers.PutShowUpsBatch)
+	goals.Get("/:id", handlers.GetGoal)
+	goals.Patch("/:id", handlers.PatchGoal)
+	goals.Delete("/:id", handlers.DeleteGoal)
+	goals.Post("/:id/complete", handlers.CompleteGoal)
+	goals.Post("/:id/archive", handlers.ArchiveGoal)
+	goals.Post("/:id/restore", handlers.RestoreGoal)
+	goals.Post("/:id/sub-goals", handlers.AddSubGoal)
+	goals.Patch("/:id/sub-goals/reorder", handlers.ReorderSubGoals)
+	goals.Patch("/:id/sub-goals/:subGoalId", handlers.UpdateSubGoal)
+	goals.Delete("/:id/sub-goals/:subGoalId", handlers.DeleteSubGoal)
+	goals.Post("/:id/milestones", handlers.AddMilestone)
+	goals.Patch("/:id/milestones/reorder", handlers.ReorderMilestones)
+	goals.Patch("/:id/milestones/:milestoneId", handlers.UpdateMilestone)
+	goals.Delete("/:id/milestones/:milestoneId", handlers.DeleteMilestone)
+	goals.Get("/:id/completions", handlers.GetGoalCompletions)
+	goals.Put("/:id/sub-goals/:subGoalId/completions/:date", handlers.PutGoalCompletion)
+	goals.Delete("/:id/sub-goals/:subGoalId/completions/:date", handlers.DeleteGoalCompletion)
+	goals.Get("/:id/show-ups", handlers.GetShowUps)
+	goals.Put("/:id/show-ups/:date", handlers.PutShowUp)
+	goals.Delete("/:id/show-ups/:date", handlers.DeleteShowUp)
+	goals.Get("/:id/check-ins", handlers.GetGoalCheckIns)
+	goals.Put("/:id/check-ins/:weekStart", handlers.PutGoalCheckIn)
+	goals.Get("/:id/stats", handlers.GetGoalStats)
+
 	// Timer
 	timer := protected.Group("/timer")
 	timer.Post("/session", handlers.SaveTimerSession)
@@ -129,6 +159,20 @@ func SetupRoutes(app *fiber.App) {
 	notes.Put("/:id", handlers.UpdateNote)
 	notes.Patch("/:id", handlers.UpdateNote) // Support PATCH for frontend compatibility
 	notes.Delete("/:id", handlers.DeleteNote)
+
+	// Journal (separate from the legacy notepad /notes domain)
+	journal := protected.Group("/journal")
+	journal.Get("/", handlers.GetJournalRange)
+	journal.Post("/attachments", handlers.UploadJournalAttachment)
+	journal.Get("/attachments/:id", handlers.GetJournalAttachment)
+	journal.Delete("/attachments/:id", handlers.DeleteJournalAttachment)
+	journal.Get("/:date", handlers.GetJournalEntry)
+	journal.Put("/:date", handlers.PutJournalEntry)
+	journal.Delete("/:date", handlers.DeleteJournalEntry)
+
+	// Read-only contextual AI mentor and derived achievements
+	protected.Post("/mentor/respond", middleware.RateLimit(20, time.Hour), handlers.MentorRespond)
+	protected.Get("/achievements", handlers.GetAchievements)
 
 	// Schedule (AI-powered smart schedule)
 	schedule := protected.Group("/schedule")

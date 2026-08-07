@@ -70,15 +70,17 @@ func CheckUsername(c *fiber.Ctx) error {
 }
 
 type UpdateProfileRequest struct {
-	Name         *string   `json:"name,omitempty"`
-	ExamGoal     *string   `json:"examGoal,omitempty"`
-	ExamDate     *time.Time `json:"examDate,omitempty"`
-	StudentClass *string   `json:"studentClass,omitempty"`
-	Batch        *string   `json:"batch,omitempty"`
-	Syllabus     *string   `json:"syllabus,omitempty"`
-	Subjects     *[]string `json:"subjects,omitempty"`
-	ShowProfile  *bool     `json:"showProfile,omitempty"`
-	StatsResetAt *time.Time `json:"statsResetAt,omitempty"`
+	Name         *string               `json:"name,omitempty"`
+	ExamGoal     *string               `json:"examGoal,omitempty"`
+	ExamDate     *time.Time            `json:"examDate,omitempty"`
+	StudentClass *string               `json:"studentClass,omitempty"`
+	Batch        *string               `json:"batch,omitempty"`
+	Syllabus     *string               `json:"syllabus,omitempty"`
+	Subjects     *[]string             `json:"subjects,omitempty"`
+	Timezone     *string               `json:"timezone,omitempty"`
+	ShowProfile  *bool                 `json:"showProfile,omitempty"`
+	StatsResetAt *time.Time            `json:"statsResetAt,omitempty"`
+	Preferences  *userPreferencesPatch `json:"preferences,omitempty"`
 }
 
 func UpdateProfile(c *fiber.Ctx) error {
@@ -111,6 +113,15 @@ func UpdateProfile(c *fiber.Ctx) error {
 	if req.Subjects != nil {
 		updateDoc["subjects"] = *req.Subjects
 	}
+	if req.Timezone != nil {
+		timezone := strings.TrimSpace(*req.Timezone)
+		if timezone != "" {
+			if _, err := time.LoadLocation(timezone); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "timezone must be a valid IANA timezone"})
+			}
+		}
+		updateDoc["timezone"] = timezone
+	}
 	if req.ShowProfile != nil {
 		updateDoc["showProfile"] = *req.ShowProfile
 	}
@@ -118,7 +129,11 @@ func UpdateProfile(c *fiber.Ctx) error {
 		updateDoc["statsResetAt"] = *req.StatsResetAt
 		updateDoc["statsResetAppliedAt"] = nil
 	}
+	if err := applyPreferencesPatch(req.Preferences, updateDoc); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
+	models.NormalizeUserPreferences(&user)
 	if len(updateDoc) == 0 {
 		return c.JSON(user)
 	}
@@ -145,5 +160,6 @@ func UpdateProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
+	models.NormalizeUserPreferences(&updatedUser)
 	return c.JSON(updatedUser)
 }

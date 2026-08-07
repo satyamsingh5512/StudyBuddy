@@ -20,7 +20,7 @@ type SendFriendRequestPayload struct {
 
 func SendFriendRequest(c *fiber.Ctx) error {
 	user := c.Locals("user").(models.User)
-	
+
 	var req SendFriendRequestPayload
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
@@ -126,15 +126,15 @@ func GetFriends(c *fiber.Ctx) error {
 	for _, u := range users {
 		friendshipID := friendshipByUserID[u.ID]
 		response = append(response, fiber.Map{
-			"id":         u.ID.Hex(),
+			"id":           u.ID.Hex(),
 			"friendshipId": friendshipID.Hex(),
-			"username":   u.Username,
-			"name":       u.Name,
-			"avatar":     u.Avatar,
-			"avatarType": u.AvatarType,
-			"examGoal":   u.ExamGoal,
-			"totalPoints": u.TotalPoints,
-			"lastActive": u.LastActive,
+			"username":     u.Username,
+			"name":         u.Name,
+			"avatar":       u.Avatar,
+			"avatarType":   u.AvatarType,
+			"examGoal":     u.ExamGoal,
+			"totalPoints":  u.TotalPoints,
+			"lastActive":   u.LastActive,
 		})
 	}
 
@@ -192,16 +192,16 @@ func SearchUsers(c *fiber.Ctx) error {
 		}
 
 		response = append(response, fiber.Map{
-			"id":             candidate.ID.Hex(),
-			"username":       candidate.Username,
-			"name":           candidate.Name,
-			"avatar":         candidate.Avatar,
-			"avatarType":     candidate.AvatarType,
-			"examGoal":       candidate.ExamGoal,
-			"totalPoints":    candidate.TotalPoints,
+			"id":               candidate.ID.Hex(),
+			"username":         candidate.Username,
+			"name":             candidate.Name,
+			"avatar":           candidate.Avatar,
+			"avatarType":       candidate.AvatarType,
+			"examGoal":         candidate.ExamGoal,
+			"totalPoints":      candidate.TotalPoints,
 			"friendshipStatus": friendshipStatus,
-			"isSender":       isSender,
-			"lastActive":     candidate.LastActive,
+			"isSender":         isSender,
+			"lastActive":       candidate.LastActive,
 		})
 	}
 

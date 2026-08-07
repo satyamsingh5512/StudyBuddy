@@ -90,6 +90,7 @@ func Signup(c *fiber.Ctx) error {
 		UpdatedAt:       now,
 		LastActive:      now,
 		ShowProfile:     true,
+		Preferences:     models.DefaultUserPreferences(),
 	}
 
 	result, err := usersCollection.InsertOne(ctx, newUser)
