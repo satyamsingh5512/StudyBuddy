@@ -29,12 +29,7 @@ export const ACCENT_OPTIONS = ACCENT_IDS.map((id) => ({ id, label: ACCENT_LABELS
 // workspace remain fixed dashboard features and are intentionally not advertised.
 export const DASHBOARD_WIDGETS = [
   { id: 'overview', label: 'Overview', description: 'Today’s task, efficiency, points, and streak totals.' },
-  { id: 'goals', label: 'Goals link', description: 'Quick access to active goals.' },
-  { id: 'schedule', label: 'Schedule link', description: 'Quick access to today’s schedule.' },
-  { id: 'leaderboard', label: 'Leaderboard link', description: 'Quick access to peer standings.' },
   { id: 'daily-summary', label: 'Daily summary', description: 'A compact summary of today’s tasks and efficiency.' },
-  { id: 'weekly-check-in', label: 'Weekly check-in', description: 'Link to goal momentum and weekly reflection.' },
-  { id: 'achievements', label: 'Achievements preview', description: 'Recent badge and milestone progress.' },
   { id: 'quick-show-up', label: 'Quick show-up', description: 'Mark all active goals complete or partial for today.' },
 ] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number]['id'];
