@@ -46,3 +46,18 @@ export const apiFetchJSON = async <T = unknown>(
 
   return response.json() as Promise<T>;
 };
+
+/**
+ * Fetch a collection endpoint and guarantee an array result.
+ *
+ * List views render with `.map`, so a malformed or unexpected object payload
+ * would otherwise throw during render and blank the page behind the error
+ * boundary. Coercing here keeps that failure mode contained to empty state.
+ */
+export const apiFetchList = async <T = unknown>(
+  path: string,
+  options?: RequestInit
+): Promise<T[]> => {
+  const data = await apiFetchJSON<unknown>(path, options);
+  return Array.isArray(data) ? (data as T[]) : [];
+};

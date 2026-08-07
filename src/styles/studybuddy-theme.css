@@ -221,3 +221,40 @@ h3 {
     transform: none;
   }
 }
+
+
+/* Server-backed appearance preferences. Values are applied only through the
+ * allowlisted data attributes set during pre-paint and profile hydration. */
+:root[data-font='sans'] body {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+}
+:root[data-font='mono'] body {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font='serif'] body {
+  font-family: var(--font-newsreader), Georgia, serif;
+}
+:root[data-accent='blue'] { --primary: 227 100% 56%; --ring: 227 100% 56%; --accent-raw: #1d4dff; --accent-rgb: 29 77 255; }
+:root[data-accent='violet'] { --primary: 258 90% 50%; --ring: 258 90% 50%; --accent-raw: #6d28d9; --accent-rgb: 109 40 217; }
+:root[data-accent='purple'] { --primary: 280 87% 41%; --ring: 280 87% 41%; --accent-raw: #7e22ce; --accent-rgb: 126 34 206; }
+:root[data-accent='indigo'] { --primary: 244 55% 51%; --ring: 244 55% 51%; --accent-raw: #4338ca; --accent-rgb: 67 56 202; }
+:root[data-accent='cyan'] { --primary: 192 81% 31%; --ring: 192 81% 31%; --accent-raw: #0e7490; --accent-rgb: 14 116 144; }
+:root[data-accent='teal'] { --primary: 175 84% 25%; --ring: 175 84% 25%; --accent-raw: #0f766e; --accent-rgb: 15 118 110; }
+:root[data-accent='green'] { --primary: 142 72% 29%; --ring: 142 72% 29%; --accent-raw: #15803d; --accent-rgb: 21 128 61; }
+:root[data-accent='lime'] { --primary: 84 81% 27%; --ring: 84 81% 27%; --accent-raw: #4d7c0f; --accent-rgb: 77 124 15; }
+:root[data-accent='yellow'] { --primary: 32 95% 32%; --ring: 32 95% 32%; --accent-raw: #a16207; --accent-rgb: 161 98 7; }
+:root[data-accent='amber'] { --primary: 24 100% 35%; --ring: 24 100% 35%; --accent-raw: #b45309; --accent-rgb: 180 83 9; }
+:root[data-accent='orange'] { --primary: 17 88% 40%; --ring: 17 88% 40%; --accent-raw: #c2410c; --accent-rgb: 194 65 12; }
+:root[data-accent='red'] { --primary: 0 72% 42%; --ring: 0 72% 42%; --accent-raw: #b91c1c; --accent-rgb: 185 28 28; }
+:root[data-accent='rose'] { --primary: 347 77% 42%; --ring: 347 77% 42%; --accent-raw: #be123c; --accent-rgb: 190 18 60; }
+:root[data-accent='pink'] { --primary: 330 81% 40%; --ring: 330 81% 40%; --accent-raw: #be185d; --accent-rgb: 190 24 93; }
+:root[data-accent] {
+  --accent: var(--primary);
+  --info: var(--primary);
+  --border-accent: rgb(var(--accent-rgb) / 0.25);
+  --border-accent-strong: rgb(var(--accent-rgb) / 0.45);
+  --accent-light: rgb(var(--accent-rgb) / 0.13);
+  --accent-subtle: rgb(var(--accent-rgb) / 0.07);
+  --color-primary: var(--accent-raw);
+  --color-accent: var(--accent-raw);
+}

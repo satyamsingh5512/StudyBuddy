@@ -3,6 +3,7 @@ import { BarChart3, CalendarDays, Clock3, Users, ArrowUpRight } from 'lucide-rea
 import { useAtomValue } from 'jotai';
 import { useNavigate } from '@/lib/router';
 import { userAtom } from '@/store/atoms';
+import Image from 'next/image';
 
 type Feature = {
   icon: typeof CalendarDays;
@@ -67,9 +68,11 @@ function FeatureCard({ feature, index }: { feature: Feature; index: number }) {
       className="glass-card group grid overflow-hidden rounded-2xl sm:grid-cols-[0.9fr_1.1fr]"
     >
       <div className="relative min-h-48 overflow-hidden bg-black/5 dark:bg-white/5">
-        <img
+        <Image
           src={feature.image}
           alt=""
+          fill
+          sizes="(max-width: 640px) 100vw, 45vw"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className={`absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-xl ${feature.accent} backdrop-blur-md`}>

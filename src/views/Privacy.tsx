@@ -15,11 +15,11 @@ const sections = [
   },
   {
     title: 'AI features',
-    text: 'Prompts and relevant study context may be sent to configured AI providers when you request generated schedules, news or search results. Do not include sensitive personal information in prompts.',
+    text: 'Prompts and relevant study context may be sent to configured AI providers when you request generated schedules, news, search results, or Mentor guidance. Journal context is included in Mentor requests only when you enable that preference. Do not include sensitive personal information in prompts.',
   },
   {
     title: 'Analytics and storage',
-    text: 'The web application uses hosting analytics and stores necessary preferences such as theme locally. Authentication uses secure cookies. Application data is stored in MongoDB and processed by our hosting and email providers.',
+    text: 'The web application uses hosting analytics, stores theme and allowlisted appearance preferences locally for startup rendering, and stores profile preferences on the server. Authentication uses secure cookies. The PWA service worker caches only public static assets—it never caches API responses, navigation HTML, or account data. Foreground reminders use local date dedupe keys and optional browser notifications.',
   },
   {
     title: 'Sharing and sale',

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
@@ -18,7 +17,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getAvatarUrl } from '@/lib/avatar';
-import { Camera, Upload, RefreshCw, X } from 'lucide-react';
+import { Camera, Upload, RefreshCw, X, Info } from 'lucide-react';
+import { apiFetch } from '@/config/api';
+import DashboardWidgetSettings from '@/components/dashboard/DashboardWidgetSettings';
+import {
+  ACCENT_OPTIONS,
+  FONT_OPTIONS,
+  applyAppearancePreferences,
+  isValidTimeZone,
+  normalizePreferences,
+  type DashboardWidgetId,
+} from '@/lib/preferences';
+import { NotificationPermissionAction } from '@/components/NotificationPermissionAction';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -38,6 +48,17 @@ export default function Settings() {
   const [timerSounds, setTimerSounds] = useState(soundManager.isEnabled('timer'));
   const [authSounds, setAuthSounds] = useState(soundManager.isEnabled('auth'));
   const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const defaults = normalizePreferences(user?.preferences);
+  const [timezone, setTimezone] = useState(user?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [font, setFont] = useState(defaults.font);
+  const [accent, setAccent] = useState(defaults.accent);
+  const [dashboardOrder, setDashboardOrder] = useState<DashboardWidgetId[]>(defaults.dashboard.order);
+  const [dashboardHidden, setDashboardHidden] = useState<DashboardWidgetId[]>(defaults.dashboard.hidden);
+  const [reminderEnabled, setReminderEnabled] = useState(defaults.showUpReminder.enabled);
+  const [reminderTime, setReminderTime] = useState(defaults.showUpReminder.time);
+  const [reminderDays, setReminderDays] = useState<number[]>(defaults.showUpReminder.days);
+  const [mentorJournalContext, setMentorJournalContext] = useState(defaults.mentorJournalContext);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported');
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   // ── Avatar upload state ──────────────────────────────────────────────────
@@ -48,6 +69,21 @@ export default function Settings() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!profileData) return;
+    setUser(profileData);
+    const preferences = normalizePreferences(profileData.preferences);
+    setTimezone(profileData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+    setFont(preferences.font);
+    setAccent(preferences.accent);
+    setDashboardOrder(preferences.dashboard.order);
+    setDashboardHidden(preferences.dashboard.hidden);
+    setReminderEnabled(preferences.showUpReminder.enabled);
+    setReminderTime(preferences.showUpReminder.time);
+    setReminderDays(preferences.showUpReminder.days);
+    setMentorJournalContext(preferences.mentorJournalContext);
+  }, [profileData, setUser]);
 
   useEffect(() => {
     soundManager.setEnabled(soundsEnabled);
@@ -70,17 +106,45 @@ export default function Settings() {
   }, [authSounds]);
 
   const saveSettings = async () => {
+    if (!isValidTimeZone(timezone)) {
+      toast({ title: 'Invalid timezone', description: 'Enter a valid IANA timezone such as Asia/Kolkata.', variant: 'destructive' });
+      return;
+    }
     try {
-      await updateProfile({
+      const updated = await updateProfile({
         examGoal,
-        examDate: new Date(examDate),
+        ...(examDate ? { examDate: new Date(`${examDate}T00:00:00`) } : {}),
         showProfile,
-        statsResetAt: statsResetAt ? new Date(`${statsResetAt}T00:00:00`) : null,
+        ...(statsResetAt ? { statsResetAt: new Date(`${statsResetAt}T00:00:00`) } : {}),
+        timezone,
+        preferences: {
+          font,
+          accent,
+          dashboard: { order: dashboardOrder, hidden: dashboardHidden },
+          showUpReminder: { enabled: reminderEnabled, time: reminderTime, days: reminderDays },
+          mentorJournalContext,
+        },
       });
+      setUser(updated);
+      applyAppearancePreferences(updated.preferences);
       toast({ title: 'Settings saved successfully' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
+  };
+
+  const handleNotificationPermission = (permission: NotificationPermission) => {
+    setNotificationPermission(permission);
+    toast({
+      title: permission === 'granted' ? 'Notifications enabled' : 'Notifications not enabled',
+      description: permission === 'granted'
+        ? 'StudyBuddy may notify you while the app is open.'
+        : 'You can keep using in-app reminders without browser notifications.',
+    });
+  };
+
+  const handleNotificationsUnsupported = () => {
+    setNotificationPermission('unsupported');
   };
 
   const handleStartVerification = async () => {
@@ -225,6 +289,26 @@ export default function Settings() {
             </p>
           </div>
           <Button onClick={saveSettings}>Save Settings</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Experience preferences</CardTitle></CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div><Label htmlFor="timezone">Timezone</Label><Input id="timezone" list="iana-timezones" value={timezone} onChange={(event) => setTimezone(event.target.value)} placeholder="Asia/Kolkata" /><datalist id="iana-timezones">{['Asia/Kolkata', 'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney'].map((zone) => <option key={zone} value={zone} />)}</datalist><p className="mt-1 text-xs text-muted-foreground">Use an IANA name. Goal dates and reminders follow this timezone.</p></div>
+            <div><Label htmlFor="font">Font</Label><select id="font" value={font} onChange={(event) => setFont(event.target.value as typeof font)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">{FONT_OPTIONS.map((option) => <option key={option} value={option}>{option[0].toUpperCase() + option.slice(1)}</option>)}</select></div>
+          </div>
+          <fieldset><legend className="text-sm font-medium">Accent color</legend><div className="mt-2 flex flex-wrap gap-2">{ACCENT_OPTIONS.map((option) => <button key={option.id} type="button" onClick={() => setAccent(option.id)} aria-pressed={accent === option.id} className={`rounded-full border px-3 py-2 text-xs font-medium ${accent === option.id ? 'border-primary bg-primary text-primary-foreground' : 'border-hairline bg-surface'}`}>{option.label}</button>)}</div></fieldset>
+          <div className="border-t border-border pt-5"><h3 className="text-sm font-semibold">Dashboard widgets</h3><p className="mb-3 mt-1 text-xs text-muted-foreground">Drag independent sections with a pointer or keyboard to reorder. The floating timer and combined task/activity workspace stay fixed.</p><DashboardWidgetSettings order={dashboardOrder} hidden={dashboardHidden} onChange={(order, hidden) => { setDashboardOrder(order); setDashboardHidden(hidden); }} /></div>
+          <div className="space-y-4 border-t border-border pt-5">
+            <div className="flex items-center justify-between gap-4"><div><Label htmlFor="showUpReminder">Show-up reminder</Label><p className="text-xs text-muted-foreground">Show an in-app reminder at the selected local time.</p></div><Switch id="showUpReminder" checked={reminderEnabled} onCheckedChange={setReminderEnabled} /></div>
+            <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="reminderTime">Reminder time</Label><Input id="reminderTime" type="time" value={reminderTime} onChange={(event) => setReminderTime(event.target.value)} /></div><fieldset><legend className="text-sm font-medium">Days</legend><div className="mt-2 flex flex-wrap gap-1">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <button key={label} type="button" onClick={() => setReminderDays(reminderDays.includes(day) ? reminderDays.filter((value) => value !== day) : [...reminderDays, day])} aria-pressed={reminderDays.includes(day)} className={`rounded-lg border px-2 py-1.5 text-xs ${reminderDays.includes(day) ? 'border-primary bg-primary/10 text-primary' : 'border-hairline'}`}>{label}</button>)}</div><p className="mt-1 text-xs text-muted-foreground">No selected days means every day.</p></fieldset></div>
+            <div className="rounded-xl border border-hairline bg-muted/30 p-3 text-xs text-muted-foreground"><Info className="mr-2 inline h-4 w-4" />Reminders and optional notifications work only while StudyBuddy is open. Closed-app delivery is not guaranteed.</div>
+            <NotificationPermissionAction permission={notificationPermission} onPermission={handleNotificationPermission} onUnsupported={handleNotificationsUnsupported} />
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border pt-5"><div><Label htmlFor="mentorJournalContext">Mentor journal default</Label><p className="text-xs text-muted-foreground">Include journal context by default in Mentor requests.</p></div><Switch id="mentorJournalContext" checked={mentorJournalContext} onCheckedChange={setMentorJournalContext} /></div>
+          <Button onClick={saveSettings}>Save experience preferences</Button>
         </CardContent>
       </Card>
 

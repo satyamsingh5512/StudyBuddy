@@ -11,6 +11,7 @@ import '../src/styles/studybuddy-theme.css';
 import { Analytics } from '@vercel/analytics/next';
 import { Inter, JetBrains_Mono, Newsreader } from 'next/font/google';
 
+import { APPEARANCE_PREPAINT_SCRIPT } from '@/lib/appearancePrepaint';
 import { Providers } from './Providers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -54,29 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function () {
-                const root = document.documentElement;
-                let theme = 'light';
-
-                try {
-                  const storedTheme = localStorage.getItem('theme');
-                  if (storedTheme === 'dark' || storedTheme === 'light') {
-                    theme = storedTheme;
-                  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                  }
-                } catch (error) {
-                  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    theme = 'dark';
-                  }
-                }
-
-                root.classList.toggle('dark', theme === 'dark');
-                root.dataset.theme = theme;
-                root.style.colorScheme = theme;
-              })();
-            `,
+            __html: APPEARANCE_PREPAINT_SCRIPT,
           }}
         />
       </head>

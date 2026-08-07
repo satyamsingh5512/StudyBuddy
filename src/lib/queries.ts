@@ -6,7 +6,37 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiFetchJSON } from '@/config/api';
+import { apiFetchJSON, apiFetchList } from '@/config/api';
+import {
+  beginTodoMutation,
+  findCachedTodo,
+  findCachedTodos,
+  isTodoMutationCurrent,
+  putTodoInCachedLists,
+  removeTodoFromCachedLists,
+  rollbackTodoMutation,
+  settleTodoMutation,
+  todoBrowserTimezone,
+  todoDateKey,
+  type TodoMutationContext,
+} from '@/lib/todoCache';
+import type { CreateTodoInput, Todo, UpdateTodoInput } from '@/types/todo';
+import type { User } from '@/store/atoms';
+import type { UserPreferences } from '@/types/content';
+
+export interface UpdateProfileInput {
+  name?: string;
+  examGoal?: string;
+  examDate?: Date;
+  studentClass?: string;
+  batch?: string;
+  syllabus?: string;
+  subjects?: string[];
+  statsResetAt?: Date | null;
+  timezone?: string;
+  showProfile?: boolean;
+  preferences?: Partial<UserPreferences>;
+}
 
 // ============================================================================
 // CACHE KEYS
@@ -19,7 +49,8 @@ export const QUERY_KEYS = {
   todosOverdue: () => ['todos', 'overdue'] as const,
   todosToday: () => ['todos', 'today'] as const,
   dailyEfficiency: (days?: number) => ['efficiency', days ?? 1] as const,
-  timerAnalytics: (days: number, timezone: string) => ['timer', 'analytics', days, timezone] as const,
+  timerAnalytics: (days: number, timezone: string) =>
+    ['timer', 'analytics', days, timezone] as const,
   news: (examType: string) => ['news', examType] as const,
   newsDates: (examType: string) => ['news', examType, 'dates'] as const,
   messages: (userId?: string) => ['messages', userId] as const,
@@ -41,27 +72,34 @@ export const QUERY_KEYS = {
 // ============================================================================
 
 /**
- * Fetch all todos for the current user
- * Caches for 5 minutes with automatic background refetching
+ * Fetch Todos with bounded server-side filtering. All list keys share the
+ * `['todos']` prefix so optimistic writes update every mounted Todo view.
  */
-export const useTodos = () => {
-  return useQuery<any[], Error>({
-    queryKey: QUERY_KEYS.todos(),
-    queryFn: () => apiFetchJSON<any[]>(`/todos`),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000,   // 10 minutes
-    refetchOnMount: false,
-    placeholderData: [],
-  });
+export interface TodoQueryOptions {
+  date?: string;
+  overdue?: boolean;
+  completed?: boolean;
+  limit?: number;
+  offset?: number;
+  timezone?: string;
+}
+
+export const todoQueryString = (options: TodoQueryOptions) => {
+  const params = new URLSearchParams();
+  if (options.date) params.set('date', options.date);
+  if (typeof options.overdue === 'boolean') params.set('overdue', String(options.overdue));
+  if (typeof options.completed === 'boolean') params.set('completed', String(options.completed));
+  if (options.limit) params.set('limit', String(options.limit));
+  if (options.offset) params.set('offset', String(options.offset));
+  params.set('timezone', options.timezone || todoBrowserTimezone());
+  return params.toString();
 };
 
-/**
- * Fetch todos for a specific date
- */
-export const useTodosByDate = (date: string) => {
-  return useQuery<any[], Error>({
-    queryKey: QUERY_KEYS.todosByDate(date),
-    queryFn: () => apiFetchJSON<any[]>(`/todos`),
+export const useTodos = (options: TodoQueryOptions = {}) => {
+  const query = todoQueryString(options);
+  return useQuery<Todo[], Error>({
+    queryKey: [...QUERY_KEYS.todos(), 'list', query || 'all'],
+    queryFn: () => apiFetchList<Todo>(`/todos${query ? `?${query}` : ''}`),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -69,32 +107,13 @@ export const useTodosByDate = (date: string) => {
   });
 };
 
-/**
- * Fetch overdue todos
- */
-export const useTodosOverdue = () => {
-  return useQuery<any[], Error>({
-    queryKey: QUERY_KEYS.todosOverdue(),
-    queryFn: () => apiFetchJSON<any[]>(`/todos?overdue=true`),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnMount: false,
-    placeholderData: [],
-  });
-};
+export const useTodosByDate = (date: string) => useTodos({ date, limit: 200 });
 
-/**
- * Fetch today's todos
- */
+export const useTodosOverdue = () => useTodos({ overdue: true, completed: false, limit: 200 });
+
 export const useTodosToday = () => {
-  return useQuery<any[], Error>({
-    queryKey: QUERY_KEYS.todosToday(),
-    queryFn: () => apiFetchJSON<any[]>(`/todos`),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnMount: false,
-    placeholderData: [],
-  });
+  const timezone = todoBrowserTimezone();
+  return useTodos({ date: todoDateKey(new Date(), timezone), limit: 200, timezone });
 };
 
 // ============================================================================
@@ -122,7 +141,8 @@ export const useDailyEfficiency = (days: number = 1) => {
 export const useTimerAnalytics = (days: number, timezone: string) => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.timerAnalytics(days, timezone),
-    queryFn: () => apiFetchJSON<any[]>(`/timer/analytics?days=${days}&timezone=${encodeURIComponent(timezone)}`),
+    queryFn: () =>
+      apiFetchList<any>(`/timer/analytics?days=${days}&timezone=${encodeURIComponent(timezone)}`),
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnMount: false,
@@ -135,7 +155,7 @@ export const useTimerAnalytics = (days: number, timezone: string) => {
 export const useReports = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.reports(),
-    queryFn: () => apiFetchJSON<any[]>('/reports'),
+    queryFn: () => apiFetchList<any>('/reports'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -151,7 +171,8 @@ export const useCreateReport = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, Partial<any>>({
-    mutationFn: (reportData) => apiFetchJSON<any>('/reports', {
+    mutationFn: (reportData) =>
+      apiFetchJSON<any>('/reports', {
       method: 'POST',
       body: JSON.stringify(reportData),
     }),
@@ -202,9 +223,9 @@ export const useNewsDates = (examType: string) => {
  * Fetch user profile
  */
 export const useProfile = () => {
-  return useQuery<any, Error>({
+  return useQuery<User, Error>({
     queryKey: QUERY_KEYS.profile(),
-    queryFn: () => apiFetchJSON<any>('/auth/me'),
+    queryFn: () => apiFetchJSON<User>('/auth/me'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -217,13 +238,14 @@ export const useProfile = () => {
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, Partial<any>>({
-    mutationFn: (profileData) => apiFetchJSON<any>('/users/profile', {
+  return useMutation<User, Error, UpdateProfileInput>({
+    mutationFn: (profileData) =>
+      apiFetchJSON<User>('/users/profile', {
       method: 'PATCH',
       body: JSON.stringify(profileData),
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+    onSuccess: (profile) => {
+      queryClient.setQueryData(QUERY_KEYS.profile(), profile);
     },
   });
 };
@@ -234,7 +256,7 @@ export const useUpdateProfile = () => {
 export const useLeaderboard = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.leaderboard(),
-    queryFn: () => apiFetchJSON<any[]>('/users/leaderboard'),
+    queryFn: () => apiFetchList<any>('/users/leaderboard'),
     staleTime: 60 * 60 * 1000, // 1 hour - leaderboard updates rarely
     gcTime: 2 * 60 * 60 * 1000, // 2 hours
     refetchOnMount: false,
@@ -252,7 +274,7 @@ export const useLeaderboard = () => {
 export const useNotes = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.notes(),
-    queryFn: () => apiFetchJSON<any[]>('/notes'),
+    queryFn: () => apiFetchList<any>('/notes'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -267,7 +289,8 @@ export const useCreateNote = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, Partial<any>>({
-    mutationFn: (noteData) => apiFetchJSON<any>('/notes', {
+    mutationFn: (noteData) =>
+      apiFetchJSON<any>('/notes', {
       method: 'POST',
       body: JSON.stringify(noteData),
     }),
@@ -284,7 +307,8 @@ export const useUpdateNote = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { id: string; data: Partial<any> }>({
-    mutationFn: ({ id, data }) => apiFetchJSON<any>(`/notes/${id}`, {
+    mutationFn: ({ id, data }) =>
+      apiFetchJSON<any>(`/notes/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -302,7 +326,8 @@ export const useDeleteNote = () => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, string>({
-    mutationFn: (id) => apiFetchJSON<void>(`/notes/${id}`, {
+    mutationFn: (id) =>
+      apiFetchJSON<void>(`/notes/${id}`, {
       method: 'DELETE',
     }),
     onSuccess: (_, id) => {
@@ -322,7 +347,7 @@ export const useDeleteNote = () => {
 export const useFriends = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.friends(),
-    queryFn: () => apiFetchJSON<any[]>('/friends/list'),
+    queryFn: () => apiFetchList<any>('/friends/list'),
     staleTime: 5 * 60 * 1000, // 5 minutes - keep friends reasonably fresh
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -336,7 +361,7 @@ export const useFriends = () => {
 export const useFriendRequests = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.friendRequests(),
-    queryFn: () => apiFetchJSON<any[]>('/friends/requests'),
+    queryFn: () => apiFetchList<any>('/friends/requests'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -350,7 +375,7 @@ export const useFriendRequests = () => {
 export const useConversations = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.conversations(),
-    queryFn: () => apiFetchJSON<any[]>('/messages/conversations'),
+    queryFn: () => apiFetchList<any>('/messages/conversations'),
     staleTime: 60 * 1000, // 1 minute - messages should feel live
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -364,7 +389,7 @@ export const useConversations = () => {
 export const useBlockedUsers = () => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.blockedUsers(),
-    queryFn: () => apiFetchJSON<any[]>('/friends/blocked'),
+    queryFn: () => apiFetchList<any>('/friends/blocked'),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
@@ -378,7 +403,7 @@ export const useBlockedUsers = () => {
 export const useSearchUsers = (query: string) => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.searchUsers(query),
-    queryFn: () => apiFetchJSON<any[]>(`/friends/search?query=${encodeURIComponent(query)}`),
+    queryFn: () => apiFetchList<any>(`/friends/search?query=${encodeURIComponent(query)}`),
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     enabled: query.trim().length >= 2,
@@ -393,7 +418,8 @@ export const useSendFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { receiverId: string }>({
-    mutationFn: ({ receiverId }) => apiFetchJSON<any>('/friends/request', {
+    mutationFn: ({ receiverId }) =>
+      apiFetchJSON<any>('/friends/request', {
       method: 'POST',
       body: JSON.stringify({ receiverId }),
     }),
@@ -411,7 +437,8 @@ export const useAcceptFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { requestId: string }>({
-    mutationFn: ({ requestId }) => apiFetchJSON<any>(`/friends/request/${requestId}/accept`, {
+    mutationFn: ({ requestId }) =>
+      apiFetchJSON<any>(`/friends/request/${requestId}/accept`, {
       method: 'PUT',
     }),
     onSuccess: () => {
@@ -428,7 +455,8 @@ export const useRejectFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { requestId: string }>({
-    mutationFn: ({ requestId }) => apiFetchJSON<any>(`/friends/request/${requestId}/reject`, {
+    mutationFn: ({ requestId }) =>
+      apiFetchJSON<any>(`/friends/request/${requestId}/reject`, {
       method: 'PUT',
     }),
     onSuccess: () => {
@@ -444,7 +472,8 @@ export const useUnfriend = () => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, { friendshipId: string }>({
-    mutationFn: ({ friendshipId }) => apiFetchJSON<void>(`/friends/${friendshipId}`, {
+    mutationFn: ({ friendshipId }) =>
+      apiFetchJSON<void>(`/friends/${friendshipId}`, {
       method: 'DELETE',
     }),
     onSuccess: () => {
@@ -460,7 +489,8 @@ export const useBlockUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { userId: string }>({
-    mutationFn: ({ userId }) => apiFetchJSON<any>('/friends/block', {
+    mutationFn: ({ userId }) =>
+      apiFetchJSON<any>('/friends/block', {
       method: 'POST',
       body: JSON.stringify({ userId }),
     }),
@@ -478,7 +508,8 @@ export const useUnblockUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, { userId: string }>({
-    mutationFn: ({ userId }) => apiFetchJSON<void>(`/friends/block/${userId}`, {
+    mutationFn: ({ userId }) =>
+      apiFetchJSON<void>(`/friends/block/${userId}`, {
       method: 'DELETE',
     }),
     onSuccess: () => {
@@ -495,7 +526,8 @@ export const useSendMessage = () => {
   const queryClient = useQueryClient();
 
   return useMutation<any, Error, { receiverId: string; message: string }>({
-    mutationFn: ({ receiverId, message }) => apiFetchJSON<any>('/messages', {
+    mutationFn: ({ receiverId, message }) =>
+      apiFetchJSON<any>('/messages', {
       method: 'POST',
       body: JSON.stringify({ receiverId, message }),
     }),
@@ -512,7 +544,7 @@ export const useSendMessage = () => {
 export const useMessagesWithUser = (userId?: string) => {
   return useQuery<any[], Error>({
     queryKey: QUERY_KEYS.messages(userId),
-    queryFn: () => apiFetchJSON<any[]>(`/messages/${userId}`),
+    queryFn: () => apiFetchList<any>(`/messages/${userId}`),
     staleTime: 0,
     gcTime: 5 * 60 * 1000,
     enabled: !!userId,
@@ -529,153 +561,293 @@ export const useMessages = useMessagesWithUser;
 // TODO MUTATIONS
 // ============================================================================
 
-/**
- * Create a new todo
- * Automatically invalidates todos cache to refetch
- */
+const localDateKey = (value?: string | Date) => todoDateKey(value, todoBrowserTimezone());
+
+const createOptimisticTodo = (input: CreateTodoInput, id: string): Todo => {
+  const now = new Date().toISOString();
+  const scheduledDate = input.scheduledDate || input.dueDate;
+  return {
+    id,
+    title: input.title,
+    subject: input.subject || 'General',
+    difficulty: input.difficulty || 'medium',
+    questionsTarget: input.questionsTarget || 10,
+    completed: false,
+    dueDate: input.dueDate || scheduledDate,
+    scheduledDate: scheduledDate || input.dueDate,
+    rescheduledCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    optimistic: true,
+  };
+};
+
+const applyTodoPatch = (todo: Todo, data: UpdateTodoInput): Todo => ({
+  ...todo,
+  ...data,
+  difficulty:
+    data.difficulty === 'easy' || data.difficulty === 'medium' || data.difficulty === 'hard'
+      ? data.difficulty
+      : todo.difficulty,
+  updatedAt: new Date().toISOString(),
+});
+
+/** Create a Todo and show it immediately only in matching cached lists. */
 export const useCreateTodo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, Partial<any>>({
-    mutationFn: (todoData) => apiFetchJSON<any>('/todos', {
+  return useMutation<Todo, Error, CreateTodoInput, TodoMutationContext>({
+    mutationFn: (todoData) =>
+      apiFetchJSON<Todo>('/todos', {
       method: 'POST',
       body: JSON.stringify(todoData),
     }),
-    onSuccess: () => {
-      // Invalidates all todos queries for automatic refetch
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
+    onMutate: async (todoData) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const context = beginTodoMutation(queryClient, [{ id: optimisticId }]);
+      context.optimisticId = optimisticId;
+      putTodoInCachedLists(queryClient, createOptimisticTodo(todoData, optimisticId));
+      return context;
     },
+    onSuccess: (savedTodo, _variables, context) => {
+      const entity = context.entities[0];
+      if (isTodoMutationCurrent(queryClient, entity)) {
+        removeTodoFromCachedLists(queryClient, context.optimisticId || entity.id);
+        putTodoInCachedLists(queryClient, { ...savedTodo, optimistic: false });
+      }
+      queryClient.invalidateQueries({ queryKey: ['efficiency'] });
+    },
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Update an existing todo
- * Automatically invalidates affected queries
- */
+/** Patch a Todo optimistically and re-evaluate every cached list filter. */
 export const useUpdateTodo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, { id: string; data: Partial<any> }>({
-    mutationFn: ({ id, data }) => apiFetchJSON<any>(`/todos/${id}`, {
+  return useMutation<unknown, Error, { id: string; data: UpdateTodoInput }, TodoMutationContext>({
+    mutationFn: ({ id, data }) =>
+      apiFetchJSON<unknown>(`/todos/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-    onSuccess: (_, variables) => {
-      // Invalidate both specific todo and todos list
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todo(variables.id) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const previous = findCachedTodo(queryClient, id);
+      const context = beginTodoMutation(queryClient, [{ id, previous }]);
+      if (previous) putTodoInCachedLists(queryClient, applyTodoPatch(previous, data));
+      return context;
     },
+    onSuccess: (_result, variables, context) => {
+      const entity = context.entities[0];
+      if (isTodoMutationCurrent(queryClient, entity)) {
+        const current = findCachedTodo(queryClient, variables.id);
+        if (current) queryClient.setQueryData(QUERY_KEYS.todo(variables.id), current);
+      }
+      if ('completed' in variables.data)
+        queryClient.invalidateQueries({ queryKey: ['efficiency'] });
+    },
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Delete a todo
- * Automatically invalidates affected queries
- */
 export const useDeleteTodo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, string>({
-    mutationFn: (id) => apiFetchJSON<void>(`/todos/${id}`, {
-      method: 'DELETE',
-    }),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todo(id) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
+  return useMutation<void, Error, string, TodoMutationContext>({
+    mutationFn: (id) => apiFetchJSON<void>(`/todos/${id}`, { method: 'DELETE' }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const context = beginTodoMutation(queryClient, [
+        { id, previous: findCachedTodo(queryClient, id) },
+      ]);
+      removeTodoFromCachedLists(queryClient, id);
+      return context;
     },
+    onSuccess: (_result, id) => {
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.todo(id), exact: true });
+      queryClient.invalidateQueries({ queryKey: ['efficiency'] });
+    },
+    onError: (_error, _id, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Delete all todos scheduled for a specific day.
- * Accepts a Date and sends its YYYY-MM-DD to the backend.
- */
 export const useDeleteTodosByDay = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<{ success: boolean; count: number }, Error, { date: Date }>({
+  return useMutation<
+    { success: boolean; count: number },
+    Error,
+    { date: Date },
+    TodoMutationContext
+  >({
     mutationFn: ({ date }) => {
-      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      return apiFetchJSON<{ success: boolean; count: number }>(`/todos/by-day?date=${encodeURIComponent(dateStr)}`, {
-        method: 'DELETE',
-      });
+      const dateStr = localDateKey(date);
+      return apiFetchJSON<{ success: boolean; count: number }>(
+        `/todos/by-day?date=${encodeURIComponent(dateStr)}`,
+        { method: 'DELETE' }
+      );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyEfficiency(1) });
+    onMutate: async ({ date }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const target = localDateKey(date);
+      const affected = findCachedTodos(
+        queryClient,
+        (todo) => localDateKey(todo.scheduledDate || todo.dueDate) === target
+      );
+      const context = beginTodoMutation(
+        queryClient,
+        affected.map((todo) => ({ id: todo.id, previous: todo }))
+      );
+      for (const todo of affected) removeTodoFromCachedLists(queryClient, todo.id);
+      return context;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['efficiency'] }),
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Reschedule a todo
- */
 export const useRescheduleTodo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, { id: string; newDate: Date }>({
-    mutationFn: ({ id, newDate }) => apiFetchJSON<any>(`/todos/${id}/reschedule`, {
+  return useMutation<
+    Todo & { pointsCredited?: number },
+    Error,
+    { id: string; newDate: Date },
+    TodoMutationContext
+  >({
+    mutationFn: ({ id, newDate }) =>
+      apiFetchJSON<Todo & { pointsCredited?: number }>(`/todos/${id}/reschedule`, {
       method: 'PATCH',
       body: JSON.stringify({ newDate }),
     }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todo(variables.id) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todosByDate(variables.newDate.toISOString().split('T')[0]) });
+    onMutate: async ({ id, newDate }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const previous = findCachedTodo(queryClient, id);
+      const context = beginTodoMutation(queryClient, [{ id, previous }]);
+      if (previous) {
+        const scheduledDate = newDate.toISOString();
+        putTodoInCachedLists(queryClient, {
+          ...previous,
+          dueDate: scheduledDate,
+          scheduledDate,
+          rescheduledCount: (previous.rescheduledCount || 0) + 1,
+        });
+      }
+      return context;
     },
+    onSuccess: (savedTodo, _variables, context) => {
+      if (isTodoMutationCurrent(queryClient, context.entities[0])) {
+        putTodoInCachedLists(queryClient, savedTodo);
+      }
+    },
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Mark todo as completed
- */
 export const useToggleTodo = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, { id: string; completed: boolean }>({
-    mutationFn: ({ id, completed }) => apiFetchJSON<any>(`/todos/${id}`, {
+  return useMutation<unknown, Error, { id: string; completed: boolean }, TodoMutationContext>({
+    mutationFn: ({ id, completed }) =>
+      apiFetchJSON<unknown>(`/todos/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ completed }),
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyEfficiency(1) });
+    onMutate: async ({ id, completed }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const previous = findCachedTodo(queryClient, id);
+      const context = beginTodoMutation(queryClient, [{ id, previous }]);
+      if (previous) putTodoInCachedLists(queryClient, { ...previous, completed });
+      return context;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['efficiency'] }),
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Mark all overdue todos as completed
- */
 export const useRescheduleAllOverdue = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<{ success: boolean; count: number }, Error, { targetDate?: Date }>({
-    mutationFn: ({ targetDate }) => apiFetchJSON<{ success: boolean; count: number }>('/todos/reschedule-all-overdue', {
+  return useMutation<
+    { success: boolean; count: number },
+    Error,
+    { targetDate?: Date },
+    TodoMutationContext
+  >({
+    mutationFn: ({ targetDate }) =>
+      apiFetchJSON<{ success: boolean; count: number }>('/todos/reschedule-all-overdue', {
       method: 'POST',
       body: JSON.stringify({ targetDate }),
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyEfficiency(1) });
+    onMutate: async ({ targetDate }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const today = localDateKey(new Date());
+      const affected = findCachedTodos(queryClient, (todo) => {
+        const current = localDateKey(todo.scheduledDate || todo.dueDate);
+        return !todo.completed && !!current && current < today;
+      });
+      const context = beginTodoMutation(
+        queryClient,
+        affected.map((todo) => ({ id: todo.id, previous: todo }))
+      );
+      const scheduledDate = (targetDate || new Date()).toISOString();
+      for (const todo of affected) {
+        putTodoInCachedLists(queryClient, {
+          ...todo,
+          dueDate: scheduledDate,
+          scheduledDate,
+          rescheduledCount: (todo.rescheduledCount || 0) + 1,
+        });
+      }
+      return context;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['efficiency'] }),
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
-/**
- * Reschedule a todo to today (specific endpoint)
- */
 export const useRescheduleTodoToToday = () => {
   const queryClient = useQueryClient();
 
-  return useMutation<{ success: boolean; pointsCredited?: number }, Error, { id: string }>({
-    mutationFn: ({ id }) => apiFetchJSON<{ success: boolean; pointsCredited?: number }>(`/todos/${id}/reschedule-to-today`, {
-      method: 'POST',
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyEfficiency(1) });
+  return useMutation<
+    { success: boolean; pointsCredited?: number },
+    Error,
+    { id: string },
+    TodoMutationContext
+  >({
+    mutationFn: ({ id }) =>
+      apiFetchJSON<{ success: boolean; pointsCredited?: number }>(
+        `/todos/${id}/reschedule-to-today`,
+        { method: 'POST' }
+      ),
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
+      const previous = findCachedTodo(queryClient, id);
+      const context = beginTodoMutation(queryClient, [{ id, previous }]);
+      if (previous) {
+        const scheduledDate = new Date();
+        scheduledDate.setHours(0, 0, 0, 0);
+        putTodoInCachedLists(queryClient, {
+          ...previous,
+          dueDate: scheduledDate.toISOString(),
+          scheduledDate: scheduledDate.toISOString(),
+          rescheduledCount: (previous.rescheduledCount || 0) + 1,
+        });
+      }
+      return context;
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['efficiency'] }),
+    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
 
@@ -765,8 +937,7 @@ export const useUpsertAvailability = () => {
 export const useSchedules = (date?: string) => {
   return useQuery<Schedule[], Error>({
     queryKey: SCHEDULE_QUERY_KEYS.schedules(date),
-    queryFn: () =>
-      apiFetchJSON<Schedule[]>(`/schedule${date ? `?date=${date}` : ''}`),
+    queryFn: () => apiFetchList<Schedule>(`/schedule${date ? `?date=${date}` : ''}`),
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,

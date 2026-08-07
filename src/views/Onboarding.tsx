@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react';
 import { User, Sparkles, Loader2, HelpCircle } from 'lucide-react';
 import { useAtom } from 'jotai';
@@ -154,7 +153,7 @@ export default function Onboarding() {
 
     try {
       let finalAvatarType = avatarType;
-      let finalAvatarUrl = null;
+      let finalAvatarUrl: string | null | undefined = null;
 
       if (avatarType === 'animated') {
         finalAvatarType = 'animated' as const;

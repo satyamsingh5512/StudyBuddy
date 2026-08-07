@@ -87,6 +87,8 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import DashboardCompactWidgets from '@/components/dashboard/DashboardCompactWidgets';
+import { normalizePreferences } from '@/lib/preferences';
 
 const StudyHeatmap = dynamic(() => import('@/components/StudyHeatmap'), {
   loading: () => (
@@ -636,6 +638,7 @@ SortableTodoItem.displayName = 'SortableTodoItem';
 
 export default function Dashboard() {
   const [user] = useAtom(userAtom);
+  const dashboardPreferences = useMemo(() => normalizePreferences(user?.preferences), [user?.preferences]);
   const todosQuery = useTodos();
   const {
     data: dailyEfficiencyData,
@@ -988,13 +991,14 @@ export default function Dashboard() {
     <>
       <AmbientBackground />
       <motion.div
-        className="space-y-6"
+        className="flex flex-col gap-6"
         variants={staggerContainer(0.08, 0.05)}
         initial="hidden"
         animate="show"
       >
         <motion.div
           variants={item}
+          style={{ order: -100 }}
           className="flex flex-wrap items-start justify-between gap-3 sm:gap-4"
         >
           <div className="min-w-0">
@@ -1027,8 +1031,17 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
+        <StudyTimer />
+
         {/* Stats Cards - Responsive Grid on Large Screens, Horizontal Scroll on Mobile.
           Single shared glass shell (perf budget) — see MotionCard comment above. */}
+        <DashboardCompactWidgets
+          preferences={dashboardPreferences}
+          user={user}
+          completedTasks={completedCount}
+          totalTasks={todos.length}
+          efficiency={dailyEfficiency?.overallEfficiencyPct || 0}
+          overview={
         <motion.div
           variants={staggerContainer(0.07)}
           className="sbd-glass sbd-glass--card p-3 xs:p-4 grid grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-3 xs:gap-4 xl:gap-6 xl:overflow-x-auto xl:pb-1 xl:scrollbar-thin xl:scrollbar-thumb-muted xl:scrollbar-track-transparent"
@@ -1247,11 +1260,9 @@ export default function Dashboard() {
             </CardContent>
           </MotionCard>
 
-          {/* Anchored Study Timer Component (Floating out-of-flow beside stats) */}
-          <div className="absolute inset-0 z-[100] pointer-events-none">
-            <StudyTimer />
-          </div>
         </motion.div>
+          }
+        />
 
         {/* Admin Panel - Only visible to admin users */}
         {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
@@ -1289,7 +1300,10 @@ export default function Dashboard() {
             <AnalyticsDashboard user={user || undefined} />
           </motion.div>
         ) : (
-          <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div
+            variants={item}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+          >
             <Card className="border-transparent shadow-xl">
               <CardHeader className="pb-3 border-b border-border/50">
                 <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">

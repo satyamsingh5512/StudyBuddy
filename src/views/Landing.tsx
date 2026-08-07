@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 import { useAtomValue } from 'jotai';
 import { BlurBlobs } from '@/components/ui/blur-blobs';
+import ExamRotator from '@/components/landing/ExamRotator';
 import { Link } from '@/lib/router';
 import { userAtom } from '@/store/atoms';
 
@@ -63,10 +64,8 @@ export default function Landing() {
         {/* Week-strip preview — the product's core object, shown before any copy. */}
         <div {...reveal(700, 'flex w-full justify-center')}>
           <div className="w-3/4 max-w-[420px] rounded-2xl border border-hairline bg-ink/[0.02] p-4">
-            <div className="mb-3 flex h-5 items-center">
-              <p className="text-[13px] font-medium tracking-[-0.01em] text-ink">
-                JEE Advanced 2026
-              </p>
+            <div className="mb-3 h-5">
+              <ExamRotator />
             </div>
 
             <div className="mb-[3px] grid grid-cols-7 gap-[3px]">

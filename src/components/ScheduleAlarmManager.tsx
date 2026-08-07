@@ -4,8 +4,8 @@
  * ScheduleAlarmManager
  *
  * Client-side alarm engine that:
- *  1. Requests browser Notification permission once (on first render)
- *  2. Polls every 30 seconds with setInterval
+ *  1. Polls every 30 seconds with setInterval
+ *  2. Uses notification permission only when it was granted from Settings
  *  3. Fires an in-app toast + optional browser notification for each scheduled item:
  *     – 5 minutes before the task starts ("⏰ Starting soon")
  *     – Exactly at the task start time ("🚀 Time to start!")
@@ -17,6 +17,9 @@
 import { useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Schedule, ScheduleItem } from '@/lib/queries';
+import { useAtomValue } from 'jotai';
+import { userAtom } from '@/store/atoms';
+import { foregroundReminderDedupeKey } from '@/lib/showUpReminder';
 
 interface ScheduleAlarmManagerProps {
   schedules: Schedule[];
@@ -39,23 +42,17 @@ function formatTime12(t: string): string {
 const firedAlarms = new Set<string>();
 
 export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManagerProps) {
+  const user = useAtomValue(userAtom);
   const { toast } = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
-  // Request permission once
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {/* silently ignore */});
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!schedules || schedules.length === 0) return;
+    if (!user || !schedules || schedules.length === 0) return;
 
     const checkAlarms = () => {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const nowMins = now.getHours() * 60 + now.getMinutes();
 
       for (const schedule of schedules) {
@@ -69,7 +66,7 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
           const diffMins = startMins - nowMins;
 
           // "5 minutes before" alarm
-          const warnKey = `${item.id}:warn`;
+          const warnKey = foregroundReminderDedupeKey('schedule', user.id, todayStr, `${item.id}:warn`);
           if (!firedAlarms.has(warnKey) && diffMins > 0 && diffMins <= 5) {
             firedAlarms.add(warnKey);
             fireAlarm({
@@ -81,7 +78,7 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
           }
 
           // "Start now" alarm (within 0–1 minute window)
-          const startKey = `${item.id}:start`;
+          const startKey = foregroundReminderDedupeKey('schedule', user.id, todayStr, `${item.id}:start`);
           if (!firedAlarms.has(startKey) && diffMins >= 0 && diffMins < 1) {
             firedAlarms.add(startKey);
             fireAlarm({
@@ -136,7 +133,7 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
     checkAlarms();
     const interval = setInterval(checkAlarms, 30 * 1000);
     return () => clearInterval(interval);
-  }, [schedules]);
+  }, [schedules, user]);
 
   // No visible output — this is a pure side-effect component
   return null;

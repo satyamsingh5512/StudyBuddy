@@ -12,6 +12,8 @@ import { useNetworkStatus } from '@/lib/networkStatus';
 import Maintenance from '@/components/Maintenance';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
+import PwaManager from '@/components/PwaManager';
+import { applyAppearancePreferences } from '@/lib/preferences';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [, setUser] = useAtom(userAtom);
@@ -43,6 +45,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               }
             : null;
           setUser(cleanUser);
+          if (cleanUser) applyAppearancePreferences(cleanUser.preferences);
           if (data && !soundPlayed) {
             window.setTimeout(() => soundManager.playLogin(), 100);
             soundPlayed = true;
@@ -69,6 +72,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         {children}
+        <PwaManager />
         <Toaster />
       </ErrorBoundary>
     </QueryClientProvider>

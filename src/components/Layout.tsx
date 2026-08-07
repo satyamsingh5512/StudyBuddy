@@ -15,6 +15,13 @@ import {
   Newspaper,
   StickyNote,
   CalendarDays,
+  ListTodo,
+  Target,
+  CalendarCheck,
+  Bot,
+  BookOpen,
+  Award,
+  CircleHelp,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom } from '@/store/atoms';
@@ -33,20 +40,28 @@ import {
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
+import ShowUpReminderManager from '@/components/ShowUpReminderManager';
 
 import { apiFetch } from '@/config/api';
 import { soundManager } from '@/lib/sounds';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/tasks', icon: ListTodo, label: 'Tasks' },
+  { path: '/goals', icon: Target, label: 'Goals' },
+  { path: '/show-up', icon: CalendarCheck, label: 'Show Up' },
   { path: '/schedule', icon: CalendarDays, label: 'Schedule' },
   { path: '/reports', icon: FileText, label: 'Reports' },
+  { path: '/journal', icon: BookOpen, label: 'Journal' },
+  { path: '/mentor', icon: Bot, label: 'Mentor' },
+  { path: '/achievements', icon: Award, label: 'Achievements' },
   { path: '/notes', icon: StickyNote, label: 'Notepad' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/news', icon: Newspaper, label: 'News' },
   { path: '/notices', icon: Bell, label: 'Notices' },
   { path: '/friends', icon: User, label: 'Friends' },
   { path: '/messages', icon: MessageSquare, label: 'Messages' },
+  { path: '/help', icon: CircleHelp, label: 'Help' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -75,6 +90,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <UnifiedPageWrapper>
+      <ShowUpReminderManager />
       <a
         href="#main-content"
         className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-background px-4 py-2 text-foreground shadow-lg focus:not-sr-only"

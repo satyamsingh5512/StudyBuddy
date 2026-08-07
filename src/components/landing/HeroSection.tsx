@@ -4,6 +4,7 @@ import { ArrowRight, CalendarClock, CheckCircle2, Play, Sparkles } from 'lucide-
 import { Link } from '@/lib/router';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
+import Image from 'next/image';
 
 const containerVariants = {
   hidden: {},
@@ -100,9 +101,12 @@ export function HeroSection() {
       >
         <div className="glass-card grid overflow-hidden rounded-2xl p-3 sm:p-4 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="relative min-h-[210px] overflow-hidden rounded-xl bg-white/30 dark:bg-black/20 sm:min-h-[270px]">
-            <img
+            <Image
               src="/assets/3d/hero-portal.png"
               alt="Study planning dashboard preview"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 60vw"
               className="absolute inset-0 h-full w-full object-cover object-center mix-blend-multiply dark:mix-blend-screen"
             />
             <div className="absolute left-4 top-4 glass-control rounded-lg px-3 py-2 text-left text-xs text-foreground sm:left-5 sm:top-5">

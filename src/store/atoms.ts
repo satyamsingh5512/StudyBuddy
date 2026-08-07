@@ -13,10 +13,15 @@ export interface User {
   examDate: string;
   statsResetAt?: string;
   lastStudyAt?: string;
+  timezone?: string;
+  bestStreak?: number;
+  showProfile?: boolean;
+  emailVerified?: boolean;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
   subjects?: string[];
+  preferences?: import('@/types/content').UserPreferences;
 }
 
 export const userAtom = atom<User | null>(null);

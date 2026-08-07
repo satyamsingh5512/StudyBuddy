@@ -1,4 +1,4 @@
-import { useNavigate } from '@/lib/router';
+import { useNavigate, Link } from '@/lib/router';
 import { ArrowLeft, Search, HelpCircle, Mail, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
@@ -52,7 +52,7 @@ export default function Support() {
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
                                     </summary>
                                     <p className="mt-2 text-sm text-muted-foreground border-t pt-3 leading-relaxed">
-                                        Our planner analyzes your exam date, syllabus, and study preferences to create a personalized schedule. It adapts daily based on your progress and performance in practice tests.
+                                        The schedule generator uses your exam date, syllabus, and availability to propose study blocks. Review generated items before relying on them; schedules do not automatically adapt to practice-test performance.
                                     </p>
                                 </details>
 
@@ -72,7 +72,7 @@ export default function Support() {
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
                                     </summary>
                                     <p className="mt-2 text-sm text-muted-foreground border-t pt-3 leading-relaxed">
-                                        You can delete your account from the Settings page. This action is permanent and will remove all your study data.
+                                        StudyBuddy does not currently provide a self-service account deletion button. Contact support from this page to request deletion; we will verify the account before processing the request.
                                     </p>
                                 </details>
 
@@ -82,7 +82,7 @@ export default function Support() {
                                         <ChevronDown className="h-4 w-4 transition-transform group-open:-rotate-180" />
                                     </summary>
                                     <p className="mt-2 text-sm text-muted-foreground border-t pt-3 leading-relaxed">
-                                        StudyBuddy works best with an internet connection to sync your progress and provide AI insights. However, your current schedule is cached for offline viewing.
+                                        Authenticated study data, AI features, and syncing require an internet connection. The PWA caches only public static assets; it does not cache schedules, API responses, navigation pages, or account data for offline access.
                                     </p>
                                 </details>
                             </div>
@@ -95,7 +95,7 @@ export default function Support() {
                             </div>
                             <h2 className="text-xl font-bold mb-2">Still need support?</h2>
                             <p className="text-muted-foreground mb-6">
-                                Our team is here to help you with any technical issues or questions.
+                                Our team is here to help you with any technical issues or questions. Signed-in users can also read the <Link to="/help" className="text-primary underline underline-offset-4">feature and installation guide</Link>.
                             </p>
                             <a
                                 href="mailto:studybuddy5512@gmail.com"
