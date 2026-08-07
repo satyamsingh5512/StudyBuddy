@@ -42,8 +42,11 @@ func SetupRoutes(app *fiber.App) {
 	api.Get("/notices", handlers.GetNotices)
 	api.Get("/faqs", handlers.GetFAQs)
 	api.Get("/faqs/:examType", handlers.GetFAQs)
-	api.Post("/waitlist", handlers.JoinWaitlist)
-	api.Get("/username/check/:username", handlers.CheckUsername)
+	api.Post("/waitlist", middleware.RateLimit(5, time.Hour), handlers.JoinWaitlist)
+	// Public so the signup form can check availability before an account exists.
+	// Rate limited per IP because it is otherwise a username enumeration oracle;
+	// the ceiling stays well above debounced typing during a real signup.
+	api.Get("/username/check/:username", middleware.RateLimit(60, time.Minute), handlers.CheckUsername)
 
 	users := api.Group("/users")
 	users.Get("/leaderboard", handlers.GetLeaderboard)
@@ -74,7 +77,6 @@ func SetupRoutes(app *fiber.App) {
 	// Users
 	protected.Post("/users/onboarding", handlers.CompleteOnboarding)
 	protected.Post("/username/check", handlers.CheckUsername)
-	protected.Get("/username/check/:username", handlers.CheckUsername)
 	protected.Get("/users/profile", handlers.Me)
 	protected.Put("/users/profile", handlers.UpdateProfile)
 	protected.Patch("/users/profile", handlers.UpdateProfile) // Support PATCH for frontend compatibility

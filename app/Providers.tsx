@@ -23,45 +23,49 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     initTheme();
+    soundManager.initialize();
+
     let soundPlayed = false;
+    let loginSoundTimeoutId: number | undefined;
 
-    const initializeApp = async () => {
-      soundManager.initialize();
+    // Fallback so a hung or blocked request cannot leave the app on its auth
+    // loading screen forever. Cleared on both settle paths and on unmount.
+    const timeoutId = window.setTimeout(() => {
+      setUser(null);
+      setAuthLoading(false);
+    }, 10000);
 
-      const timeoutId = window.setTimeout(() => {
+    apiFetch('/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        window.clearTimeout(timeoutId);
+        const cleanUser = data
+          ? {
+              ...data,
+              totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : 0,
+              streak: typeof data.streak === 'number' ? data.streak : 0,
+            }
+          : null;
+        setUser(cleanUser);
+        if (cleanUser) applyAppearancePreferences(cleanUser.preferences);
+        if (data && !soundPlayed) {
+          loginSoundTimeoutId = window.setTimeout(() => soundManager.playLogin(), 100);
+          soundPlayed = true;
+        }
+        setAuthLoading(false);
+      })
+      .catch(() => {
+        window.clearTimeout(timeoutId);
         setUser(null);
         setAuthLoading(false);
-      }, 10000);
+      });
 
-      apiFetch('/auth/me')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          window.clearTimeout(timeoutId);
-          const cleanUser = data
-            ? {
-                ...data,
-                totalPoints: typeof data.totalPoints === 'number' ? data.totalPoints : 0,
-                streak: typeof data.streak === 'number' ? data.streak : 0,
-              }
-            : null;
-          setUser(cleanUser);
-          if (cleanUser) applyAppearancePreferences(cleanUser.preferences);
-          if (data && !soundPlayed) {
-            window.setTimeout(() => soundManager.playLogin(), 100);
-            soundPlayed = true;
-          }
-          setAuthLoading(false);
-        })
-        .catch(() => {
-          window.clearTimeout(timeoutId);
-          setUser(null);
-          setAuthLoading(false);
-        });
-
-      return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (loginSoundTimeoutId !== undefined) {
+        window.clearTimeout(loginSoundTimeoutId);
+      }
     };
-
-    initializeApp();
   }, [setAuthLoading, setUser]);
 
   if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true') {

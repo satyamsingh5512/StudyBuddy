@@ -78,5 +78,10 @@ func indexSpecifications() map[string][]indexSpec {
 		"goal_check_ins": {
 			{bson.D{{Key: "userId", Value: 1}, {Key: "goalId", Value: 1}, {Key: "weekStart", Value: 1}}, options.Index().SetName("uq_goal_check_ins_user_goal_weekStart").SetUnique(true)},
 		},
+		// The waitlist route is public, so the address is the identity: a unique
+		// index keeps concurrent upserts from inserting duplicate rows.
+		"waitlist": {
+			{bson.D{{Key: "email", Value: 1}}, options.Index().SetName("uq_waitlist_email").SetUnique(true)},
+		},
 	}
 }

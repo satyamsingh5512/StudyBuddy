@@ -86,8 +86,6 @@ export default function Auth() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to resend code');
 
-      console.log('📧 Resend OTP response:', data); // Debug log
-
       toast({
         title: 'Code Resent',
         description: 'Please check your email for the new code.',
@@ -130,8 +128,6 @@ export default function Auth() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-        console.log('📧 Signup response:', data); // Debug log
-
         toast({
           title: 'Account Created',
           description: data.message || 'Please check your email for the verification code.',
@@ -173,7 +169,6 @@ export default function Auth() {
         const data = await res.json();
         if (!res.ok) {
           if (data.code === 'EMAIL_NOT_VERIFIED') {
-            console.log('📧 Login response (unverified):', data); // Debug log
             toast({
               title: 'Email Not Verified',
               description: 'A new verification code has been sent to your email.',
@@ -200,8 +195,6 @@ export default function Auth() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Request failed');
-
-        console.log('📧 Forgot password response:', data); // Debug log
 
         toast({
           title: 'Code Sent',
