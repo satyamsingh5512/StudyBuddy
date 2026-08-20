@@ -48,7 +48,7 @@ func NewAIServiceFromEnv() AIService {
 	if key := strings.TrimSpace(os.Getenv("GROQ_API_KEY")); key != "" {
 		model := strings.TrimSpace(os.Getenv("GROQ_MENTOR_MODEL"))
 		if model == "" {
-			model = "llama-3.3-70b-versatile"
+			model = "openai/gpt-oss-120b"
 		}
 		providers = append(providers, aiProvider{"https://api.groq.com/openai/v1/chat/completions", key, model})
 	}

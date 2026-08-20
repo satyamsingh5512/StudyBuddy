@@ -65,12 +65,12 @@ func getGroqAPIKey() string {
 
 // getGroqModel returns the Groq model to use.
 // compound-mini does one live web search per call so dates/news are current.
-// Falls back to llama-3.1-8b-instant if GROQ_MODEL is not set.
+// Falls back to groq/compound-mini if GROQ_MODEL is not set.
 func getGroqModel() string {
 	if m := strings.TrimSpace(os.Getenv("GROQ_MODEL")); m != "" {
 		return m
 	}
-	return "compound-beta-mini"
+	return "groq/compound-mini"
 }
 
 // ─────────────────────────────────────────────
@@ -209,7 +209,7 @@ func callGroq(systemPrompt, userPrompt string, maxTokens int) (string, error) {
 			if fallbackTokens < 512 {
 				fallbackTokens = 512
 			}
-			return doGroqRequestSimple(apiKey, "llama-3.1-8b-instant", systemPrompt, userPrompt, fallbackTokens)
+			return doGroqRequestSimple(apiKey, "openai/gpt-oss-20b", systemPrompt, userPrompt, fallbackTokens)
 		}
 
 		// 429: wait and retry

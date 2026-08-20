@@ -583,7 +583,7 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 	if groqKey != "" {
 		model := os.Getenv("GROQ_SCHEDULE_MODEL")
 		if model == "" {
-			model = "llama-3.3-70b-versatile"
+			model = "openai/gpt-oss-120b"
 		}
 		items, err := callScheduleAI(
 			"https://api.groq.com/openai/v1/chat/completions",
