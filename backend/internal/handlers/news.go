@@ -198,11 +198,15 @@ func parseJSONWithFallback(responseText, startToken, endToken string, out interf
 // ─────────────────────────────────────────────
 
 var errGroqTooLarge = errors.New("groq: request too large")
+var errGroqToolUseFailed = errors.New("groq: tool_use_failed")
 
 // callGroq calls Groq's OpenAI-compatible chat completions endpoint.
 // Retries up to 3 times on 429, respecting the Retry-After header.
-// On 413 (request too large from compound model's search context),
-// retries once with a plain fast model instead.
+// On 413 (request too large from compound model's search context) or a
+// tool_use_failed 400 (the compound/gpt-oss model emits a tool call Groq's
+// harness doesn't recognize, e.g. "web.run" — an OpenAI-internal tool name
+// that isn't one of Groq's actual built-in tools), retries once with a plain
+// fast model that has no built-in tools to fall back on.
 func callGroq(systemPrompt, userPrompt string, maxTokens int) (string, error) {
 	apiKey := getGroqAPIKey()
 	if apiKey == "" {
@@ -227,6 +231,12 @@ func callGroq(systemPrompt, userPrompt string, maxTokens int) (string, error) {
 			return doGroqRequestSimple(apiKey, "openai/gpt-oss-20b", systemPrompt, userPrompt, fallbackTokens)
 		}
 
+		// tool_use_failed: the model tried to call a tool Groq's harness rejected —
+		// retry once with a plain model and no tool_choice so it just answers directly.
+		if errors.Is(err, errGroqToolUseFailed) {
+			return doGroqRequestSimple(apiKey, "openai/gpt-oss-20b", systemPrompt, userPrompt, maxTokens)
+		}
+
 		// 429: wait and retry
 		if retryAfter > 0 && attempt < maxAttempts {
 			time.Sleep(retryAfter)
@@ -242,14 +252,6 @@ func callGroq(systemPrompt, userPrompt string, maxTokens int) (string, error) {
 
 // doGroqRequest makes a single Groq API call.
 // Returns (text, retryAfter, error). retryAfter > 0 on 429.
-//
-// tool_choice is explicitly set to "auto" (rather than omitted) because Groq's
-// compound systems (groq/compound, groq/compound-mini) have built-in tools
-// (web search, code execution) they may invoke on their own. Omitting
-// tool_choice can cause Groq to default it to "none" server-side while the
-// model still attempts a tool call anyway, producing a 400 "Tool choice is
-// none, but model called a tool" (tool_use_failed) error. Since this handler
-// relies on live web search for current exam news, tools must stay allowed.
 func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int) (string, time.Duration, error) {
 	reqBody := map[string]interface{}{
 		"model": model,
@@ -259,7 +261,6 @@ func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int
 		},
 		"temperature": 0.5,
 		"max_tokens":  maxTokens,
-		"tool_choice": "auto",
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -302,6 +303,16 @@ func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int
 
 	if resp.StatusCode == http.StatusRequestEntityTooLarge {
 		return "", 0, errGroqTooLarge
+	}
+
+	// The compound/gpt-oss models occasionally emit a tool call using a tool
+	// name Groq's own harness doesn't recognize (observed: "web.run", an
+	// OpenAI-internal browsing tool name, not one of Groq's actual built-in
+	// tools like "web_search"). Groq rejects that mismatch with a 400
+	// tool_use_failed error regardless of the tool_choice sent. Detect it so
+	// callGroq can fall back to a plain model instead of surfacing a 500.
+	if resp.StatusCode == http.StatusBadRequest && strings.Contains(string(respBytes), "tool_use_failed") {
+		return "", 0, errGroqToolUseFailed
 	}
 
 	if resp.StatusCode != http.StatusOK {
