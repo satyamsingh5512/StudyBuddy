@@ -19,6 +19,7 @@ import {
   X as XIcon,
   GripVertical,
   Gauge,
+  Clock as ClockIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAtom } from 'jotai';
@@ -89,6 +90,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import DashboardCompactWidgets from '@/components/dashboard/DashboardCompactWidgets';
 import { normalizePreferences } from '@/lib/preferences';
+import OledClock from '@/components/OledClock';
 
 const StudyHeatmap = dynamic(() => import('@/components/StudyHeatmap'), {
   loading: () => (
@@ -652,6 +654,7 @@ export default function Dashboard() {
   const [newTodo, setNewTodo] = useState('');
   const [newTodoDifficulty, setNewTodoDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showClock, setShowClock] = useState(false);
   const [rescheduleModal, setRescheduleModal] = useState<{ open: boolean; todoId: string | null }>({
     open: false,
     todoId: null,
@@ -1013,6 +1016,15 @@ export default function Dashboard() {
           </div>
           <div className="flex shrink-0 gap-2">
             <GlassButton
+              onClick={() => setShowClock(true)}
+              size="sm"
+              className="flex items-center gap-2"
+              title="Open clock"
+            >
+              <ClockIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Clock</span>
+            </GlassButton>
+            <GlassButton
               onClick={() => setShowAnalytics(!showAnalytics)}
               size="sm"
               className="flex items-center gap-2"
@@ -1032,6 +1044,7 @@ export default function Dashboard() {
         </motion.div>
 
         <StudyTimer />
+        <OledClock isOpen={showClock} onClose={() => setShowClock(false)} />
 
         {/* Stats Cards - Responsive Grid on Large Screens, Horizontal Scroll on Mobile.
           Single shared glass shell (perf budget) — see MotionCard comment above. */}

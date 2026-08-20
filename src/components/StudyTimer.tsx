@@ -13,6 +13,7 @@ import { soundManager } from '@/lib/sounds';
 import { Trash2, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Slider } from './ui/slider';
+import { Switch } from './ui/switch';
 
 import FullscreenTimer from './FullscreenTimer';
 import {
@@ -50,6 +51,13 @@ export default function StudyTimer() {
     return !isNaN(parsed) && parsed >= 1 && parsed <= 120 ? parsed : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
+  // Unlimited mode skips the auto-stop-at-duration behavior and just counts
+  // up indefinitely, for open-ended study sessions without a fixed target.
+  const [unlimitedTimer, setUnlimitedTimer] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('unlimitedTimer') === 'true';
+  });
+  const [tempUnlimitedTimer, setTempUnlimitedTimer] = useState(unlimitedTimer);
   const [showSettings, setShowSettings] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [laps, setLaps] = useState<Lap[]>([]);
@@ -162,6 +170,8 @@ export default function StudyTimer() {
     const interval = setInterval(() => {
       setStudyTime((prev) => {
         const newTime = prev + 1;
+        // Unlimited mode: keep counting, never auto-stop or auto-save.
+        if (unlimitedTimer) return newTime;
         // Check if Pomodoro completed
         if (newTime >= POMODORO_DURATION) {
           // Stop the timer
@@ -188,7 +198,7 @@ export default function StudyTimer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
+  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
 
   const toggleStudying = () => {
     const next = !studying;
@@ -261,6 +271,7 @@ export default function StudyTimer() {
 
   const handleOpenSettings = () => {
     setTempDuration(pomodoroDuration);
+    setTempUnlimitedTimer(unlimitedTimer);
     setShowSettings(true);
   };
 
@@ -268,15 +279,23 @@ export default function StudyTimer() {
     const clamped = Math.max(1, Math.min(120, tempDuration));
     setPomodoroDuration(clamped);
     localStorage.setItem('pomodoroDuration', clamped.toString());
+    setUnlimitedTimer(tempUnlimitedTimer);
+    localStorage.setItem('unlimitedTimer', tempUnlimitedTimer.toString());
     // Notify other components (e.g. FullscreenTimer) of the change
     window.dispatchEvent(new StorageEvent('storage', {
       key: 'pomodoroDuration',
       newValue: clamped.toString(),
     }));
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'unlimitedTimer',
+      newValue: tempUnlimitedTimer.toString(),
+    }));
     setShowSettings(false);
     toast({
       title: 'Timer duration updated',
-      description: `Pomodoro set to ${clamped} minutes`,
+      description: tempUnlimitedTimer
+        ? 'Unlimited mode enabled — the timer will count up with no cap.'
+        : `Pomodoro set to ${clamped} minutes`,
     });
   };
 
@@ -367,10 +386,12 @@ export default function StudyTimer() {
                 {/* Timer Display - RESPONSIVE FIX: Fluid font size */}
                 <div className="text-center mb-4">
                   <div className="font-mono font-bold mb-1" style={{ fontSize: 'clamp(2rem, 6vw, 3rem)' }}>
-                    {studying ? formatTime(studyTime) : (studyTime > 0 ? formatTime(studyTime) : `${pomodoroDuration}:00`)}
+                    {studying ? formatTime(studyTime) : (studyTime > 0 ? formatTime(studyTime) : (unlimitedTimer ? '00:00:00' : `${pomodoroDuration}:00`))}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    {studying ? 'Studying now' : (studyTime > 0 ? 'Paused' : 'Ready to start')}
+                    {unlimitedTimer
+                      ? (studying ? 'Studying now · Unlimited' : (studyTime > 0 ? 'Paused · Unlimited' : 'Unlimited mode'))
+                      : (studying ? 'Studying now' : (studyTime > 0 ? 'Paused' : 'Ready to start'))}
                   </p>
                 </div>
 
@@ -420,7 +441,7 @@ export default function StudyTimer() {
                 </div>
 
                 {/* Progress Bar */}
-                {studyTime > 0 && (
+                {studyTime > 0 && !unlimitedTimer && (
                   <div className="mb-4">
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
@@ -498,6 +519,20 @@ export default function StudyTimer() {
                             <span>90 min</span>
                             <span>120 min</span>
                           </div>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                          <div>
+                            <Label htmlFor="unlimited-timer-switch">Unlimited timer</Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Count up with no fixed duration or auto-stop.
+                            </p>
+                          </div>
+                          <Switch
+                            id="unlimited-timer-switch"
+                            checked={tempUnlimitedTimer}
+                            onCheckedChange={setTempUnlimitedTimer}
+                            aria-label="Unlimited timer"
+                          />
                         </div>
                         <Button onClick={saveDuration} className="w-full">
                           Save Duration

@@ -21,6 +21,7 @@ import {
 } from './ui/dialog';
 import { Label } from './ui/label';
 import { Slider } from './ui/slider';
+import { Switch } from './ui/switch';
 import FlipClock from './FlipClock';
 
 interface FullscreenTimerProps {
@@ -43,12 +44,17 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     return !isNaN(parsed) && parsed >= 1 && parsed <= 120 ? parsed : 50;
   });
   const [tempDuration, setTempDuration] = useState(pomodoroDuration);
+  const [unlimitedTimer, setUnlimitedTimer] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('unlimitedTimer') === 'true';
+  });
+  const [tempUnlimitedTimer, setTempUnlimitedTimer] = useState(unlimitedTimer);
   const [showSettings, setShowSettings] = useState(false);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeLeft, setBreakTimeLeft] = useState(BREAK_DURATION_SECONDS);
   const [hasShownBreakRecommendation, setHasShownBreakRecommendation] = useState(false);
 
-  // Keep duration in sync when StudyTimer (or any tab) changes it
+  // Keep duration and unlimited mode in sync when StudyTimer (or any tab) changes them
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'pomodoroDuration' && e.newValue) {
@@ -57,6 +63,11 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
           setPomodoroDuration(parsed);
           setTempDuration(parsed);
         }
+      }
+      if (e.key === 'unlimitedTimer' && e.newValue !== null) {
+        const parsed = e.newValue === 'true';
+        setUnlimitedTimer(parsed);
+        setTempUnlimitedTimer(parsed);
       }
     };
     window.addEventListener('storage', onStorage);
@@ -205,6 +216,8 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     const interval = setInterval(() => {
       setStudyTime((prev) => {
         const newTime = prev + 1;
+        // Unlimited mode: keep counting, never auto-stop or auto-save.
+        if (unlimitedTimer) return newTime;
         // Check if Pomodoro completed
         if (newTime >= POMODORO_DURATION) {
           setStudying(false);
@@ -226,7 +239,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, isOpen, isOnBreak, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart]);
+  }, [studying, isOpen, isOnBreak, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
 
   const stopAndSave = useCallback(async () => {
     const currentStudyTime = studyTime;
@@ -290,21 +303,29 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
 
   const activeDurationSeconds = isOnBreak ? BREAK_DURATION_SECONDS : POMODORO_DURATION;
   const elapsedSeconds = isOnBreak ? BREAK_DURATION_SECONDS - breakTimeLeft : studyTime;
-  const progress = Math.min((elapsedSeconds / activeDurationSeconds) * 100, 100);
+  const progress = unlimitedTimer && !isOnBreak ? 0 : Math.min((elapsedSeconds / activeDurationSeconds) * 100, 100);
 
   const saveDuration = () => {
     const clamped = Math.max(1, Math.min(120, tempDuration));
     setPomodoroDuration(clamped);
     localStorage.setItem('pomodoroDuration', clamped.toString());
+    setUnlimitedTimer(tempUnlimitedTimer);
+    localStorage.setItem('unlimitedTimer', tempUnlimitedTimer.toString());
     // Notify StudyTimer of the change
     window.dispatchEvent(new StorageEvent('storage', {
       key: 'pomodoroDuration',
       newValue: clamped.toString(),
     }));
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'unlimitedTimer',
+      newValue: tempUnlimitedTimer.toString(),
+    }));
     setShowSettings(false);
     toast({
       title: 'Timer updated',
-      description: `Focus duration set to ${clamped} minutes`,
+      description: tempUnlimitedTimer
+        ? 'Unlimited mode enabled — the timer will count up with no cap.'
+        : `Focus duration set to ${clamped} minutes`,
     });
   };
 
@@ -319,7 +340,11 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       {/* Header - RESPONSIVE FIX: Fluid padding and text */}
       <div className="absolute top-4 sm:top-6 left-0 right-0 flex items-center justify-between" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
         <div className="text-xs sm:text-sm text-muted-foreground">
-          {isOnBreak ? 'Break Time • 10 min (no penalty)' : `Focus Session • ${pomodoroDuration} min`}
+          {isOnBreak
+            ? 'Break Time • 10 min (no penalty)'
+            : unlimitedTimer
+              ? 'Focus Session • Unlimited'
+              : `Focus Session • ${pomodoroDuration} min`}
         </div>
         <div className="flex items-center gap-2">
           <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -358,6 +383,20 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
                     <span>120 min</span>
                   </div>
                 </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                  <div>
+                    <Label htmlFor="fs-unlimited-timer-switch">Unlimited timer</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Count up with no fixed duration or auto-stop.
+                    </p>
+                  </div>
+                  <Switch
+                    id="fs-unlimited-timer-switch"
+                    checked={tempUnlimitedTimer}
+                    onCheckedChange={setTempUnlimitedTimer}
+                    aria-label="Unlimited timer"
+                  />
+                </div>
                 <Button onClick={saveDuration} className="w-full">
                   Save
                 </Button>
@@ -380,20 +419,30 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto" style={{ gap: 'clamp(2rem, 6vw, 3rem)', paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
         {/* Flip Clock Timer - RESPONSIVE FIX: Scale for mobile */}
         <div className="scale-[0.6] sm:scale-75 md:scale-90 lg:scale-100 my-4 sm:my-8">
-          <FlipClock timeInSeconds={isOnBreak ? breakTimeLeft : POMODORO_DURATION - studyTime} isCountingDown={true} />
+          <FlipClock
+            timeInSeconds={isOnBreak ? breakTimeLeft : (unlimitedTimer ? studyTime : POMODORO_DURATION - studyTime)}
+            isCountingDown={!unlimitedTimer || isOnBreak}
+          />
         </div>
 
         {/* Progress Bar under clock - RESPONSIVE FIX: Fluid width */}
         <div className="w-full max-w-md" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
-          <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-1000 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {(studyTime > 0 || isOnBreak) && (
+          {!(unlimitedTimer && !isOnBreak) && (
+            <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-1000 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+          {(studyTime > 0 || isOnBreak) && !(unlimitedTimer && !isOnBreak) && (
             <div className="text-sm tracking-wider text-muted-foreground mt-3 text-center uppercase">
               {Math.floor(progress)}% complete
+            </div>
+          )}
+          {unlimitedTimer && !isOnBreak && studyTime > 0 && (
+            <div className="text-sm tracking-wider text-muted-foreground mt-3 text-center uppercase">
+              Unlimited session in progress
             </div>
           )}
         </div>
