@@ -105,6 +105,21 @@ func isValidExamType(examTypeUpper string) bool {
 	return false
 }
 
+// targetExamCycleYear picks the exam cycle year the AI prompt should focus
+// on. India's major competitive exams (JEE, NEET, GATE, CAT, NDA, CLAT, UPSC
+// prelims) hold their primary exam window in the first half of the calendar
+// year, with the following cycle's registration typically opening in the
+// second half. Once the current year's window has likely closed (past June),
+// "the current cycle" is a stale target — aspirants are already looking
+// ahead to next year — so roll the target forward to keep news and key dates
+// relevant instead of describing an exam that already happened.
+func targetExamCycleYear(now time.Time) int {
+	if now.Month() > time.June {
+		return now.Year() + 1
+	}
+	return now.Year()
+}
+
 // ─────────────────────────────────────────────
 // News item type + normaliser
 // ─────────────────────────────────────────────
@@ -227,6 +242,14 @@ func callGroq(systemPrompt, userPrompt string, maxTokens int) (string, error) {
 
 // doGroqRequest makes a single Groq API call.
 // Returns (text, retryAfter, error). retryAfter > 0 on 429.
+//
+// tool_choice is explicitly set to "auto" (rather than omitted) because Groq's
+// compound systems (groq/compound, groq/compound-mini) have built-in tools
+// (web search, code execution) they may invoke on their own. Omitting
+// tool_choice can cause Groq to default it to "none" server-side while the
+// model still attempts a tool call anyway, producing a 400 "Tool choice is
+// none, but model called a tool" (tool_use_failed) error. Since this handler
+// relies on live web search for current exam news, tools must stay allowed.
 func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int) (string, time.Duration, error) {
 	reqBody := map[string]interface{}{
 		"model": model,
@@ -236,6 +259,7 @@ func doGroqRequest(apiKey, model, systemPrompt, userPrompt string, maxTokens int
 		},
 		"temperature": 0.5,
 		"max_tokens":  maxTokens,
+		"tool_choice": "auto",
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -331,7 +355,7 @@ func GetNews(c *fiber.Ctx) error {
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
-	currentYear := now.Year()
+	targetYear := targetExamCycleYear(now)
 
 	system := "You are StudyBuddy's exam news assistant for Indian competitive exams. Use web search to find real, current information before answering. Return ONLY valid JSON without markdown, backticks, or commentary — your entire response must be the JSON array itself."
 
@@ -352,7 +376,7 @@ Rules:
 - If an official date is not yet announced, give the most probable expected date and write "(expected)" in the content.
 - No markdown, no backticks, no text outside the JSON array.
 - Keep items relevant to %s.`,
-		today, examTypeUpper, currentYear, currentYear, currentYear, examTypeUpper)
+		today, examTypeUpper, targetYear, targetYear, targetYear, examTypeUpper)
 
 	responseText, err := callGroq(system, user, 1500)
 	if err != nil {
@@ -382,7 +406,7 @@ func GetNewsDates(c *fiber.Ctx) error {
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
-	currentYear := now.Year()
+	targetYear := targetExamCycleYear(now)
 
 	system := "You are StudyBuddy's exam timeline assistant for Indian competitive exams. Use web search to find real, current information before answering. Return ONLY valid JSON without markdown, backticks, or commentary — your entire response must be the JSON object itself."
 
@@ -403,7 +427,7 @@ Rules:
 - If a date is not yet officially announced, provide the most probable expected date and note "(expected)" in the description.
 - Include registration, exam, result, and counseling milestones.
 - No markdown, no backticks, no extra keys, no text outside the JSON object.`,
-		today, examTypeUpper, currentYear, currentYear+1, examTypeUpper, currentYear, currentYear)
+		today, examTypeUpper, targetYear, targetYear+1, examTypeUpper, targetYear, targetYear)
 
 	responseText, err := callGroq(system, user, 1000)
 	if err != nil {
