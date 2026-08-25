@@ -1478,7 +1478,7 @@ export default function Dashboard() {
                                     <div className="mt-1 flex-shrink-0">
                                       <Checkbox
                                         checked={activeDragTodo.completed}
-                                        className="border-border/50 data-[state=checked]:bg-primary"
+                  className="border-ink/40 data-[state=checked]:bg-primary"
                                       />
                                     </div>
                                     <div className="flex-1 min-w-0">

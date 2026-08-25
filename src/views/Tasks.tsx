@@ -62,7 +62,7 @@ const TaskRow = memo(function TaskRow({ task, onToggle, onDelete, busy }: TaskRo
         className={`press relative grid h-6 w-6 shrink-0 place-items-center rounded-[7px] border disabled:cursor-wait ${
           task.completed
             ? 'border-brand bg-brand text-on-accent'
-            : 'border-hairline-strong bg-surface hover:border-hairline-accent-strong'
+            : 'border-ink/30 bg-ink/[0.04] hover:border-brand hover:bg-brand-subtle'
         }`}
       >
         {task.completed && <Check className="h-3.5 w-3.5 animate-task-check" strokeWidth={3} />}
