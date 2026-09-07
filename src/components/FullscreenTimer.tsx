@@ -125,50 +125,78 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     if (minutes < 0) return;
     if (!startTime && minutes < 1) return;
 
+    const { enqueueOutbox, newMutationId } = await import('@/lib/offline/outbox');
+    const mutationId = newMutationId();
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const payload = {
+      duration: minutes,
+      subject: selectedSubject,
+      ...(startTime ? { startTime } : {}),
+      ...(endTime ? { endTime } : {}),
+      ...(timezone ? { timezone } : {}),
+      clientMutationId: mutationId,
+    };
 
     try {
-      // In fullscreen mode, we might not have selectedSubject locally, but we can pass a default or keep it undefined
       const res = await apiFetch('/timer/session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          duration: minutes,
-          subject: selectedSubject,
-          ...(startTime ? { startTime } : {}),
-          ...(endTime ? { endTime } : {}),
-          ...(timezone ? { timezone } : {}),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Mutation-Id': mutationId,
+        },
+        body: JSON.stringify(payload),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
-        const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
-        const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
-
-        if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
-          setUser((prev: any) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
-              totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
-              ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
-            };
-          });
-        }
-
-        if (minutes > 0) {
-          toast({
-            title: 'Session saved!',
-            description: data.message || `+${pointsEarned} points earned`,
-          });
-        }
-        window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
+      if (!res.ok) {
+        throw new Error(`Timer save failed (${res.status})`);
       }
+
+      const data = await res.json();
+      const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+      const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+      const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
+
+      if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
+        setUser((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
+            totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+            ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
+          };
+        });
+      }
+
+      if (minutes > 0) {
+        toast({
+          title: 'Session saved!',
+          description: data.message || `+${pointsEarned} points earned`,
+        });
+      }
+      window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
     } catch (error) {
       console.error('Failed to save session:', error);
+      enqueueOutbox({
+        id: mutationId,
+        type: 'timer-session',
+        path: '/timer/session',
+        method: 'POST',
+        body: payload,
+      });
+      if (minutes > 0) {
+        setUser((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + minutes,
+            totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + minutes,
+          };
+        });
+      }
+      toast({
+        title: 'Session saved offline',
+        description: 'Stored on this device — will sync when connection is restored',
+      });
     }
   }, [setUser, toast, selectedSubject]);
 
@@ -336,186 +364,205 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-background z-[100] flex items-center justify-center">
-      {/* Header - RESPONSIVE FIX: Fluid padding and text */}
-      <div className="absolute top-4 sm:top-6 left-0 right-0 flex items-center justify-between" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
-        <div className="text-xs sm:text-sm text-muted-foreground">
-          {isOnBreak
-            ? 'Break Time • 10 min (no penalty)'
-            : unlimitedTimer
-              ? 'Focus Session • Unlimited'
-              : `Focus Session • ${pomodoroDuration} min`}
-        </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={showSettings} onOpenChange={setShowSettings}>
-            <DialogTrigger asChild>
-              {/* RESPONSIVE FIX: Touch target min 44x44px */}
-              <Button size="icon" variant="ghost" className="min-h-[44px] min-w-[44px]">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Timer Settings</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="fs-duration-slider">Focus Duration</Label>
-                    <span className="text-2xl font-bold tabular-nums">
-                      {tempDuration}<span className="text-sm font-normal text-muted-foreground ml-1">min</span>
-                    </span>
-                  </div>
-                  <Slider
-                    id="fs-duration-slider"
-                    aria-label="Focus Duration"
-                    min={1}
-                    max={120}
-                    step={1}
-                    value={tempDuration}
-                    onChange={setTempDuration}
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>1 min</span>
-                    <span>30 min</span>
-                    <span>60 min</span>
-                    <span>90 min</span>
-                    <span>120 min</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-                  <div>
-                    <Label htmlFor="fs-unlimited-timer-switch">Unlimited timer</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Count up with no fixed duration or auto-stop.
-                    </p>
-                  </div>
-                  <Switch
-                    id="fs-unlimited-timer-switch"
-                    checked={tempUnlimitedTimer}
-                    onCheckedChange={setTempUnlimitedTimer}
-                    aria-label="Unlimited timer"
-                  />
-                </div>
-                <Button onClick={saveDuration} className="w-full">
-                  Save
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void stopAndSave();
-            }}
-            className="min-h-[44px]"
-          >
-            Save &amp; Exit
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content - RESPONSIVE FIX: Fluid spacing */}
-      <div className="flex flex-col items-center justify-center w-full max-w-4xl mx-auto" style={{ gap: 'clamp(2rem, 6vw, 3rem)', paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
-        {/* Flip Clock Timer - RESPONSIVE FIX: Scale for mobile */}
-        <div className="scale-[0.6] sm:scale-75 md:scale-90 lg:scale-100 my-4 sm:my-8">
-          <FlipClock
-            timeInSeconds={isOnBreak ? breakTimeLeft : (unlimitedTimer ? studyTime : POMODORO_DURATION - studyTime)}
-            isCountingDown={!unlimitedTimer || isOnBreak}
-          />
-        </div>
-
-        {/* Progress Bar under clock - RESPONSIVE FIX: Fluid width */}
-        <div className="w-full max-w-md" style={{ paddingLeft: 'clamp(1rem, 4vw, 1.5rem)', paddingRight: 'clamp(1rem, 4vw, 1.5rem)' }}>
-          {!(unlimitedTimer && !isOnBreak) && (
-            <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-1000 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
-          {(studyTime > 0 || isOnBreak) && !(unlimitedTimer && !isOnBreak) && (
-            <div className="text-sm tracking-wider text-muted-foreground mt-3 text-center uppercase">
-              {Math.floor(progress)}% complete
-            </div>
-          )}
-          {unlimitedTimer && !isOnBreak && studyTime > 0 && (
-            <div className="text-sm tracking-wider text-muted-foreground mt-3 text-center uppercase">
-              Unlimited session in progress
-            </div>
-          )}
-        </div>
-
-        {/* Status - RESPONSIVE FIX: Fluid text */}
-        <div className="text-center space-y-2">
-          <h2 className="font-semibold" style={{ fontSize: 'clamp(1.125rem, 3vw, 1.5rem)' }}>
-            {isOnBreak ? 'Break Mode Active' : studying ? 'Focus Mode Active' : 'Ready to Focus'}
-          </h2>
-          <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+    <div
+      className="fixed inset-0 bg-background z-[100] overflow-y-auto overscroll-contain"
+      style={{ height: '100dvh' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Fullscreen focus timer"
+    >
+      <div className="min-h-dvh flex flex-col">
+        {/* Header: sticky so it never overlaps the clock on short landscape screens */}
+        <div
+          className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background/90 backdrop-blur border-b border-border/40 shrink-0"
+          style={{
+            paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+            paddingBottom: '0.75rem',
+            paddingLeft: 'max(clamp(1rem, 4vw, 1.5rem), env(safe-area-inset-left))',
+            paddingRight: 'max(clamp(1rem, 4vw, 1.5rem), env(safe-area-inset-right))',
+          }}
+        >
+          <div className="text-xs sm:text-sm text-muted-foreground truncate">
             {isOnBreak
-              ? 'Take a reset. Break time is penalty-free.'
-              : studying
-              ? 'Stay focused and avoid distractions'
-              : 'Press space or click play to begin'
-            }
-          </p>
-          {studyTime >= LONG_SESSION_BREAK_THRESHOLD_SECONDS && !isOnBreak && (
-            <p className="text-xs font-medium text-amber-500">
-              You crossed 60 minutes. A 10-minute break is recommended.
-            </p>
-          )}
-        </div>
-
-        {/* Controls - RESPONSIVE FIX: Touch targets min 44x44px */}
-        <div className="flex items-center gap-4">
-          <Button
-            size="lg"
-            onClick={toggleStudying}
-            className="rounded-full min-h-[56px] min-w-[56px] sm:min-h-[64px] sm:min-w-[64px]"
-            variant={studying ? "destructive" : "default"}
-            disabled={isOnBreak}
-          >
-            {studying ? <Pause className="h-5 w-5 sm:h-6 sm:w-6" /> : <Play className="h-5 w-5 sm:h-6 sm:w-6" />}
-          </Button>
-
-          {isOnBreak ? (
-            <Button
-              variant="secondary"
-              onClick={endBreakEarly}
-              className="px-4 sm:px-6 min-h-[44px]"
-            >
-              End Break Early
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              onClick={startBreak}
-              className="px-4 sm:px-6 min-h-[44px]"
-            >
-              Take 10m Break
-            </Button>
-          )}
-
-          {studyTime > 0 && (
+              ? 'Break Time • 10 min (no penalty)'
+              : unlimitedTimer
+                ? 'Focus Session • Unlimited'
+                : `Focus Session • ${pomodoroDuration} min`}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Dialog open={showSettings} onOpenChange={setShowSettings}>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="ghost" className="min-h-[44px] min-w-[44px]" aria-label="Timer settings">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Timer Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="fs-duration-slider">Focus Duration</Label>
+                      <span className="text-2xl font-bold tabular-nums">
+                        {tempDuration}<span className="text-sm font-normal text-muted-foreground ml-1">min</span>
+                      </span>
+                    </div>
+                    <Slider
+                      id="fs-duration-slider"
+                      aria-label="Focus Duration"
+                      min={1}
+                      max={120}
+                      step={1}
+                      value={tempDuration}
+                      onChange={setTempDuration}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>1 min</span>
+                      <span>30 min</span>
+                      <span>60 min</span>
+                      <span>90 min</span>
+                      <span>120 min</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                    <div>
+                      <Label htmlFor="fs-unlimited-timer-switch">Unlimited timer</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Count up with no fixed duration or auto-stop.
+                      </p>
+                    </div>
+                    <Switch
+                      id="fs-unlimited-timer-switch"
+                      checked={tempUnlimitedTimer}
+                      onCheckedChange={setTempUnlimitedTimer}
+                      aria-label="Unlimited timer"
+                    />
+                  </div>
+                  <Button onClick={saveDuration} className="w-full">
+                    Save
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="outline"
               onClick={() => {
                 void stopAndSave();
               }}
-              className="px-4 sm:px-6 min-h-[44px]"
+              className="min-h-[44px]"
             >
-              Save & Exit
+              Save &amp; Exit
             </Button>
-          )}
+          </div>
         </div>
 
-        {/* Keyboard Shortcuts - RESPONSIVE FIX: Smaller text on mobile */}
-        <div className="text-[10px] sm:text-xs text-muted-foreground text-center">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span>Space - Play/Pause</span>
-            <span>B - Toggle Break</span>
-            <span>Esc - Save &amp; Exit</span>
+        {/* Main: portrait = stacked; short landscape = two columns so nothing is cut off */}
+        <div
+          className="flex-1 w-full max-w-6xl mx-auto flex flex-col items-center justify-center gap-4 sm:gap-6 px-4 sm:px-6 py-4 sm:py-6 min-h-0 [@media((orientation:landscape)_and_(max-height:500px))]:flex-row [@media((orientation:landscape)_and_(max-height:500px))]:gap-6 [@media((orientation:landscape)_and_(max-height:500px))]:py-3 [@media((orientation:landscape)_and_(max-height:500px))]:items-center"
+        >
+          {/* Clock column */}
+          <div className="flex flex-col items-center gap-3 sm:gap-4 min-w-0 [@media((orientation:landscape)_and_(max-height:500px))]:flex-1">
+            <div className="w-full flex justify-center min-w-0">
+              <FlipClock
+                timeInSeconds={isOnBreak ? breakTimeLeft : (unlimitedTimer ? studyTime : POMODORO_DURATION - studyTime)}
+                isCountingDown={!unlimitedTimer || isOnBreak}
+              />
+            </div>
+
+            <div className="w-full max-w-md px-1">
+              {!(unlimitedTimer && !isOnBreak) && (
+                <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-1000 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+              {(studyTime > 0 || isOnBreak) && !(unlimitedTimer && !isOnBreak) && (
+                <div className="text-xs sm:text-sm tracking-wider text-muted-foreground mt-2 text-center uppercase">
+                  {Math.floor(progress)}% complete
+                </div>
+              )}
+              {unlimitedTimer && !isOnBreak && studyTime > 0 && (
+                <div className="text-xs sm:text-sm tracking-wider text-muted-foreground mt-2 text-center uppercase">
+                  Unlimited session in progress
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status + controls column */}
+          <div className="flex flex-col items-center gap-3 sm:gap-4 min-w-0 [@media((orientation:landscape)_and_(max-height:500px))]:flex-1 [@media((orientation:landscape)_and_(max-height:500px))]:items-start [@media((orientation:landscape)_and_(max-height:500px))]:text-left">
+            <div className="text-center space-y-1.5 [@media((orientation:landscape)_and_(max-height:500px))]:text-left">
+              <h2 className="font-semibold" style={{ fontSize: 'clamp(1rem, 2.5vw + 0.5rem, 1.5rem)' }}>
+                {isOnBreak ? 'Break Mode Active' : studying ? 'Focus Mode Active' : 'Ready to Focus'}
+              </h2>
+              <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.8rem, 1.5vw + 0.5rem, 1rem)' }}>
+                {isOnBreak
+                  ? 'Take a reset. Break time is penalty-free.'
+                  : studying
+                  ? 'Stay focused and avoid distractions'
+                  : 'Press space or click play to begin'
+                }
+              </p>
+              {studyTime >= LONG_SESSION_BREAK_THRESHOLD_SECONDS && !isOnBreak && (
+                <p className="text-xs font-medium text-amber-500">
+                  You crossed 60 minutes. A 10-minute break is recommended.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap [@media((orientation:landscape)_and_(max-height:500px))]:justify-start">
+              <Button
+                size="lg"
+                onClick={toggleStudying}
+                className="rounded-full min-h-[56px] min-w-[56px] sm:min-h-[64px] sm:min-w-[64px]"
+                variant={studying ? "destructive" : "default"}
+                disabled={isOnBreak}
+                aria-label={studying ? 'Pause focus' : 'Start focus'}
+              >
+                {studying ? <Pause className="h-5 w-5 sm:h-6 sm:w-6" /> : <Play className="h-5 w-5 sm:h-6 sm:w-6" />}
+              </Button>
+
+              {isOnBreak ? (
+                <Button
+                  variant="secondary"
+                  onClick={endBreakEarly}
+                  className="px-4 sm:px-6 min-h-[44px]"
+                >
+                  End Break Early
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  onClick={startBreak}
+                  className="px-4 sm:px-6 min-h-[44px]"
+                >
+                  Take 10m Break
+                </Button>
+              )}
+
+              {studyTime > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void stopAndSave();
+                  }}
+                  className="px-4 sm:px-6 min-h-[44px]"
+                >
+                  Save & Exit
+                </Button>
+              )}
+            </div>
+
+            <div className="hidden sm:block text-[10px] sm:text-xs text-muted-foreground text-center [@media((orientation:landscape)_and_(max-height:500px))]:text-left">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <span>Space - Play/Pause</span>
+                <span>B - Toggle Break</span>
+                <span>Esc - Save &amp; Exit</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
