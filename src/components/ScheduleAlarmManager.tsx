@@ -20,6 +20,7 @@ import type { Schedule, ScheduleItem } from '@/lib/queries';
 import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { foregroundReminderDedupeKey } from '@/lib/showUpReminder';
+import { cancelNativeAlarms, scheduleNativeAlarms, stableAlarmId } from '@/lib/nativeAlarms';
 
 interface ScheduleAlarmManagerProps {
   schedules: Schedule[];
@@ -46,6 +47,69 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
   const { toast } = useToast();
   const toastRef = useRef(toast);
   toastRef.current = toast;
+
+  // Native layer (APK): mirror upcoming alarms into the OS notification tray
+  // so they fire even when the WebView is backgrounded or the phone sleeps.
+  // Stable ids make rescheduling idempotent; completed items cancel theirs.
+  useEffect(() => {
+    if (!user || !schedules || schedules.length === 0) return;
+    let cancelled = false;
+
+    const syncNative = async () => {
+      try {
+        const { ensureAlarmPermission } = await import('@/lib/nativeAlarms');
+        const granted = await ensureAlarmPermission().catch(() => false);
+        if (!granted || cancelled) return;
+
+        const now = new Date();
+        const horizon = now.getTime() + 7 * 24 * 60 * 60 * 1000;
+        const toSchedule: { id: number; title: string; body: string; at: Date; tag?: string }[] = [];
+        const toCancel: number[] = [];
+
+        for (const schedule of schedules) {
+          for (const item of schedule.items) {
+            const warnId = stableAlarmId(`${schedule.id}:${item.id}:warn`);
+            const startId = stableAlarmId(`${schedule.id}:${item.id}:start`);
+            if (item.completed) {
+              toCancel.push(warnId, startId);
+              continue;
+            }
+            const startAt = new Date(`${schedule.date}T${item.startTime}:00`);
+            if (!Number.isFinite(startAt.getTime()) || startAt.getTime() > horizon) continue;
+            const warnAt = new Date(startAt.getTime() - 5 * 60 * 1000);
+            if (warnAt.getTime() > Date.now()) {
+              toSchedule.push({
+                id: warnId,
+                title: `⏰ Starting in 5 min: ${item.taskTitle}`,
+                body: `Starts at ${formatTime12(item.startTime)}${item.subject ? ` · ${item.subject}` : ''}`,
+                at: warnAt,
+                tag: 'schedule-warn',
+              });
+            }
+            if (startAt.getTime() > Date.now()) {
+              toSchedule.push({
+                id: startId,
+                title: `🚀 Time to start: ${item.taskTitle}`,
+                body: `${formatTime12(item.startTime)} – ${formatTime12(item.endTime)}${item.subject ? ` · ${item.subject}` : ''}`,
+                at: startAt,
+                tag: 'schedule-start',
+              });
+            }
+          }
+        }
+
+        if (toCancel.length > 0) await cancelNativeAlarms(toCancel);
+        if (toSchedule.length > 0) await scheduleNativeAlarms(toSchedule);
+      } catch {
+        /* offline / web — foreground toasts below still cover it */
+      }
+    };
+
+    void syncNative();
+    return () => {
+      cancelled = true;
+    };
+  }, [schedules, user]);
 
   useEffect(() => {
     if (!user || !schedules || schedules.length === 0) return;
