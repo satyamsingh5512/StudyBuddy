@@ -13,6 +13,7 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/middleware"
+	"studybuddy-backend/internal/realtime"
 	"studybuddy-backend/internal/routes"
 	"studybuddy-backend/internal/session"
 
@@ -115,6 +116,10 @@ func main() {
 	app.Use(middleware.TrustedOrigin())
 
 	config.ConnectDB()
+	if err := realtime.Configure(context.Background(), os.Getenv("REDIS_URL")); err != nil {
+		log.Printf("Redis realtime disabled: %v", err)
+	}
+	defer realtime.Close()
 
 	routes.SetupRoutes(app)
 
