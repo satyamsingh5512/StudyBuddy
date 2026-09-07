@@ -9,10 +9,12 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/realtime"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -20,6 +22,10 @@ type todoListQuery struct {
 	filter bson.M
 	limit  int64
 	offset int64
+}
+
+func notifyTodoChanged(userID primitive.ObjectID) {
+	realtime.NotifyChange(userID.Hex(), "todos")
 }
 
 func todoListLocation(requestTimezone, profileTimezone string) (*time.Location, error) {
@@ -158,12 +164,13 @@ func GetTodos(c *fiber.Ctx) error {
 }
 
 type CreateTodoRequest struct {
-	Title           string     `json:"title"`
-	Subject         string     `json:"subject"`
-	Difficulty      string     `json:"difficulty"`
-	QuestionsTarget int        `json:"questionsTarget"`
-	DueDate         *time.Time `json:"dueDate"`
-	ScheduledDate   *time.Time `json:"scheduledDate"`
+	Title            string     `json:"title"`
+	Subject          string     `json:"subject"`
+	Difficulty       string     `json:"difficulty"`
+	QuestionsTarget  int        `json:"questionsTarget"`
+	DueDate          *time.Time `json:"dueDate"`
+	ScheduledDate    *time.Time `json:"scheduledDate"`
+	ClientMutationId string     `json:"clientMutationId"`
 }
 
 func CreateTodo(c *fiber.Ctx) error {
@@ -183,16 +190,39 @@ func CreateTodo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Task title must be 300 characters or fewer"})
 	}
 
+	mutationID := strings.TrimSpace(req.ClientMutationId)
+	if mutationID == "" {
+		mutationID = strings.TrimSpace(c.Get("X-Client-Mutation-Id"))
+	}
+
+	collection := config.DB.Collection("todos")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Return the original Todo when a mobile retry follows a lost response.
+	if mutationID != "" {
+		var existing models.Todo
+		err := collection.FindOne(ctx, bson.M{"userId": user.ID, "clientMutationId": mutationID}).Decode(&existing)
+		if err == nil {
+			return c.JSON(existing)
+		}
+		if err != mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to check todo mutation"})
+		}
+	}
+
+	now := time.Now()
 	todo := models.Todo{
-		UserID:          user.ID,
-		Title:           req.Title,
-		Subject:         req.Subject,
-		Difficulty:      req.Difficulty,
-		QuestionsTarget: req.QuestionsTarget,
-		Completed:       false,
-		DueDate:         req.DueDate,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		UserID:           user.ID,
+		Title:            req.Title,
+		Subject:          req.Subject,
+		Difficulty:       req.Difficulty,
+		QuestionsTarget:  req.QuestionsTarget,
+		Completed:        false,
+		DueDate:          req.DueDate,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		ClientMutationId: mutationID,
 	}
 	if todo.Subject == "" {
 		todo.Subject = "General"
@@ -212,16 +242,19 @@ func CreateTodo(c *fiber.Ctx) error {
 		todo.OriginalScheduledDate = todo.DueDate
 	}
 
-	collection := config.DB.Collection("todos")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	res, err := collection.InsertOne(ctx, todo)
 	if err != nil {
+		if mutationID != "" && mongo.IsDuplicateKeyError(err) {
+			var existing models.Todo
+			if findErr := collection.FindOne(ctx, bson.M{"userId": user.ID, "clientMutationId": mutationID}).Decode(&existing); findErr == nil {
+				return c.JSON(existing)
+			}
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create todo"})
 	}
 
 	todo.ID = res.InsertedID.(primitive.ObjectID)
+	notifyTodoChanged(user.ID)
 	return c.Status(fiber.StatusCreated).JSON(todo)
 }
 
@@ -248,12 +281,18 @@ func UpdateTodo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	updateFields := bson.M{"updatedAt": time.Now()}
+	now := time.Now()
+	updateFields := bson.M{"updatedAt": now}
 	if req.Title != nil {
 		updateFields["title"] = *req.Title
 	}
 	if req.Completed != nil {
 		updateFields["completed"] = *req.Completed
+		if *req.Completed {
+			updateFields["completedAt"] = now
+		} else {
+			updateFields["completedAt"] = nil
+		}
 	}
 	if req.Subject != nil {
 		updateFields["subject"] = *req.Subject
@@ -282,6 +321,7 @@ func UpdateTodo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Todo not found or could not update"})
 	}
 
+	notifyTodoChanged(user.ID)
 	return c.JSON(fiber.Map{"message": "Updated successfully"})
 }
 
@@ -303,6 +343,7 @@ func DeleteTodo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Todo not found or could not delete"})
 	}
 
+	notifyTodoChanged(user.ID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -340,6 +381,9 @@ func DeleteTodosByDay(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete tasks"})
+	}
+	if res.DeletedCount > 0 {
+		notifyTodoChanged(user.ID)
 	}
 
 	return c.JSON(fiber.Map{
@@ -380,42 +424,25 @@ func RescheduleAllOverdue(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Find overdue tasks
-	cursor, err := collection.Find(ctx, bson.M{"userId": user.ID, "completed": false})
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch todos"})
+	filter := bson.M{
+		"userId":    user.ID,
+		"completed": false,
+		"dueDate":   bson.M{"$lt": today},
 	}
-	defer cursor.Close(ctx)
-
-	var todos []models.Todo
-	if err = cursor.All(ctx, &todos); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse todos"})
-	}
-
-	var overdueIds []primitive.ObjectID
-	for _, todo := range todos {
-		if todo.DueDate != nil {
-			scheduled := getStartOfDay(*todo.DueDate)
-			if scheduled.Before(today) {
-				overdueIds = append(overdueIds, todo.ID)
-			}
-		}
-	}
-
-	if len(overdueIds) == 0 {
-		return c.JSON(fiber.Map{"message": "No overdue tasks to reschedule", "count": 0})
-	}
-
 	res, err := collection.UpdateMany(
 		ctx,
-		bson.M{"_id": bson.M{"$in": overdueIds}},
+		filter,
 		bson.M{"$set": bson.M{"dueDate": scheduleTo, "scheduledDate": scheduleTo, "updatedAt": time.Now()}, "$inc": bson.M{"rescheduledCount": 1}},
 	)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to reschedule tasks"})
 	}
+	if res.ModifiedCount == 0 {
+		return c.JSON(fiber.Map{"message": "No overdue tasks to reschedule", "count": 0})
+	}
 
+	notifyTodoChanged(user.ID)
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Tasks rescheduled",
@@ -477,6 +504,7 @@ func RescheduleTodo(c *fiber.Ctx) error {
 	existingTodo.ScheduledDate = &newScheduledDate
 	existingTodo.RescheduledCount++
 	existingTodo.UpdatedAt = updatedAt
+	notifyTodoChanged(user.ID)
 	return c.JSON(existingTodo)
 }
 
@@ -518,5 +546,7 @@ func RescheduleToToday(c *fiber.Ctx) error {
 	usersColl.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"totalPoints": 1}, "$set": bson.M{"lastActive": time.Now()}})
 
 	existingTodo.DueDate = &today
+	existingTodo.ScheduledDate = &today
+	notifyTodoChanged(user.ID)
 	return c.JSON(existingTodo)
 }
