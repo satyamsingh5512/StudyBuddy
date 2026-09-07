@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from '@/lib/router';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   FileText,
@@ -43,6 +44,7 @@ import ThemeToggle from './ThemeToggle';
 import ShowUpReminderManager from '@/components/ShowUpReminderManager';
 
 import { apiFetch } from '@/config/api';
+import { clearOfflineAccountData } from '@/lib/offline/storage';
 import { soundManager } from '@/lib/sounds';
 
 const navItems = [
@@ -70,8 +72,9 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const [user] = useAtom(userAtom);
-  const [studying] = useAtom(studyingAtom);
+  const [user, setUser] = useAtom(userAtom);
+  const [studying, setStudying] = useAtom(studyingAtom);
+  const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isOnline } = useNetworkStatus();
   const location = useLocation();
@@ -79,8 +82,22 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = async () => {
     soundManager.playClick();
-    await apiFetch('/auth/logout', { method: 'POST' });
-    window.location.href = '/';
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } finally {
+      // Intentional logout wins over offline durability: queued writes and
+      // cached records must never be replayed under a different account.
+      setUser(null);
+      setStudying(false);
+      queryClient.clear();
+      await Promise.allSettled([
+        clearOfflineAccountData(),
+        import('@/lib/nativeFocusEnforcer')
+          .then(({ disableNativeFocusEnforcer }) => disableNativeFocusEnforcer())
+          .catch(() => null),
+      ]);
+      window.location.assign('/');
+    }
   };
 
   const handleNavClick = () => {
