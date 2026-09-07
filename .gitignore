@@ -3,6 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# Local toolchains (JDK, Android SDK, etc.)
+.tools/
+
 # Environment
 .env
 .env.local
