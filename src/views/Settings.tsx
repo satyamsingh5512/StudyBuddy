@@ -29,6 +29,8 @@ import {
   type DashboardWidgetId,
 } from '@/lib/preferences';
 import { NotificationPermissionAction } from '@/components/NotificationPermissionAction';
+import MobileReminderSettings from '@/components/MobileReminderSettings';
+import MobileFocusEnforcerSettings from '@/components/MobileFocusEnforcerSettings';
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
@@ -304,8 +306,10 @@ export default function Settings() {
           <div className="space-y-4 border-t border-border pt-5">
             <div className="flex items-center justify-between gap-4"><div><Label htmlFor="showUpReminder">Show-up reminder</Label><p className="text-xs text-muted-foreground">Show an in-app reminder at the selected local time.</p></div><Switch id="showUpReminder" checked={reminderEnabled} onCheckedChange={setReminderEnabled} /></div>
             <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="reminderTime">Reminder time</Label><Input id="reminderTime" type="time" value={reminderTime} onChange={(event) => setReminderTime(event.target.value)} /></div><fieldset><legend className="text-sm font-medium">Days</legend><div className="mt-2 flex flex-wrap gap-1">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <button key={label} type="button" onClick={() => setReminderDays(reminderDays.includes(day) ? reminderDays.filter((value) => value !== day) : [...reminderDays, day])} aria-pressed={reminderDays.includes(day)} className={`rounded-lg border px-2 py-1.5 text-xs ${reminderDays.includes(day) ? 'border-primary bg-primary/10 text-primary' : 'border-hairline'}`}>{label}</button>)}</div><p className="mt-1 text-xs text-muted-foreground">No selected days means every day.</p></fieldset></div>
-            <div className="rounded-xl border border-hairline bg-muted/30 p-3 text-xs text-muted-foreground"><Info className="mr-2 inline h-4 w-4" />Reminders and optional notifications work only while StudyBuddy is open. Closed-app delivery is not guaranteed.</div>
+            <div className="rounded-xl border border-hairline bg-muted/30 p-3 text-xs text-muted-foreground"><Info className="mr-2 inline h-4 w-4" />Web reminders need StudyBuddy open. In the Android APK, local schedule alarms can notify in the background after notifications and exact alarms are enabled; Android may still delay them in power-saving modes.</div>
             <NotificationPermissionAction permission={notificationPermission} onPermission={handleNotificationPermission} onUnsupported={handleNotificationsUnsupported} />
+            <MobileReminderSettings />
+            <MobileFocusEnforcerSettings />
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border pt-5"><div><Label htmlFor="mentorJournalContext">Mentor journal default</Label><p className="text-xs text-muted-foreground">Include journal context by default in Mentor requests.</p></div><Switch id="mentorJournalContext" checked={mentorJournalContext} onCheckedChange={setMentorJournalContext} /></div>
           <Button onClick={saveSettings}>Save experience preferences</Button>
