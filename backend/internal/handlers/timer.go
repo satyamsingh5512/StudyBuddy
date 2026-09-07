@@ -9,6 +9,7 @@ import (
 
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
+	"studybuddy-backend/internal/realtime"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -151,11 +152,12 @@ func toReportDateKey(value any, loc *time.Location) (string, bool) {
 }
 
 type SaveSessionRequest struct {
-	Duration  int    `json:"duration"`
-	Subject   string `json:"subject"`
-	StartTime string `json:"startTime"`
-	EndTime   string `json:"endTime"`
-	Timezone  string `json:"timezone"`
+	Duration         int    `json:"duration"`
+	Subject          string `json:"subject"`
+	StartTime        string `json:"startTime"`
+	EndTime          string `json:"endTime"`
+	Timezone         string `json:"timezone"`
+	ClientMutationId string `json:"clientMutationId"`
 }
 
 func localDayBounds(t time.Time, loc *time.Location) (time.Time, time.Time) {
@@ -228,21 +230,58 @@ func SaveTimerSession(c *fiber.Ctx) error {
 	}
 
 	session := models.Session{
-		UserID:    user.ID,
-		Duration:  durationMinutes,
-		Subject:   req.Subject,
-		StartTime: startTime,
-		EndTime:   endTime,
-		CreatedAt: now,
+		UserID:           user.ID,
+		Duration:         durationMinutes,
+		Subject:          req.Subject,
+		StartTime:        startTime,
+		EndTime:          endTime,
+		CreatedAt:        now,
+		ClientMutationId: strings.TrimSpace(req.ClientMutationId),
 	}
 
 	collection := config.DB.Collection("timer_sessions")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	// Idempotency: a retried offline sync carries the same clientMutationId
+	// (body or X-Client-Mutation-Id header). Return the original row instead
+	// of double-counting points/streak.
+	mutationID := strings.TrimSpace(req.ClientMutationId)
+	if mutationID == "" {
+		mutationID = strings.TrimSpace(c.Get("X-Client-Mutation-Id"))
+	}
+	if mutationID != "" {
+		session.ClientMutationId = mutationID
+		var existing models.Session
+		if err := collection.FindOne(ctx, bson.M{"userId": user.ID, "clientMutationId": mutationID}).Decode(&existing); err == nil {
+			return c.JSON(fiber.Map{
+				"message":      "Session saved",
+				"pointsEarned": 0,
+				"streak":       user.Streak,
+				"session":      existing,
+				"deduplicated": true,
+			})
+		}
+	}
 	_, _ = reconcileUserStats(ctx, &user, location, now)
 
 	res, err := collection.InsertOne(ctx, session)
 	if err != nil {
+		// Two retries can pass the pre-insert lookup together. The unique index
+		// resolves that race; re-read the winner so callers still receive an
+		// idempotent success rather than a retry-inducing 500.
+		if mutationID != "" && mongo.IsDuplicateKeyError(err) {
+			var existing models.Session
+			if findErr := collection.FindOne(ctx, bson.M{"userId": user.ID, "clientMutationId": mutationID}).Decode(&existing); findErr == nil {
+				return c.JSON(fiber.Map{
+					"message":      "Session saved",
+					"pointsEarned": 0,
+					"streak":       user.Streak,
+					"session":      existing,
+					"deduplicated": true,
+				})
+			}
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save session"})
 	}
 
@@ -306,6 +345,7 @@ func SaveTimerSession(c *fiber.Ctx) error {
 		bestStreakCandidate = streakAfterSave
 	}
 	usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, timerUserStatsUpdate(durationMinutes, pointsEarned, bestStreakCandidate, updateSet))
+	realtime.NotifyChange(user.ID.Hex(), "timer")
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message":      "Session saved",
@@ -420,9 +460,14 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 	todosCursor, err := todosCollection.Find(ctx, bson.M{
 		"userId":    user.ID,
 		"completed": true,
-		"dueDate": bson.M{
-			"$gte": activityStart,
-			"$lt":  rangeEnd,
+		"$or": bson.A{
+			bson.M{"completedAt": bson.M{"$gte": activityStart, "$lt": rangeEnd}},
+			// Older documents predate completedAt. Keep their historical report
+			// usable by falling back to the scheduled/due date only for that shape.
+			bson.M{
+				"completedAt": bson.M{"$exists": false},
+				"dueDate":     bson.M{"$gte": activityStart, "$lt": rangeEnd},
+			},
 		},
 	})
 	if err != nil {
@@ -436,11 +481,15 @@ func GetTimerAnalytics(c *fiber.Ctx) error {
 	}
 
 	for _, todo := range todos {
-		if todo.DueDate == nil {
+		referenceTime := todo.CompletedAt
+		if referenceTime == nil {
+			referenceTime = todo.DueDate
+		}
+		if referenceTime == nil {
 			continue
 		}
 
-		dateKey := dayStartInLocation(*todo.DueDate, loc).Format("2006-01-02")
+		dateKey := dayStartInLocation(*referenceTime, loc).Format("2006-01-02")
 		day := analyticsByDay[dateKey]
 		if day == nil {
 			continue
