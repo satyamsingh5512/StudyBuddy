@@ -49,7 +49,7 @@ func SetupRoutes(app *fiber.App) {
 	api.Get("/username/check/:username", middleware.RateLimit(60, time.Minute), handlers.CheckUsername)
 
 	users := api.Group("/users")
-	users.Get("/leaderboard", handlers.GetLeaderboard)
+	users.Get("/leaderboard", middleware.RateLimit(60, time.Minute), handlers.GetLeaderboard)
 
 	// Protected routes
 	protected := api.Group("", middleware.RequireAuth)
@@ -57,6 +57,9 @@ func SetupRoutes(app *fiber.App) {
 	// Protected Auth
 	protected.Get("/auth/me", handlers.Me)
 	protected.Post("/auth/logout", handlers.Logout)
+
+	// Optional Redis Streams change feed. It reports disabled when REDIS_URL is absent.
+	protected.Get("/realtime/changes", handlers.GetRealtimeChanges)
 
 	// Avatar
 	protected.Post("/upload/avatar", handlers.UploadAvatar)
@@ -132,6 +135,10 @@ func SetupRoutes(app *fiber.App) {
 	timer := protected.Group("/timer")
 	timer.Post("/session", handlers.SaveTimerSession)
 	timer.Get("/analytics", handlers.GetTimerAnalytics)
+	timer.Post("/focus-start", handlers.StartFocusSession)
+	timer.Post("/focus-heartbeat", handlers.HeartbeatFocusSession)
+	timer.Post("/focus-end", handlers.EndFocusSession)
+	timer.Get("/focus-active", handlers.GetActiveFocusSession)
 
 	// Friends
 	friends := protected.Group("/friends")
