@@ -18,8 +18,12 @@ const sections = [
     text: 'Prompts and relevant study context may be sent to configured AI providers when you request generated schedules, news, search results, or Mentor guidance. Journal context is included in Mentor requests only when you enable that preference. Do not include sensitive personal information in prompts.',
   },
   {
-    title: 'Analytics and storage',
-    text: 'The web application uses hosting analytics, stores theme and allowlisted appearance preferences locally for startup rendering, and stores profile preferences on the server. Authentication uses secure cookies. The PWA service worker caches only public static assets—it never caches API responses, navigation HTML, or account data. Foreground reminders use local date dedupe keys and optional browser notifications.',
+    title: 'Offline storage',
+    text: 'While you are signed in, StudyBuddy may keep last-known-good read snapshots and pending idempotent writes in this browser or APK WebView so supported work can continue during a connection loss. The service worker caches public static assets only; it never caches API responses or account navigation HTML. Signing out clears the account snapshots, pending writes, focus markers, drafts, and StudyBuddy cache on that device.',
+  },
+  {
+    title: 'Android focus guard',
+    text: 'The optional Android phone-wide focus guard is off by default. If you explicitly grant Android Usage Access and “Display over other apps”, it checks only the current foreground app while a remote StudyBuddy focus session is active. It does not retain app history, lock your device, or force-stop apps. It shows a reminder and can end the StudyBuddy focus session after the stated grace period.',
   },
   {
     title: 'Sharing and sale',
