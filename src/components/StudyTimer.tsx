@@ -114,52 +114,79 @@ export default function StudyTimer() {
     if (minutes < 0) return;
     if (!startTime && minutes < 1) return;
 
+    const { enqueueOutbox, newMutationId } = await import('@/lib/offline/outbox');
+    const mutationId = newMutationId();
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const payload = {
+      duration: minutes,
+      subject: selectedSubject,
+      ...(startTime ? { startTime } : {}),
+      ...(endTime ? { endTime } : {}),
+      ...(timezone ? { timezone } : {}),
+      clientMutationId: mutationId,
+    };
 
     try {
       const res = await apiFetch('/timer/session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          duration: minutes,
-          subject: selectedSubject,
-          ...(startTime ? { startTime } : {}),
-          ...(endTime ? { endTime } : {}),
-          ...(timezone ? { timezone } : {}),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Mutation-Id': mutationId,
+        },
+        body: JSON.stringify(payload),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
-        const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
-        const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
-
-        if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
-          setUser((prev: any) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
-              totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
-              ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
-            };
-          });
-        }
-
-        if (minutes > 0) {
-          toast({
-            title: 'Session saved!',
-            description: data.message || `+${pointsEarned} points earned`,
-          });
-        }
-        window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
+      if (!res.ok) {
+        throw new Error(`Timer save failed (${res.status})`);
       }
+
+      const data = await res.json();
+      const pointsEarned = typeof data.pointsEarned === 'number' ? data.pointsEarned : minutes;
+      const durationSaved = typeof data?.session?.duration === 'number' ? data.session.duration : minutes;
+      const updatedStreak = typeof data?.streak === 'number' ? data.streak : undefined;
+
+      if (pointsEarned !== 0 || durationSaved !== 0 || typeof updatedStreak === 'number') {
+        setUser((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + pointsEarned,
+            totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + durationSaved,
+            ...(typeof updatedStreak === 'number' ? { streak: updatedStreak } : {}),
+          };
+        });
+      }
+
+      if (minutes > 0) {
+        toast({
+          title: 'Session saved!',
+          description: data.message || `+${pointsEarned} points earned`,
+        });
+      }
+      window.dispatchEvent(new CustomEvent('studybuddy:timer-session-saved'));
     } catch (error) {
       console.error('Failed to save session:', error);
+      // Keep the same id for a response-loss retry so the server cannot
+      // double-count points or study minutes after reconnection.
+      enqueueOutbox({
+        id: mutationId,
+        type: 'timer-session',
+        path: '/timer/session',
+        method: 'POST',
+        body: payload,
+      });
+      if (minutes > 0) {
+        setUser((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            totalPoints: (typeof prev.totalPoints === 'number' ? prev.totalPoints : 0) + minutes,
+            totalStudyMinutes: (typeof prev.totalStudyMinutes === 'number' ? prev.totalStudyMinutes : 0) + minutes,
+          };
+        });
+      }
       toast({
         title: 'Session saved offline',
-        description: 'Will sync when connection is restored',
+        description: 'Stored on this device — will sync when connection is restored',
       });
     }
   }, [setUser, toast, selectedSubject]);
