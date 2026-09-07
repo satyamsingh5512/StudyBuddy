@@ -14,14 +14,16 @@ type Todo struct {
 	Difficulty            string             `bson:"difficulty,omitempty" json:"difficulty,omitempty"`
 	QuestionsTarget       int                `bson:"questionsTarget,omitempty" json:"questionsTarget,omitempty"`
 	Completed             bool               `bson:"completed" json:"completed"`
+	CompletedAt           *time.Time         `bson:"completedAt,omitempty" json:"completedAt,omitempty"`
 	ScheduledDate         *time.Time         `bson:"scheduledDate,omitempty" json:"scheduledDate,omitempty"`
 	OriginalScheduledDate *time.Time         `bson:"originalScheduledDate,omitempty" json:"originalScheduledDate,omitempty"`
 	RescheduledCount      int                `bson:"rescheduledCount,omitempty" json:"rescheduledCount,omitempty"`
 	DueDate               *time.Time         `bson:"dueDate,omitempty" json:"dueDate,omitempty"`
 	// Schedule integration — set when a todo is generated from an AI schedule.
-	Source    string    `bson:"source,omitempty" json:"source,omitempty"`       // "schedule" | "" (manual)
-	StartTime string    `bson:"startTime,omitempty" json:"startTime,omitempty"` // "08:00"
-	EndTime   string    `bson:"endTime,omitempty" json:"endTime,omitempty"`     // "09:00"
-	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
+	Source           string    `bson:"source,omitempty" json:"source,omitempty"`       // "schedule" | "" (manual)
+	StartTime        string    `bson:"startTime,omitempty" json:"startTime,omitempty"` // "08:00"
+	EndTime          string    `bson:"endTime,omitempty" json:"endTime,omitempty"`     // "09:00"
+	CreatedAt        time.Time `bson:"createdAt" json:"createdAt"`
+	UpdatedAt        time.Time `bson:"updatedAt" json:"updatedAt"`
+	ClientMutationId string    `bson:"clientMutationId,omitempty" json:"clientMutationId,omitempty"`
 }
