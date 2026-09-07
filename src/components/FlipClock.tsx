@@ -7,7 +7,14 @@ interface FlipClockProps {
 
 const FlipDigit = ({ value }: { value: string }) => {
     return (
-        <div className="relative w-24 h-36 md:w-32 md:h-48 bg-zinc-900 rounded-xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center m-1 perspective-1000">
+        <div
+            className="relative bg-zinc-900 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center m-0.5 sm:m-1 perspective-1000"
+            style={{
+                width: 'clamp(2.4rem, 13vw, 8rem)',
+                height: 'clamp(3.4rem, 20vw + 2rem, 12rem)',
+                maxHeight: '38dvh',
+            }}
+        >
             <AnimatePresence mode="popLayout">
                 <motion.div
                     key={value}
@@ -17,7 +24,10 @@ const FlipDigit = ({ value }: { value: string }) => {
                     transition={{ duration: 0.3, ease: 'easeOut' }}
                     className="absolute inset-0 flex items-center justify-center"
                 >
-                    <span className="text-[5rem] md:text-[8rem] font-bold text-white tabular-nums drop-shadow-md tracking-tighter">
+                    <span
+                        className="font-bold text-white tabular-nums drop-shadow-md tracking-tighter"
+                        style={{ fontSize: 'clamp(1.75rem, 10vw, 8rem)' }}
+                    >
                         {value}
                     </span>
                 </motion.div>
@@ -30,8 +40,12 @@ const FlipDigit = ({ value }: { value: string }) => {
 };
 
 export default function FlipClock({ timeInSeconds, isCountingDown = false }: FlipClockProps) {
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = timeInSeconds % 60;
+    void isCountingDown;
+    const safeSeconds = Math.max(0, Math.floor(timeInSeconds || 0));
+    // Support hours for long unlimited sessions: H:MM:SS, otherwise MM:SS.
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
 
     const minTens = Math.floor(minutes / 10).toString();
     const minUnits = (minutes % 10).toString();
@@ -39,22 +53,46 @@ export default function FlipClock({ timeInSeconds, isCountingDown = false }: Fli
     const secUnits = (seconds % 10).toString();
 
     return (
-        <div className="flex items-center justify-center gap-4 md:gap-8 drop-shadow-2xl">
-            <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-3 md:gap-6 drop-shadow-2xl max-w-full flex-wrap">
+            {hours > 0 && (
+                <>
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                        <FlipDigit value={Math.floor(hours / 10).toString()} />
+                        <FlipDigit value={(hours % 10).toString()} />
+                    </div>
+                    <Colon />
+                </>
+            )}
+            <div className="flex items-center gap-0.5 sm:gap-1">
                 <FlipDigit value={minTens} />
                 <FlipDigit value={minUnits} />
             </div>
 
             {/* Colon */}
-            <div className="flex flex-col gap-4 md:gap-8 opacity-80 animate-pulse">
-                <div className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
-                <div className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
-            </div>
+            <Colon />
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1">
                 <FlipDigit value={secTens} />
                 <FlipDigit value={secUnits} />
             </div>
+        </div>
+    );
+}
+
+function Colon() {
+    return (
+        <div
+            className="flex flex-col gap-2 sm:gap-3 md:gap-6 opacity-80 animate-pulse shrink-0"
+            aria-hidden
+        >
+            <div
+                className="rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                style={{ width: 'clamp(0.5rem, 2vw, 1.5rem)', height: 'clamp(0.5rem, 2vw, 1.5rem)' }}
+            />
+            <div
+                className="rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                style={{ width: 'clamp(0.5rem, 2vw, 1.5rem)', height: 'clamp(0.5rem, 2vw, 1.5rem)' }}
+            />
         </div>
     );
 }
