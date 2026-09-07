@@ -59,8 +59,8 @@ test('old-user preferences receive safe defaults', () => {
 });
 
 test('dashboard registry advertises only independent top-level widgets', () => {
-  assert.deepEqual(DASHBOARD_WIDGET_IDS, ['overview', 'goals', 'schedule', 'leaderboard', 'daily-summary', 'weekly-check-in', 'achievements', 'quick-show-up']);
-  for (const fixedId of ['timer', 'tasks', 'activity', 'efficiency', 'analytics']) {
+  assert.deepEqual(DASHBOARD_WIDGET_IDS, ['overview', 'daily-summary', 'quick-show-up']);
+  for (const fixedId of ['timer', 'tasks', 'activity', 'efficiency', 'analytics', 'goals', 'schedule', 'leaderboard', 'weekly-check-in', 'achievements']) {
     assert.equal((DASHBOARD_WIDGET_IDS as readonly string[]).includes(fixedId), false);
   }
 });
@@ -75,7 +75,7 @@ test('production dashboard layout renders saved order and excludes hidden widget
   const markup = renderDashboardComposition(preferences);
 
   assert.equal(markup.includes('data-widget-id="overview"'), false);
-  assert.ok(markup.indexOf('data-widget-id="quick-show-up"') < markup.indexOf('data-widget-id="achievements"'));
+  assert.ok(markup.indexOf('data-widget-id="quick-show-up"') < markup.indexOf('data-widget-id="daily-summary"'));
   assert.equal((markup.match(/data-widget-id=/g) || []).length, DASHBOARD_WIDGET_IDS.length - 1);
 });
 
@@ -84,7 +84,7 @@ test('dashboard order and hidden IDs are unique, allowlisted, and complete', () 
     order: ['quick-show-up', 'unknown', 'goals', 'quick-show-up'],
     hidden: ['overview', 'unknown', 'overview'],
   });
-  assert.deepEqual(dashboard.order.slice(0, 2), ['quick-show-up', 'goals']);
+  assert.deepEqual(dashboard.order.slice(0, 2), ['quick-show-up', 'overview']);
   assert.equal(new Set(dashboard.order).size, DASHBOARD_WIDGET_IDS.length);
   assert.deepEqual(dashboard.hidden, ['overview']);
 });
