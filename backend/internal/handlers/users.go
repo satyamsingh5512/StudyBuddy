@@ -29,12 +29,22 @@ type CompleteOnboardingRequest struct {
 
 var onboardingUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
+type LeaderboardUser struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Username    string `json:"username"`
+	TotalPoints int    `json:"totalPoints"`
+	Streak      int    `json:"streak"`
+}
+
 func GetLeaderboard(c *fiber.Ctx) error {
 	collection := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	opts := options.Find().SetSort(bson.D{{Key: "totalPoints", Value: -1}}).SetLimit(50)
+	opts := options.Find().
+		SetSort(bson.D{{Key: "totalPoints", Value: -1}}).
+		SetLimit(50).
+		SetProjection(bson.M{"_id": 1, "name": 1, "username": 1, "totalPoints": 1, "streak": 1})
 	cursor, err := collection.Find(ctx, bson.M{"showProfile": true}, opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch leaderboard"})
@@ -44,15 +54,6 @@ func GetLeaderboard(c *fiber.Ctx) error {
 	var users []models.User
 	if err = cursor.All(ctx, &users); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse users"})
-	}
-
-	// Filter out sensitive data manually
-	type LeaderboardUser struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Username    string `json:"username"`
-		TotalPoints int    `json:"totalPoints"`
-		Streak      int    `json:"streak"`
 	}
 
 	var leaderboard []LeaderboardUser
@@ -69,7 +70,6 @@ func GetLeaderboard(c *fiber.Ctx) error {
 	if leaderboard == nil {
 		leaderboard = []LeaderboardUser{}
 	}
-
 	return c.JSON(leaderboard)
 }
 
