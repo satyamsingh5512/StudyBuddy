@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Clock,
   Target,
@@ -16,6 +16,7 @@ import {
 import { Button } from './ui/button';
 import { useTimerAnalytics } from '@/lib/queries';
 import { formatTime } from '@/lib/utils';
+import { explainAnalytics } from '@/lib/analyticsInsights';
 
 interface AnalyticsData {
   date: string;
@@ -74,10 +75,33 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
   const [timeRange, setTimeRange] = useState(7);
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { data, isLoading: loading, error } = useTimerAnalytics(timeRange, timezone);
-  const analytics: any[] = data ?? [];
+  const analytics = useMemo<AnalyticsData[]>(() => {
+    const source = Array.isArray(data) ? data : [];
+    return source.map((raw, index) => {
+      const fallback = new Date();
+      fallback.setDate(fallback.getDate() - (source.length - 1 - index));
+      const rawTypes = raw?.sessionTypes && typeof raw.sessionTypes === 'object'
+        ? raw.sessionTypes as Record<string, unknown>
+        : {};
+      const sessionTypes: Record<string, number> = {};
+      for (const [name, count] of Object.entries(rawTypes)) {
+        const normalized = Math.max(0, Math.round(toFiniteNumber(count)));
+        if (normalized > 0) sessionTypes[name] = normalized;
+      }
+      return {
+        date: toSafeDate(raw?.date, fallback),
+        studyHours: Math.max(0, toFiniteNumber(raw?.studyHours)),
+        tasksCompleted: Math.max(0, Math.round(toFiniteNumber(raw?.tasksCompleted))),
+        understanding: Math.max(0, Math.min(10, toFiniteNumber(raw?.understanding))),
+        sessions: Math.max(0, Math.round(toFiniteNumber(raw?.sessions))),
+        sessionTypes,
+      };
+    });
+  }, [data]);
+  const explanation = useMemo(() => explainAnalytics(analytics), [analytics]);
 
-  const totalStudyHours = analytics.reduce((sum, day) => sum + day.studyHours, 0);
-  const totalTasks = analytics.reduce((sum, day) => sum + day.tasksCompleted, 0);
+  const totalStudyHours = explanation.totalHours;
+  const totalTasks = explanation.totalTasks;
   const totalSessions = analytics.reduce((sum, day) => sum + day.sessions, 0);
   const avgUnderstanding = analytics.length > 0
     ? analytics.reduce((sum, day) => sum + day.understanding, 0) / analytics.length
@@ -89,7 +113,7 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
   const maxTasks = Math.max(...analytics.map(d => d.tasksCompleted), 1);
 
   const getDateLabel = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = new Date(`${dateStr}T12:00:00`);
     if (Number.isNaN(date.getTime())) return 'N/A';
 
     const today = new Date();
@@ -124,7 +148,14 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>Study Analytics</h2>
-          <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>Track your learning progress</p>
+          <p className="text-muted-foreground" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+            Recorded study and task activity, grouped in {timezone}
+          </p>
+          {error && (
+            <p className="mt-1 text-xs text-destructive" role="alert">
+              The latest analytics could not be refreshed. Showing any cached data below.
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {[7, 14, 30].map((days) => (
@@ -153,7 +184,7 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
           <div className="flex items-center space-x-2">
             <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">Total Study Time</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{user ? 'Lifetime Study Time' : 'Recorded Study Time'}</p>
               <p className="font-bold" style={{ fontSize: 'clamp(1.25rem, 3vw, 2rem)' }}>{user ? formatTime(user.totalStudyMinutes * 60) : formatTime(Math.round(totalStudyHours * 3600))}</p>
             </div>
           </div>
@@ -190,6 +221,24 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         </div>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span>What this range says</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p role="status">{explanation.summary}</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div><span className="font-medium text-foreground">Average</span><br />{explanation.averageHours.toFixed(1)} recorded hours/day</div>
+            <div><span className="font-medium text-foreground">Most study time</span><br />{explanation.productiveDate ? getDateLabel(explanation.productiveDate) : 'No timer session yet'}</div>
+            <div><span className="font-medium text-foreground">Direction</span><br />{explanation.trend.replace('-', ' ')}</div>
+          </div>
+          <p className="text-xs">{explanation.method}</p>
+        </CardContent>
+      </Card>
+
       {/* Study Hours Chart - Histogram Style - RESPONSIVE FIX */}
       <Card>
         <CardHeader>
@@ -205,9 +254,18 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
             </div>
           )}
           {/* RESPONSIVE FIX: Reduced height on mobile, flexible on desktop */}
-          <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
+          <div
+            className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg"
+            style={{ height: 'clamp(200px, 40vw, 256px)' }}
+            role="img"
+            aria-label={`Daily study hours for the selected ${timeRange}-day range. ${explanation.summary}`}
+          >
             {analytics.map((day, index) => (
-              <div key={day.date} className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0">
+              <div
+                key={day.date}
+                className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0"
+                title={`${getDateLabel(day.date)}: ${day.studyHours.toFixed(1)} recorded study hours`}
+              >
                 {/* Value Label - RESPONSIVE FIX: Smaller text on mobile */}
                 <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">
                   {day.studyHours > 0 ? `${day.studyHours.toFixed(1)}h` : '0h'}
@@ -256,9 +314,18 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
               No completed study or task activity found in this range yet.
             </div>
           )}
-          <div className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg" style={{ height: 'clamp(200px, 40vw, 256px)' }}>
+          <div
+            className="flex items-end justify-between gap-1 sm:gap-2 p-2 sm:p-4 bg-muted/30 rounded-lg"
+            style={{ height: 'clamp(200px, 40vw, 256px)' }}
+            role="img"
+            aria-label={`Daily study hours and completed tasks for the selected ${timeRange}-day range. ${explanation.summary}`}
+          >
             {analytics.map((day, index) => (
-              <div key={`combined-${day.date}`} className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0">
+              <div
+                key={`combined-${day.date}`}
+                className="flex flex-col items-center gap-1 sm:gap-2 flex-1 group min-w-0"
+                title={`${getDateLabel(day.date)}: ${day.studyHours.toFixed(1)} recorded study hours and ${day.tasksCompleted} completed tasks`}
+              >
                 {/* Dual Histogram Bars - RESPONSIVE FIX: Flexible height */}
                 <div className="flex gap-0.5 sm:gap-1 items-end" style={{ height: 'clamp(100px, 25vw, 176px)' }}>
                   {/* Study Hours Bar */}
@@ -302,7 +369,7 @@ export default function AnalyticsDashboard({ className, user }: AnalyticsDashboa
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>Focus Subjects</span>
+            <span style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>Saved Sessions by Subject</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
