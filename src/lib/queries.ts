@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiFetchJSON, apiFetchList } from '@/config/api';
+import { APIResponseError, apiFetchJSON, apiFetchList } from '@/config/api';
 import {
   beginTodoMutation,
   findCachedTodo,
@@ -563,6 +563,60 @@ export const useMessages = useMessagesWithUser;
 
 const localDateKey = (value?: string | Date) => todoDateKey(value, todoBrowserTimezone());
 
+/** Preserve optimistic Todo writes for transport failures and retryable 5xx responses. */
+const shouldQueueTodoWrite = (error: unknown) => {
+  if (error instanceof APIResponseError) return error.status >= 500 && error.status < 600;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  if (error instanceof TypeError) return true;
+  const msg = error instanceof Error ? error.message : String(error || '');
+  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
+};
+
+const queueTodoWrite = (
+  type: 'todo-create' | 'todo-update' | 'todo-delete',
+  path: string,
+  method: string,
+  body: Record<string, unknown>,
+  entityId?: string,
+  mutationId?: string
+) => {
+  void import('@/lib/offline/outbox').then(({ enqueueOutbox }) =>
+    enqueueOutbox({ type, path, method, body, entityId, id: mutationId })
+  );
+};
+
+// React Query invokes onMutate before mutationFn. Keeping a UUID per variables
+// object means an initial request and a later durable replay use the exact
+// same idempotency key without expanding the public mutation input APIs.
+const todoMutationIds = new WeakMap<object, string>();
+const mintTodoMutationId = (): string => {
+  let id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+  try {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) id = crypto.randomUUID();
+  } catch {
+    /* use the safe fallback */
+  }
+  return id;
+};
+const todoMutationId = (input: object): string => {
+  let id = todoMutationIds.get(input);
+  if (!id) {
+    id = mintTodoMutationId();
+    todoMutationIds.set(input, id);
+  }
+  return id;
+};
+const createTodoMutationId = (input: CreateTodoInput): string => todoMutationId(input);
+const deleteTodoMutationIds = new Map<string, string>();
+const deleteTodoMutationId = (todoId: string): string => {
+  let id = deleteTodoMutationIds.get(todoId);
+  if (!id) {
+    id = mintTodoMutationId();
+    deleteTodoMutationIds.set(todoId, id);
+  }
+  return id;
+};
+
 const createOptimisticTodo = (input: CreateTodoInput, id: string): Todo => {
   const now = new Date().toISOString();
   const scheduledDate = input.scheduledDate || input.dueDate;
@@ -597,12 +651,17 @@ export const useCreateTodo = () => {
   const queryClient = useQueryClient();
 
   return useMutation<Todo, Error, CreateTodoInput, TodoMutationContext>({
-    mutationFn: (todoData) =>
-      apiFetchJSON<Todo>('/todos', {
-      method: 'POST',
-      body: JSON.stringify(todoData),
-    }),
+    mutationFn: (todoData) => {
+      const clientMutationId = createTodoMutationId(todoData);
+      return apiFetchJSON<Todo>('/todos', {
+        method: 'POST',
+        headers: { 'X-Client-Mutation-Id': clientMutationId },
+        body: JSON.stringify({ ...todoData, clientMutationId }),
+      });
+    },
     onMutate: async (todoData) => {
+      // Mint before mutationFn so a response-loss retry has the same key.
+      createTodoMutationId(todoData);
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
       const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const context = beginTodoMutation(queryClient, [{ id: optimisticId }]);
@@ -618,7 +677,22 @@ export const useCreateTodo = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['efficiency'] });
     },
-    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onError: (error, variables, context) => {
+      if (shouldQueueTodoWrite(error)) {
+        // Keep the optimistic row visible. Subsequent patches use this temp id
+        // until outbox replay replaces it with the server id.
+        queueTodoWrite(
+          'todo-create',
+          '/todos',
+          'POST',
+          { ...(variables as Record<string, unknown>) },
+          context?.optimisticId,
+          createTodoMutationId(variables)
+        );
+        return;
+      }
+      rollbackTodoMutation(queryClient, context);
+    },
     onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
@@ -628,12 +702,18 @@ export const useUpdateTodo = () => {
   const queryClient = useQueryClient();
 
   return useMutation<unknown, Error, { id: string; data: UpdateTodoInput }, TodoMutationContext>({
-    mutationFn: ({ id, data }) =>
-      apiFetchJSON<unknown>(`/todos/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
-    onMutate: async ({ id, data }) => {
+    mutationFn: (variables) => {
+      const { id, data } = variables;
+      const clientMutationId = todoMutationId(variables);
+      return apiFetchJSON<unknown>(`/todos/${id}`, {
+        method: 'PATCH',
+        headers: { 'X-Client-Mutation-Id': clientMutationId },
+        body: JSON.stringify({ ...data, clientMutationId }),
+      });
+    },
+    onMutate: async (variables) => {
+      const { id, data } = variables;
+      todoMutationId(variables);
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
       const previous = findCachedTodo(queryClient, id);
       const context = beginTodoMutation(queryClient, [{ id, previous }]);
@@ -649,7 +729,20 @@ export const useUpdateTodo = () => {
       if ('completed' in variables.data)
         queryClient.invalidateQueries({ queryKey: ['efficiency'] });
     },
-    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onError: (error, variables, context) => {
+      if (shouldQueueTodoWrite(error)) {
+        queueTodoWrite(
+          'todo-update',
+          `/todos/${variables.id}`,
+          'PATCH',
+          { ...(variables.data as Record<string, unknown>) },
+          variables.id,
+          todoMutationId(variables)
+        );
+        return;
+      }
+      rollbackTodoMutation(queryClient, context);
+    },
     onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
@@ -658,8 +751,16 @@ export const useDeleteTodo = () => {
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, string, TodoMutationContext>({
-    mutationFn: (id) => apiFetchJSON<void>(`/todos/${id}`, { method: 'DELETE' }),
+    mutationFn: (id) => {
+      const clientMutationId = deleteTodoMutationId(id);
+      return apiFetchJSON<void>(`/todos/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Client-Mutation-Id': clientMutationId },
+        body: JSON.stringify({ clientMutationId }),
+      });
+    },
     onMutate: async (id) => {
+      deleteTodoMutationId(id);
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.todos() });
       const context = beginTodoMutation(queryClient, [
         { id, previous: findCachedTodo(queryClient, id) },
@@ -671,8 +772,17 @@ export const useDeleteTodo = () => {
       queryClient.removeQueries({ queryKey: QUERY_KEYS.todo(id), exact: true });
       queryClient.invalidateQueries({ queryKey: ['efficiency'] });
     },
-    onError: (_error, _id, context) => rollbackTodoMutation(queryClient, context),
-    onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
+    onError: (error, id, context) => {
+      if (shouldQueueTodoWrite(error)) {
+        queueTodoWrite('todo-delete', `/todos/${id}`, 'DELETE', {}, id, deleteTodoMutationId(id));
+        return;
+      }
+      rollbackTodoMutation(queryClient, context);
+    },
+    onSettled: (_result, _error, id, context) => {
+      deleteTodoMutationIds.delete(id);
+      settleTodoMutation(queryClient, context);
+    },
   });
 };
 
@@ -768,7 +878,13 @@ export const useToggleTodo = () => {
       return context;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['efficiency'] }),
-    onError: (_error, _variables, context) => rollbackTodoMutation(queryClient, context),
+    onError: (error, variables, context) => {
+      if (shouldQueueTodoWrite(error)) {
+        queueTodoWrite('todo-update', `/todos/${variables.id}`, 'PATCH', { completed: variables.completed }, variables.id);
+        return;
+      }
+      rollbackTodoMutation(queryClient, context);
+    },
     onSettled: (_result, _error, _variables, context) => settleTodoMutation(queryClient, context),
   });
 };
