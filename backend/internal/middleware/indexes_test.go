@@ -34,6 +34,9 @@ func TestCriticalIndexSpecifications(t *testing.T) {
 		{"goal_check_ins", "uq_goal_check_ins_user_goal_weekStart", bson.D{{Key: "userId", Value: 1}, {Key: "goalId", Value: 1}, {Key: "weekStart", Value: 1}}, true},
 		{"daily_reports", "idx_reports_userId_date", bson.D{{Key: "userId", Value: 1}, {Key: "date", Value: -1}}, false},
 		{"timer_sessions", "idx_timer_userId_createdAt", bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, false},
+		{"todos", "idx_todos_userId_completedAt", bson.D{{Key: "userId", Value: 1}, {Key: "completed", Value: 1}, {Key: "completedAt", Value: -1}}, false},
+		{"focus_sessions", "uq_focus_user_active", bson.D{{Key: "userId", Value: 1}}, true},
+		{"focus_sessions", "ttl_focus_updated", bson.D{{Key: "updatedAt", Value: 1}}, false},
 		{"waitlist", "uq_waitlist_email", bson.D{{Key: "email", Value: 1}}, true},
 	}
 	for _, test := range tests {
