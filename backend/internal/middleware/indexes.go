@@ -23,12 +23,20 @@ func indexSpecifications() map[string][]indexSpec {
 			{bson.D{{Key: "userId", Value: 1}, {Key: "dueDate", Value: -1}}, options.Index().SetName("idx_todos_userId_dueDate")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "scheduledDate", Value: -1}}, options.Index().SetName("idx_todos_userId_scheduledDate")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "completed", Value: 1}}, options.Index().SetName("idx_todos_userId_completed")},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "completed", Value: 1}, {Key: "completedAt", Value: -1}}, options.Index().SetName("idx_todos_userId_completedAt")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "scheduledDate", Value: -1}, {Key: "completed", Value: 1}}, options.Index().SetName("idx_todos_userId_scheduled_completed")},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "clientMutationId", Value: 1}}, options.Index().SetName("uq_todos_user_mutation").SetUnique(true).SetPartialFilterExpression(bson.M{"clientMutationId": bson.M{"$exists": true}})},
 		},
 		"timer_sessions": {
 			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_timer_userId")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "startTime", Value: -1}}, options.Index().SetName("idx_timer_userId_startTime")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_timer_userId_createdAt")},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "clientMutationId", Value: 1}}, options.Index().SetName("uq_timer_user_mutation").SetUnique(true).SetPartialFilterExpression(bson.M{"clientMutationId": bson.M{"$exists": true}})},
+		},
+		"focus_sessions": {
+			{bson.D{{Key: "userId", Value: 1}, {Key: "active", Value: 1}, {Key: "heartbeatAt", Value: -1}}, options.Index().SetName("idx_focus_user_active_heartbeat")},
+			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("uq_focus_user_active").SetUnique(true).SetPartialFilterExpression(bson.M{"active": true})},
+			{bson.D{{Key: "updatedAt", Value: 1}}, options.Index().SetName("ttl_focus_updated").SetExpireAfterSeconds(30 * 24 * 60 * 60)},
 		},
 		"daily_reports": {
 			{bson.D{{Key: "userId", Value: 1}, {Key: "date", Value: -1}}, options.Index().SetName("idx_reports_userId_date")},
