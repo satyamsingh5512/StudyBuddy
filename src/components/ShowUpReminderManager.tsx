@@ -5,6 +5,7 @@ import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { useToast } from '@/components/ui/use-toast';
 import { normalizePreferences } from '@/lib/preferences';
+import { desktopNotifySync, getNotificationPermission } from '@/lib/desktop';
 import {
   startShowUpReminderLifecycle,
   type ReminderNotificationGateway,
@@ -30,17 +31,16 @@ export default function ShowUpReminderManager() {
       // The lifecycle continues with in-memory deduplication.
     }
 
-    const notification: ReminderNotificationGateway | undefined =
-      'Notification' in window
-        ? {
-            get permission() {
-              return Notification.permission;
-            },
-            show(title, options) {
-              new Notification(title, options);
-            },
-          }
-        : undefined;
+    // Desktop shell (Ubuntu .deb/AppImage) notifies via libnotify through the
+    // main process; browsers use the Web Notification API when permitted.
+    const notification: ReminderNotificationGateway = {
+      get permission() {
+        return getNotificationPermission() === 'granted' ? 'granted' : 'denied';
+      },
+      show(title, options) {
+        desktopNotifySync(title, options.body ?? '', options.tag);
+      },
+    };
 
     return startShowUpReminderLifecycle({
       userId: user.id,
