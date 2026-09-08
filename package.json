@@ -2,12 +2,18 @@
   "name": "studybuddy",
   "version": "2.1.1",
   "type": "module",
+  "main": "electron/main.cjs",
+  "desktopName": "in.satym.studybuddy",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test:frontend": "node --test tests/frontend/*.test.mjs && tsx --test tests/frontend/*.test.ts",
+    "desktop:dev": "electron electron/main.cjs",
+    "desktop:start": "electron electron/main.cjs",
+    "desktop:dist": "electron-builder --linux deb AppImage",
+    "dist:linux": "electron-builder --linux deb",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:android:prepare": "npx cap sync android && node scripts/prepare-android.mjs",
@@ -75,6 +81,8 @@
     "@types/react-dom": "^18.3.1",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.12",
     "eslint-config-prettier": "10.1.8",
@@ -87,9 +95,45 @@
     "sharp": "0.35.3"
   },
   "description": "AI-powered study companion for competitive exam preparation.",
-  "main": "postcss.config.js",
-  "directories": {
-    "test": "tests"
+  "build": {
+    "appId": "in.satym.studybuddy",
+    "productName": "StudyBuddy",
+    "copyright": "Copyright © 2026 StudyBuddy",
+    "directories": {
+      "buildResources": "resources/desktop",
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "resources/desktop/icon.png",
+      "resources/desktop/tray.png",
+      "public/offline.html",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      { "from": "public/offline.html", "to": "offline.html" },
+      { "from": "resources/desktop/icon.png", "to": "icon.png" }
+    ],
+    "protocols": [{ "name": "StudyBuddy", "schemes": ["studybuddy"] }],
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "category": "Education",
+      "maintainer": "StudyBuddy <support@satym.in>",
+      "syncDesktopName": true,
+      "icon": "resources/desktop/icon.png",
+      "description": "AI-powered study companion for competitive exam preparation.",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "StudyBuddy",
+          "MimeType": "x-scheme-handler/studybuddy",
+          "Keywords": "study;exam;education;pomodoro;productivity;"
+        }
+      }
+    },
+    "deb": {
+      "depends": ["libnotify4 | libnotify-bin", "libxtst6", "libnss3", "libxss1"]
+    }
   },
   "repository": {
     "type": "git",
@@ -100,5 +144,10 @@
   "bugs": {
     "url": "https://github.com/satyamsingh5512/StudyBuddy/issues"
   },
-  "homepage": "https://github.com/satyamsingh5512/StudyBuddy#readme"
+  "homepage": "https://github.com/satyamsingh5512/StudyBuddy#readme",
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "esbuild@0.25.12": true,
+    "unrs-resolver@1.11.1": true
+  }
 }
