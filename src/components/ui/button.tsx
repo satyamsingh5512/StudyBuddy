@@ -5,17 +5,17 @@ import { cn } from '@/lib/utils';
 import { soundManager } from '@/lib/sounds';
 
 /**
- * Button — StudyBuddy idiom.
+ * Button — Apple taste (DESIGN.md).
  *
- * Buttons are flat: no shadow, no hover lift. Depth comes only from a
- * low-alpha ink hairline, and feedback is a 2% scale press plus a 3% ink wash
- * on hover. Radius is a generous 1rem (`rounded-2xl`) on every size.
+ * Two grammars: the signature blue pill CTA (`default`, 17px/400, 11px×22px,
+ * full pill) and compact utility rects. No shadow, no hover lift. Feedback is
+ * the system-wide scale(0.95) press; keyboard focus is a 2px #0071e3 ring.
  *
- * Variant names are unchanged from the previous glass theme so existing call
+ * Variant names are unchanged from the previous theme so existing call
  * sites pick up the new language without edits.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-[15px] font-medium tracking-[-0.01em] transition-all duration-150 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] cursor-pointer',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[17px] font-normal tracking-[-0.022em] transition-all duration-150 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:pointer-events-none disabled:opacity-50 active:scale-[0.95] cursor-pointer',
   {
     variants: {
       variant: {
@@ -23,18 +23,20 @@ const buttonVariants = cva(
         destructive: 'bg-destructive text-destructive-foreground hover:brightness-110',
         outline:
           'border border-hairline bg-surface text-ink hover:bg-ink/[0.03] dark:hover:bg-white/[0.04]',
-        secondary: 'bg-surface-muted text-ink hover:bg-ink/[0.05] dark:hover:bg-white/[0.06]',
+        /* Pearl capsule: near-white fill, soft ring, caption voice. */
+        secondary:
+          'rounded-[11px] bg-pearl text-sm text-ink shadow-[inset_0_0_0_3px_rgba(0,0,0,0.04)] hover:bg-ink/[0.03] dark:bg-white/[0.08] dark:shadow-none dark:hover:bg-white/[0.12]',
         ghost: 'text-ink hover:bg-ink/[0.04] dark:hover:bg-white/[0.05]',
-        link: 'text-brand underline-offset-4 hover:underline',
-        /* Tinted accent button: reads as primary without the full blue fill. */
-        subtle: 'bg-brand-subtle text-brand border border-hairline-accent hover:bg-brand-light',
+        link: 'text-brand underline-offset-4 hover:underline dark:text-skylink',
+        /* Ghost pill: transparent fill, blue text + border — the second CTA. */
+        subtle: 'border border-brand/60 text-brand hover:bg-brand-subtle dark:border-skylink/60 dark:text-skylink',
         /* Retained alias so `variant="glass"` call sites keep compiling. */
         glass: 'border border-hairline bg-surface text-ink hover:bg-ink/[0.03]',
       },
       size: {
-        default: 'h-11 px-4 py-2',
-        sm: 'h-9 px-3 text-sm',
-        lg: 'h-[52px] px-6',
+        default: 'h-11 px-[22px] py-[11px]',
+        sm: 'h-9 px-4 text-sm',
+        lg: 'h-[52px] px-7 text-[18px] font-light',
         icon: 'h-11 w-11',
       },
     },
@@ -97,7 +99,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(
           buttonVariants({ variant, size, className }),
-          isPressed && !disabled && 'scale-[0.98] transition-transform'
+          isPressed && !disabled && 'scale-[0.95] transition-transform'
         )}
         ref={ref}
         onClick={handleClick}
