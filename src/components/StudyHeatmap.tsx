@@ -63,7 +63,7 @@ export default function StudyHeatmap({ data }: StudyHeatmapProps) {
 
   const getColorClass = (level: number) => {
     switch (level) {
-      case 4: return 'bg-primary shadow-[0_0_10px_rgba(108,71,255,0.8)] border border-primary/50 z-10';
+      case 4: return 'bg-primary shadow-[0_0_10px_rgba(0,102,204,0.8)] border border-primary/50 z-10';
       case 3: return 'bg-primary/80 border border-primary/20';
       case 2: return 'bg-primary/50 border border-primary/10';
       case 1: return 'bg-primary/30';
@@ -72,7 +72,7 @@ export default function StudyHeatmap({ data }: StudyHeatmapProps) {
   };
 
   return (
-    <Card className="shadow-xl overflow-hidden group">
+    <Card className="overflow-hidden group">
       <CardHeader className="pb-3 border-b border-border/50 flex flex-row items-center justify-between">
         <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
           <span className="flex items-center gap-2 text-foreground">
