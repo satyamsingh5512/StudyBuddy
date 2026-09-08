@@ -6,8 +6,8 @@ export default function ShaderBackground() {
   return (
     <Shader className="h-full w-full">
       <Swirl
-        colorA="#6C47FF"
-        colorB="#F59E0B"
+        colorA="#0066cc"
+        colorB="#2997ff"
         speed={0.8}
         detail={0.8}
         blend={50}
@@ -19,11 +19,11 @@ export default function ShaderBackground() {
         fineY={40}
       />
       <ChromaFlow
-        baseColor="#09090B"
-        upColor="#6C47FF"
-        downColor="#F59E0B"
-        leftColor="#10B981"
-        rightColor="#6C47FF"
+        baseColor="#000000"
+        upColor="#0071e3"
+        downColor="#2997ff"
+        leftColor="#0066cc"
+        rightColor="#0071e3"
         intensity={0.9}
         radius={1.8}
         momentum={25}
