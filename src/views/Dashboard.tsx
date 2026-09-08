@@ -1279,7 +1279,7 @@ export default function Dashboard() {
 
         {/* Admin Panel - Only visible to admin users */}
         {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
-          <SolidCard className="border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20">
+          <SolidCard className="border-orange-200 bg-pearl dark:border-orange-800 dark:bg-tile-2">
             <SolidCardHeader>
               <SolidCardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1317,7 +1317,7 @@ export default function Dashboard() {
             variants={item}
             className="grid grid-cols-1 lg:grid-cols-2 gap-6"
           >
-            <Card className="border-transparent shadow-xl">
+            <Card className="shadow-none">
               <CardHeader className="pb-3 border-b border-border/50">
                 <CardTitle className="text-sm font-semibold tracking-tight flex items-center gap-2">
                   <span className="flex items-center gap-2 text-foreground">
