@@ -51,10 +51,12 @@ export default defineConfig([
     '**/.next/**',
     'node_modules/**',
     'dist/**',
+    'dist-electron/**',
     'dist-server/**',
     'build/**',
     'coverage/**',
     'android/**',
     'ios/**',
+    'electron/**',
   ]),
 ]);
