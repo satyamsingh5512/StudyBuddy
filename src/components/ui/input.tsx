@@ -21,11 +21,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          // StudyBuddy idiom: flat field, ink hairline, accent border on focus, no blur.
-          'flex h-12 w-full rounded-2xl border border-hairline bg-surface px-4 py-3 text-[15px] tracking-[-0.01em] text-ink',
+          // Apple taste: flat field, hairline border, 18px radius, accent ring
+          // on focus. Search-style inputs can opt into `rounded-full` per spec.
+          'flex h-11 w-full rounded-[18px] border border-hairline bg-surface px-5 py-3 text-[17px] tracking-[-0.022em] text-ink',
           'file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-ink',
           'transition-colors duration-150 ease-out-soft',
-          'focus-visible:border-hairline-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20',
+          'focus-visible:border-hairline-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-focus',
           'disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
