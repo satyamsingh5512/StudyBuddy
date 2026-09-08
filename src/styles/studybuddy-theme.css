@@ -1,43 +1,67 @@
 /**
- * studybuddy-theme.css — the StudyBuddy design language.
+ * studybuddy-theme.css — the StudyBuddy design language, Apple taste.
+ *
+ * Implements the token system from DESIGN.md (`getdesign add apple`) as the
+ * app-wide theme:
+ *  - single Action Blue accent (#0066cc), Sky Link Blue (#2997ff) on dark
+ *  - SF system stack first, Inter (already bundled) as the off-system
+ *    substitute with ss03 + tight tracking for the "Apple tight" feel
+ *  - 17px body, weight ladder 300/400/600 (500 deliberately absent)
+ *  - radius grammar: 8px utility / 11px pearl / 18px cards / pill actions
+ *  - no decorative gradients, no shadow on chrome; hairlines + surface
+ *    changes carry hierarchy; scale(0.95) is the press micro-interaction
  *
  * Two jobs:
  *  1. Re-point the existing shadcn-style HSL tokens (`--background`, `--primary`,
- *     `--border`, ...) at the current palette, so every already-built view inherits
+ *     `--border`, ...) at the Apple palette, so every already-built view inherits
  *     the new look without being rewritten.
- *  2. Add the palette's native tokens (`--page`, `--surface`, `--ink`, `--accent-*`)
- *     for new components authored directly in this language.
+ *  2. Add the palette's native tokens (`--page`, `--surface`, `--ink`, `--accent-*`,
+ *     `--skylink`, tile surfaces) for new components authored directly in this
+ *     language.
  *
  * This file is imported LAST in app/layout.tsx so it wins the cascade.
  * Delete that one import line to revert the entire theme.
  *
- * Palette reference
- *   accent          #1d4dff   electric blue
- *   accent-light    #e8edff
- *   light: page #f5f5f5 · surface #fff · ink #0a0a0a · muted #999
- *   dark:  page #0e0f10 · surface #1a1b1d · ink #ececec · muted #8a8a8a
+ * Palette reference (DESIGN.md)
+ *   action blue    #0066cc   (focus ring #0071e3, on-dark link #2997ff)
+ *   light: page #f5f5f7 (parchment) · surface #fff · ink #1d1d1f · muted #7a7a7a
+ *   dark:  page #000000 · surface #1d1d1f · muted-tile #2a2a2c · ink #f5f5f7
+ *          · muted #a1a1a6 (deviation: DESIGN.md documents light-dominant
+ *          surfaces only — see Known Gaps; #a1a1a6 is Apple's dark secondary)
+ *
+ * User appearance preferences (`data-font`, `data-accent`) keep working on top:
+ * the Apple values are the default; an explicit user choice still wins.
  */
 
 :root {
   /* ---- native palette tokens (raw hex/rgb, no hsl() wrapper) ---- */
-  --page: #f5f5f5;
+  --page: #f5f5f7;
   --surface: #ffffff;
-  --surface-muted: #f3f4f6;
-  --ink: #0a0a0a;
-  --ink-rgb: 10 10 10;
-  --muted-ink: #999999;
+  --surface-muted: #fafafc;
+  --pearl: #fafafc;
+  --ink: #1d1d1f;
+  --ink-rgb: 29 29 31;
+  --muted-ink: #7a7a7a;
 
-  --accent-raw: #1d4dff;
-  --accent-rgb: 29 77 255;
-  --accent-light: #e8edff;
-  --accent-subtle: rgba(29, 77, 255, 0.06);
+  --accent-raw: #0066cc;
+  --accent-rgb: 0 102 204;
+  --accent-focus: #0071e3;
+  --accent-light: #e8f1fc;
+  --accent-subtle: rgba(0, 102, 204, 0.06);
   --on-accent: #ffffff;
   --on-accent-muted: rgba(255, 255, 255, 0.6);
 
-  --hairline: rgba(10, 10, 10, 0.1);
-  --hairline-strong: rgba(10, 10, 10, 0.16);
-  --border-accent: rgba(29, 77, 255, 0.25);
-  --border-accent-strong: rgba(29, 77, 255, 0.45);
+  /* Dark-tile surfaces + dark-only link blue. */
+  --tile-1: #272729;
+  --tile-2: #2a2a2c;
+  --tile-3: #252527;
+  --void: #000000;
+  --skylink: #2997ff;
+
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.14);
+  --border-accent: rgba(0, 102, 204, 0.35);
+  --border-accent-strong: rgba(0, 102, 204, 0.55);
 
   /* Motion — CSS transitions with a long, soft settle. */
   --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
@@ -49,122 +73,142 @@
   --dur-reveal: 700ms;
 
   /* ---- re-point existing shadcn HSL tokens onto the new palette ---- */
-  --background: 0 0% 96%; /* #f5f5f5 */
-  --foreground: 0 0% 4%; /* #0a0a0a */
+  --background: 240 8% 96%; /* #f5f5f7 parchment */
+  --foreground: 240 3% 11%; /* #1d1d1f ink */
 
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 4%;
+  --card-foreground: 240 3% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 4%;
+  --popover-foreground: 240 3% 11%;
 
-  --primary: 227 100% 56%; /* #1d4dff */
+  --primary: 211 100% 40%; /* #0066cc Action Blue */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 14% 96%; /* #f3f4f6 */
-  --secondary-foreground: 0 0% 4%;
+  --secondary: 240 8% 98%; /* #fafafc pearl */
+  --secondary-foreground: 240 3% 11%;
 
-  --muted: 220 14% 96%;
-  --muted-foreground: 0 0% 60%; /* #999 */
+  --muted: 240 8% 96%;
+  --muted-foreground: 0 0% 48%; /* #7a7a7a */
 
   /* `accent` was amber; the palette has a single accent, so it mirrors primary. */
-  --accent: 227 100% 56%;
+  --accent: 211 100% 40%;
   --accent-foreground: 0 0% 100%;
 
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --info: 227 100% 56%;
+  --info: 211 100% 40%;
   --info-foreground: 0 0% 100%;
 
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 227 100% 56%;
+  --border: 0 0% 88%; /* #e0e0e0 hairline */
+  --input: 0 0% 88%;
+  --ring: 211 100% 45%; /* #0071e3 focus ring */
 
-  /* Flat and generously rounded: a single 1rem radius everywhere. */
-  --radius: 1rem;
+  /* Apple radius grammar: 18px utility cards; pills/utility handled per component. */
+  --radius: 1.125rem;
 
-  /* Neutralise the glassmorphism layer — the new language has no frosted panels. */
+  /* Neutralise the glassmorphism layer — hierarchy comes from hairlines
+   * and surface changes, never frosted panels (except .frosted-bar). */
   --glass-bg: 255 255 255;
   --glass-opacity: 1;
-  --glass-border: 10 10 10;
-  --glass-border-opacity: 0.1;
+  --glass-border: 29 29 31;
+  --glass-border-opacity: 0.08;
   --glass-shadow: none;
   --glass-shadow-hover: none;
   --glass-inset: transparent;
 
   /* SVG gradient background component tokens */
-  --color-primary: #1d4dff;
-  --color-secondary: #f3f4f6;
-  --color-accent: #1d4dff;
+  --color-primary: #0066cc;
+  --color-secondary: #f5f5f7;
+  --color-accent: #0066cc;
   --color-destructive: #ef4444;
 }
 
 .dark {
-  --page: #0e0f10;
-  --surface: #1a1b1d;
-  --surface-muted: #1f2022;
-  --ink: #ececec;
-  --ink-rgb: 236 236 236;
-  --muted-ink: #8a8a8a;
+  --page: #000000;
+  --surface: #1d1d1f;
+  --surface-muted: #2a2a2c;
+  --pearl: #2a2a2c;
+  --ink: #f5f5f7;
+  --ink-rgb: 245 245 247;
+  --muted-ink: #a1a1a6;
 
-  --accent-light: rgba(29, 77, 255, 0.16);
-  --accent-subtle: rgba(29, 77, 255, 0.1);
+  --accent-light: rgba(0, 102, 204, 0.22);
+  --accent-subtle: rgba(0, 102, 204, 0.14);
 
-  --hairline: rgba(236, 236, 236, 0.1);
-  --hairline-strong: rgba(236, 236, 236, 0.16);
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-strong: rgba(255, 255, 255, 0.2);
 
-  --background: 210 5% 6%; /* #0e0f10 */
-  --foreground: 0 0% 93%; /* #ececec */
+  --background: 0 0% 0%; /* #000000 */
+  --foreground: 240 8% 96%; /* #f5f5f7 */
 
-  --card: 220 4% 11%; /* #1a1b1d */
-  --card-foreground: 0 0% 93%;
-  --popover: 220 4% 13%;
-  --popover-foreground: 0 0% 93%;
+  --card: 240 3% 11%; /* #1d1d1f */
+  --card-foreground: 240 8% 96%;
+  --popover: 240 3% 15%;
+  --popover-foreground: 240 8% 96%;
 
-  --primary: 227 100% 56%;
+  --primary: 211 100% 40%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 4% 13%; /* #1f2022 */
-  --secondary-foreground: 0 0% 93%;
+  --secondary: 240 3% 15%; /* #272729 tile */
+  --secondary-foreground: 240 8% 96%;
 
-  --muted: 220 4% 13%;
-  --muted-foreground: 0 0% 54%; /* #8a8a8a */
+  --muted: 240 3% 15%;
+  --muted-foreground: 0 0% 63%; /* #a1a1a6 */
 
-  --accent: 227 100% 56%;
+  --accent: 211 100% 40%;
   --accent-foreground: 0 0% 100%;
 
-  --border: 220 4% 18%;
-  --input: 220 4% 18%;
-  --ring: 227 100% 56%;
+  --border: 240 3% 16%;
+  --input: 240 3% 16%;
+  --ring: 211 100% 55%; /* skylink-leaning focus on dark */
 
-  --glass-bg: 26 27 29;
+  --glass-bg: 29 29 31;
   --glass-opacity: 1;
-  --glass-border: 236 236 236;
-  --glass-border-opacity: 0.1;
+  --glass-border: 245 245 247;
+  --glass-border-opacity: 0.12;
   --glass-shadow: none;
   --glass-shadow-hover: none;
   --glass-inset: transparent;
 
-  --color-secondary: #1f2022;
+  --color-secondary: #2a2a2c;
 }
 
-/* The mono face is the *body* font, not just for code. */
+/* Apple body: SF system stack first, Inter (bundled) as the off-system
+ * substitute with ss03 + tight tracking. 17px reading pace, never 16px. */
 body {
   background-color: var(--page);
   color: var(--ink);
   font-family:
-    var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    monospace;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-inter), Inter, system-ui,
+    'Segoe UI', sans-serif;
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  font-feature-settings: 'ss03';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Tight tracking on headings is a big part of the feel. */
+/* Display voice: SF Pro Display stack, semibold, Apple-tight tracking. */
 h1,
 h2,
 h3 {
-  letter-spacing: -0.03em;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', var(--font-inter), Inter, system-ui,
+    sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Dark-tile link blue: Action Blue disappears on dark, Sky Link does not.
+ * Opt-in via `link-adaptive` so component utilities keep full control. */
+.link-adaptive {
+  color: rgb(var(--accent-rgb));
+}
+.dark .link-adaptive {
+  color: var(--skylink);
 }
 
 /* Hairline borders: never a solid 1px grey, always a low-alpha ink. */
@@ -175,7 +219,8 @@ h3 {
   border-color: var(--hairline-strong);
 }
 
-/* The interaction signature: soft lift on hover, physical press on click. */
+/* The interaction signature: scale(0.95) press on every button.
+ * Hover never lifts — hierarchy comes from surface changes, not motion. */
 .press {
   transition:
     background-color var(--dur-fast) var(--ease-out-soft),
@@ -183,7 +228,32 @@ h3 {
     transform var(--dur-fast) var(--ease-out-soft);
 }
 .press:active {
-  transform: scale(0.98);
+  transform: scale(0.95);
+}
+
+/* Frosted sticky bar: parchment at 80% + saturate/blur, floats over content.
+ * Functional elevation — the sanctioned exception to "no blur". */
+.frosted-bar {
+  background-color: rgba(245, 245, 247, 0.8);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.dark .frosted-bar {
+  background-color: rgba(29, 29, 31, 0.8);
+}
+
+/* Full-bleed dark tiles: the color change IS the divider. Never rounded. */
+.tile-dark-1 {
+  background-color: var(--tile-1);
+  color: #fff;
+}
+.tile-dark-2 {
+  background-color: var(--tile-2);
+  color: #fff;
+}
+.tile-dark-3 {
+  background-color: var(--tile-3);
+  color: #fff;
 }
 
 /* Staggered reveal used by the landing/auth entrance.
@@ -234,7 +304,7 @@ h3 {
 :root[data-font='serif'] body {
   font-family: var(--font-newsreader), Georgia, serif;
 }
-:root[data-accent='blue'] { --primary: 227 100% 56%; --ring: 227 100% 56%; --accent-raw: #1d4dff; --accent-rgb: 29 77 255; }
+:root[data-accent='blue'] { --primary: 211 100% 40%; --ring: 211 100% 45%; --accent-raw: #0066cc; --accent-rgb: 0 102 204; }
 :root[data-accent='violet'] { --primary: 258 90% 50%; --ring: 258 90% 50%; --accent-raw: #6d28d9; --accent-rgb: 109 40 217; }
 :root[data-accent='purple'] { --primary: 280 87% 41%; --ring: 280 87% 41%; --accent-raw: #7e22ce; --accent-rgb: 126 34 206; }
 :root[data-accent='indigo'] { --primary: 244 55% 51%; --ring: 244 55% 51%; --accent-raw: #4338ca; --accent-rgb: 67 56 202; }
