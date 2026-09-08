@@ -29,6 +29,8 @@ import {
   type DashboardWidgetId,
 } from '@/lib/preferences';
 import { NotificationPermissionAction } from '@/components/NotificationPermissionAction';
+import { getNotificationPermission, isDesktopApp } from '@/lib/desktop';
+import DesktopSettings from '@/components/DesktopSettings';
 import MobileReminderSettings from '@/components/MobileReminderSettings';
 import MobileFocusEnforcerSettings from '@/components/MobileFocusEnforcerSettings';
 
@@ -60,7 +62,7 @@ export default function Settings() {
   const [reminderTime, setReminderTime] = useState(defaults.showUpReminder.time);
   const [reminderDays, setReminderDays] = useState<number[]>(defaults.showUpReminder.days);
   const [mentorJournalContext, setMentorJournalContext] = useState(defaults.mentorJournalContext);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported');
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => getNotificationPermission());
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   // ── Avatar upload state ──────────────────────────────────────────────────
@@ -306,8 +308,9 @@ export default function Settings() {
           <div className="space-y-4 border-t border-border pt-5">
             <div className="flex items-center justify-between gap-4"><div><Label htmlFor="showUpReminder">Show-up reminder</Label><p className="text-xs text-muted-foreground">Show an in-app reminder at the selected local time.</p></div><Switch id="showUpReminder" checked={reminderEnabled} onCheckedChange={setReminderEnabled} /></div>
             <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="reminderTime">Reminder time</Label><Input id="reminderTime" type="time" value={reminderTime} onChange={(event) => setReminderTime(event.target.value)} /></div><fieldset><legend className="text-sm font-medium">Days</legend><div className="mt-2 flex flex-wrap gap-1">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, day) => <button key={label} type="button" onClick={() => setReminderDays(reminderDays.includes(day) ? reminderDays.filter((value) => value !== day) : [...reminderDays, day])} aria-pressed={reminderDays.includes(day)} className={`rounded-lg border px-2 py-1.5 text-xs ${reminderDays.includes(day) ? 'border-primary bg-primary/10 text-primary' : 'border-hairline'}`}>{label}</button>)}</div><p className="mt-1 text-xs text-muted-foreground">No selected days means every day.</p></fieldset></div>
-            <div className="rounded-xl border border-hairline bg-muted/30 p-3 text-xs text-muted-foreground"><Info className="mr-2 inline h-4 w-4" />Web reminders need StudyBuddy open. In the Android APK, local schedule alarms can notify in the background after notifications and exact alarms are enabled; Android may still delay them in power-saving modes.</div>
+            <div className="rounded-xl border border-hairline bg-muted/30 p-3 text-xs text-muted-foreground"><Info className="mr-2 inline h-4 w-4" />Web reminders need StudyBuddy open in a tab. In the Ubuntu desktop app and the Android APK, schedule reminders arrive as system notifications; on Android, enable notifications and exact alarms for background delivery.</div>
             <NotificationPermissionAction permission={notificationPermission} onPermission={handleNotificationPermission} onUnsupported={handleNotificationsUnsupported} />
+            {typeof window !== 'undefined' && isDesktopApp() ? <DesktopSettings /> : null}
             <MobileReminderSettings />
             <MobileFocusEnforcerSettings />
           </div>
