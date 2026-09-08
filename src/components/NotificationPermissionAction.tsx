@@ -6,6 +6,7 @@ import {
   requestBrowserNotificationPermission,
   type NotificationPermissionAPI,
 } from '@/lib/notificationPermission';
+import { isDesktopApp } from '@/lib/desktop';
 
 interface NotificationPermissionActionProps {
   permission: NotificationPermission | 'unsupported';
@@ -24,12 +25,28 @@ export function NotificationPermissionAction({
     : null,
 }: NotificationPermissionActionProps) {
   const requestPermission = async () => {
+    // The Ubuntu desktop shell notifies via libnotify — no browser grant needed.
+    if (isDesktopApp()) {
+      onPermission('granted');
+      return;
+    }
     if (!notificationAPI) {
       onUnsupported();
       return;
     }
     onPermission(await requestBrowserNotificationPermission(notificationAPI));
   };
+
+  if (typeof window !== 'undefined' && isDesktopApp() && permission !== 'granted') {
+    return (
+      <Button type="button" variant="outline" onClick={requestPermission} className="gap-2">
+        <Bell className="h-4 w-4" />
+        Enable system notifications
+      </Button>
+    );
+  }
+
+  const desktop = typeof window !== 'undefined' && isDesktopApp();
 
   return (
     <Button
@@ -41,10 +58,14 @@ export function NotificationPermissionAction({
     >
       <Bell className="h-4 w-4" />
       {permission === 'granted'
-        ? 'Browser notifications enabled'
+        ? desktop
+          ? 'System notifications enabled'
+          : 'Browser notifications enabled'
         : permission === 'unsupported'
           ? 'Notifications unsupported'
-          : 'Enable browser notifications'}
+          : desktop
+            ? 'Enable system notifications'
+            : 'Enable browser notifications'}
     </Button>
   );
 }
