@@ -83,42 +83,12 @@ const tailwindConfig = {
           accent: 'var(--border-accent)',
           'accent-strong': 'var(--border-accent-strong)',
         },
-        /* ---- Apple taste (DESIGN.md): single Action Blue, parchment + tiles ---- */
-        action: {
-          DEFAULT: '#0066cc',
-          focus: '#0071e3',
-          sky: '#2997ff',
-        },
-        skylink: '#2997ff',
-        parchment: '#f5f5f7',
-        pearl: 'var(--pearl)',
-        tile: {
-          1: '#272729',
-          2: '#2a2a2c',
-          3: '#252527',
-        },
       },
       fontFamily: {
-        /* Apple taste: SF system stack first, Inter (bundled) as substitute. */
-        sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          "'SF Pro Text'",
-          'var(--font-inter)',
-          'Inter',
-          'system-ui',
-          'sans-serif',
-        ],
-        heading: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          "'SF Pro Display'",
-          'var(--font-inter)',
-          'Inter',
-          'system-ui',
-          'sans-serif',
-        ],
-        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        /* JetBrains Mono is the body face, not just for code. */
+        sans: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        heading: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        mono: ['var(--font-mono)', 'monospace'],
         /* Editorial serif for pull quotes / empty states. */
         serif: ['var(--font-newsreader)', 'Georgia', 'serif'],
         /* Kept so anything still asking for Inter/Outfit renders deliberately. */
