@@ -21,6 +21,7 @@ import { useAtomValue } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { foregroundReminderDedupeKey } from '@/lib/showUpReminder';
 import { cancelNativeAlarms, scheduleNativeAlarms, stableAlarmId } from '@/lib/nativeAlarms';
+import { desktopNotifySync } from '@/lib/desktop';
 
 interface ScheduleAlarmManagerProps {
   schedules: Schedule[];
@@ -174,22 +175,10 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
         duration: 8000,
       });
 
-      // Browser notification (only if permitted and document not focused)
-      if (
-        typeof window !== 'undefined' &&
-        'Notification' in window &&
-        Notification.permission === 'granted' &&
-        document.visibilityState !== 'visible'
-      ) {
-        try {
-          new Notification(title, {
-            body: body + (subject ? ` · ${subject}` : ''),
-            icon: '/favicon.svg',
-            tag: `studybuddy-alarm-${type}`,
-          });
-        } catch {
-          // Notifications may fail in some browser contexts — ignore silently
-        }
+      // OS notification when the tab is hidden (desktop shell routes through
+      // libnotify via the main process; browsers use Web Notifications).
+      if (typeof window !== 'undefined' && document.visibilityState !== 'visible') {
+        desktopNotifySync(title, body + (subject ? ` · ${subject}` : ''), `studybuddy-alarm-${type}`);
       }
     };
 
