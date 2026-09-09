@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>StudyBuddy Widget</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;user-select:none}
+
+  /* ---- DOT MODE ---- */
+  body.dot{background:transparent;width:28px;height:28px}
+  #dot{width:28px;height:28px;border-radius:50%;background:#22c55e;border:2px solid rgba(255,255,255,0.25);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.12s;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+  #dot:hover{transform:scale(1.15)}
+  #dot.idle{background:#6b7280}
+  #dot.studying{animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(34,197,94,0.3)}50%{box-shadow:0 0 14px rgba(34,197,94,0.8)}}
+  #dot .icon{color:#fff;font-size:13px;font-weight:700;line-height:1}
+
+  /* ---- EXPANDED MODE ---- */
+  body.expanded{background:transparent;width:220px;height:280px}
+  #panel{display:none;width:220px;height:280px;background:#111318;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px;color:#e5e7eb;box-shadow:0 8px 32px rgba(0,0,0,0.7)}
+  #panel.show{display:flex;flex-direction:column}
+  #panel .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  #panel .header .title{font-size:11px;color:#9ca3af;letter-spacing:0.5px;text-transform:uppercase;font-weight:600}
+  #panel .close-btn{width:24px;height:24px;border-radius:6px;border:none;background:rgba(255,255,255,0.08);color:#9ca3af;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;transition:background 0.15s}
+  #panel .close-btn:hover{background:rgba(255,255,255,0.18)}
+  #panel .timer-display{text-align:center;margin-bottom:14px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  #panel .timer-display .time{font-size:36px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:1px;line-height:1;color:#f9fafb}
+  #panel .timer-display .label{font-size:11px;color:#6b7280;margin-top:6px}
+  #panel .controls{display:flex;gap:6px}
+  #panel .btn{height:36px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background 0.15s;flex:1;padding:0 8px}
+  #panel .btn.primary{background:#22c55e;color:#fff}
+  #panel .btn.primary:hover{background:#16a34a}
+  #panel .btn.primary.pause{background:#f59e0b}
+  #panel .btn.primary.pause:hover{background:#d97706}
+  #panel .btn.secondary{background:rgba(255,255,255,0.08);color:#d1d5db}
+  #panel .btn.secondary:hover{background:rgba(255,255,255,0.15)}
+  #panel .progress{height:3px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:10px;overflow:hidden}
+  #panel .progress-bar{height:100%;background:#22c55e;border-radius:2px;transition:width 1s linear}
+</style>
+</head>
+<body class="dot">
+
+<div id="dot"><span class="icon">&#9209;</span></div>
+
+<div id="panel">
+  <div class="header">
+    <span class="title" id="subject-label">Focus</span>
+    <button class="close-btn" id="minimize-btn" title="Minimize">&times;</button>
+  </div>
+  <div class="timer-display">
+    <div class="time" id="time">25:00</div>
+    <div class="label" id="status">Ready</div>
+  </div>
+  <div class="controls">
+    <button class="btn primary" id="play-btn">&#9654; Start</button>
+    <button class="btn secondary" id="open-btn">Open App</button>
+  </div>
+  <div class="progress"><div class="progress-bar" id="progress"></div></div>
+</div>
+
+<script>
+(function() {
+  var dot = document.getElementById('dot');
+  var panel = document.getElementById('panel');
+  var timeEl = document.getElementById('time');
+  var statusEl = document.getElementById('status');
+  var playBtn = document.getElementById('play-btn');
+  var openBtn = document.getElementById('open-btn');
+  var minimizeBtn = document.getElementById('minimize-btn');
+  var progressBar = document.getElementById('progress');
+  var subjectLabel = document.getElementById('subject-label');
+
+  var state = { studying: false, studyTime: 0, pomodoroDuration: 25, unlimited: false };
+  var mode = 'dot';
+
+  function fmt(sec) {
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function render() {
+    var studying = state.studying;
+    var studyTime = state.studyTime;
+    var dur = state.pomodoroDuration;
+    var unlimited = state.unlimited;
+
+    if (mode === 'dot') {
+      document.body.className = 'dot';
+      dot.style.display = 'flex';
+      panel.className = '';
+      dot.className = studying ? 'studying' : 'idle';
+    } else {
+      document.body.className = 'expanded';
+      dot.style.display = 'none';
+      panel.className = 'show';
+    }
+
+    if (studying) {
+      var remaining = unlimited ? studyTime : Math.max(0, dur * 60 - studyTime);
+      timeEl.textContent = unlimited ? fmt(studyTime) : fmt(remaining);
+      statusEl.textContent = 'Studying\u2026';
+      playBtn.innerHTML = '&#9646;&#9646; Pause';
+      playBtn.className = 'btn primary pause';
+    } else {
+      timeEl.textContent = studyTime > 0 ? fmt(studyTime) : fmt(dur * 60);
+      statusEl.textContent = studyTime > 0 ? 'Paused' : 'Ready to focus';
+      playBtn.innerHTML = '&#9654; Start';
+      playBtn.className = 'btn primary';
+    }
+
+    if (!unlimited && dur > 0) {
+      var pct = Math.min((studyTime / (dur * 60)) * 100, 100);
+      progressBar.style.width = pct + '%';
+      progressBar.style.display = 'block';
+    } else {
+      progressBar.style.display = 'none';
+    }
+  }
+
+  // ---- IPC ----
+  if (window.sbwidget) {
+    window.sbwidget.getTimer().then(function(s) { if (s) { state = s; render(); } });
+    window.sbwidget.onUpdate(function(s) { state = s; render(); });
+    window.sbwidget.onComplete(function() {
+      // Flash the dot to grab attention, then open main window
+      dot.style.animation = 'none';
+      void dot.offsetHeight;
+      dot.style.animation = '';
+    });
+  }
+
+  // ---- Dot click -> expand ----
+  dot.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (window.sbwidget) {
+      window.sbwidget.setMode('expanded');
+    }
+    mode = 'expanded';
+    render();
+  });
+
+  // ---- Minimize -> dot ----
+  minimizeBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (window.sbwidget) {
+      window.sbwidget.setMode('dot');
+    }
+    mode = 'dot';
+    render();
+  });
+
+  // ---- Play / Pause ----
+  playBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (!window.sbwidget) return;
+    window.sbwidget.timerControl(state.studying ? 'pause' : 'start');
+  });
+
+  // ---- Open main window ----
+  openBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (window.sbwidget) window.sbwidget.showMain();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
