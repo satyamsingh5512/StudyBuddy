@@ -25,7 +25,7 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
-import { userAtom, studyingAtom } from '@/store/atoms';
+import { userAtom, studyingAtom, studyTimeAtom, timerSessionStartAtom } from '@/store/atoms';
 import { useNetworkStatus } from '@/lib/networkStatus';
 import { getAvatarUrl } from '@/lib/avatar';
 import PageTransition from '@/components/PageTransition';
@@ -46,6 +46,7 @@ import ShowUpReminderManager from '@/components/ShowUpReminderManager';
 import { apiFetch } from '@/config/api';
 import { clearOfflineAccountData } from '@/lib/offline/storage';
 import { soundManager } from '@/lib/sounds';
+import { announceFocusEnd, clearLocalFocusState } from '@/lib/focusSession';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -74,6 +75,8 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [user, setUser] = useAtom(userAtom);
   const [studying, setStudying] = useAtom(studyingAtom);
+  const [, setStudyTime] = useAtom(studyTimeAtom);
+  const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isOnline } = useNetworkStatus();
@@ -83,12 +86,19 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogout = async () => {
     soundManager.playClick();
     try {
+      // End the cross-device focus lease before clearing the local marker. If
+      // the request is offline, focusSession persists an end intent for the
+      // next authenticated sync instead of leaking this account's session.
+      if (timerSessionStart || studying) await announceFocusEnd('logout');
       await apiFetch('/auth/logout', { method: 'POST' });
     } finally {
       // Intentional logout wins over offline durability: queued writes and
       // cached records must never be replayed under a different account.
       setUser(null);
       setStudying(false);
+      setStudyTime(0);
+      setTimerSessionStart(null);
+      clearLocalFocusState();
       queryClient.clear();
       await Promise.allSettled([
         clearOfflineAccountData(),
