@@ -29,6 +29,16 @@ type PendingFocusIntent =
 
 const LOCAL_KEY = 'sb_focus_local_v1';
 const PENDING_KEY = 'sb_focus_pending_v1';
+let focusOperation: Promise<unknown> = Promise.resolve();
+
+// Focus start/end requests mutate one server-side lease. Serializing them in
+// this renderer prevents a slow start from arriving after a fast end and
+// resurrecting a session the user already stopped.
+function enqueueFocusOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const next = focusOperation.then(operation, operation);
+  focusOperation = next.catch(() => undefined);
+  return next;
+}
 
 export function myDeviceId(): string {
   return getDeviceId();
@@ -54,6 +64,16 @@ function writePendingFocus(intent: PendingFocusIntent | null): void {
   }
 }
 
+/** Clear browser-local focus state when the authenticated account is removed. */
+export function clearLocalFocusState(): void {
+  writePendingFocus(null);
+  try {
+    window.localStorage.removeItem(LOCAL_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 function writeLocalFocus(subject?: string): void {
   try {
     window.localStorage.setItem(
@@ -76,7 +96,7 @@ async function requestFocus(path: string, body: Record<string, unknown>): Promis
 }
 
 /** Replay the last intended state once the device is online again. */
-export async function syncPendingFocusIntent(): Promise<boolean> {
+async function syncPendingFocusIntentInternal(): Promise<boolean> {
   const intent = readPendingFocus();
   if (!intent) return true;
   try {
@@ -99,50 +119,62 @@ export async function syncPendingFocusIntent(): Promise<boolean> {
   }
 }
 
-export async function announceFocusStart(subject?: string, durationMinutes?: number): Promise<void> {
-  // Mark this device immediately so a reload remains exempt even offline.
-  writeLocalFocus(subject);
-  try {
-    await requestFocus('/timer/focus-start', { deviceId: myDeviceId(), subject, durationMinutes });
-    writePendingFocus(null);
-  } catch {
-    writePendingFocus({ action: 'start', subject, durationMinutes });
-  }
+export function syncPendingFocusIntent(): Promise<boolean> {
+  return enqueueFocusOperation(syncPendingFocusIntentInternal);
 }
 
-export async function sendFocusHeartbeat(): Promise<boolean> {
-  if (!(await syncPendingFocusIntent())) return false;
-  try {
-    await requestFocus('/timer/focus-heartbeat', { deviceId: myDeviceId() });
-    return true;
-  } catch {
-    return false;
-  }
+export function announceFocusStart(subject?: string, durationMinutes?: number): Promise<void> {
+  return enqueueFocusOperation(async () => {
+    // Mark this device immediately so a reload remains exempt even offline.
+    writeLocalFocus(subject);
+    try {
+      await requestFocus('/timer/focus-start', { deviceId: myDeviceId(), subject, durationMinutes });
+      writePendingFocus(null);
+    } catch {
+      writePendingFocus({ action: 'start', subject, durationMinutes });
+    }
+  });
 }
 
-export async function announceFocusEnd(reason = 'ended'): Promise<void> {
-  try {
-    window.localStorage.removeItem(LOCAL_KEY);
-  } catch {
-    /* ignore */
-  }
-  try {
-    await requestFocus('/timer/focus-end', { deviceId: myDeviceId(), endReason: reason });
-    writePendingFocus(null);
-  } catch {
-    // An end supersedes an unsent start. Replaying it is harmless if the
-    // server never saw the start, and prevents a stale remote guard otherwise.
-    writePendingFocus({ action: 'end', reason });
-  }
+export function sendFocusHeartbeat(): Promise<boolean> {
+  return enqueueFocusOperation(async () => {
+    if (!(await syncPendingFocusIntentInternal())) return false;
+    try {
+      await requestFocus('/timer/focus-heartbeat', { deviceId: myDeviceId() });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function announceFocusEnd(reason = 'ended'): Promise<void> {
+  return enqueueFocusOperation(async () => {
+    try {
+      window.localStorage.removeItem(LOCAL_KEY);
+    } catch {
+      /* ignore */
+    }
+    try {
+      await requestFocus('/timer/focus-end', { deviceId: myDeviceId(), endReason: reason });
+      writePendingFocus(null);
+    } catch {
+      // An end supersedes an unsent start. Replaying it is harmless if the
+      // server never saw the start, and prevents a stale remote guard otherwise.
+      writePendingFocus({ action: 'end', reason });
+    }
+  });
 }
 
 /** Remote interrupt: this phone was used too long during another device's focus. */
-export async function interruptRemoteFocus(): Promise<void> {
-  try {
-    await requestFocus('/timer/focus-end', { endReason: 'phone-interrupt' });
-  } catch {
-    /* the guard stays local; a later poll will reconcile the remote state */
-  }
+export function interruptRemoteFocus(): Promise<void> {
+  return enqueueFocusOperation(async () => {
+    try {
+      await requestFocus('/timer/focus-end', { endReason: 'phone-interrupt' });
+    } catch {
+      /* the guard stays local; a later poll will reconcile the remote state */
+    }
+  });
 }
 
 export async function fetchRemoteFocus(): Promise<RemoteFocusState> {
