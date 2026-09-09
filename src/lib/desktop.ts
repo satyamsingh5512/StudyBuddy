@@ -9,6 +9,23 @@
  * Everything is feature-detected — safe to import from any client component.
  */
 
+export interface DesktopTimerState {
+  studying: boolean;
+  studyTime: number;
+  pomodoroDuration: number;
+  unlimited: boolean;
+  sessionStart: string | null;
+  pendingSaves?: DesktopTimerSaveRequest[];
+}
+
+export interface DesktopTimerSaveRequest {
+  id: string;
+  minutes: number;
+  reason: string;
+  startTime: string | null;
+  endTime: string;
+}
+
 export interface StudyBuddyDesktopBridge {
   readonly isDesktop: boolean;
   readonly platform?: string;
@@ -17,6 +34,15 @@ export interface StudyBuddyDesktopBridge {
   getAutostart(): Promise<boolean>;
   keepAwake(enable: boolean): Promise<boolean>;
   setBadge(count: number): Promise<boolean>;
+  getTimer(): Promise<DesktopTimerState | null>;
+  timerSaveAck(id: string): Promise<boolean>;
+  timerSync(state: Partial<DesktopTimerState>): Promise<DesktopTimerState | null>;
+  timerControl(action: string, payload?: Record<string, unknown>): Promise<DesktopTimerState | null>;
+  onTimerUpdate(cb: (state: DesktopTimerState) => void): () => void;
+  onTimerSaveRequest(cb: (payload: DesktopTimerSaveRequest) => void): () => void;
+  onTimerComplete(cb: (payload: { minutes: number; pomodoroDuration: number }) => void): () => void;
+  setWidgetMode(mode: 'dot' | 'expanded'): Promise<boolean>;
+  showMain(route?: string): Promise<boolean>;
 }
 
 declare global {
@@ -113,4 +139,87 @@ export async function setDesktopKeepAwake(enable: boolean): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// OS-wide floating widget timer helpers
+// ---------------------------------------------------------------------------
+
+/** Get current timer state from the main process. */
+export async function getDesktopTimer(): Promise<DesktopTimerState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  try {
+    return await bridge.getTimer();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Push renderer timer config to the main process so the widget and tick
+ * stay in sync. Call this when the user changes pomodoro duration,
+ * unlimited mode, or selected subject.
+ */
+export async function syncDesktopTimer(state: Partial<DesktopTimerState>): Promise<DesktopTimerState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  try {
+    return await bridge.timerSync(state);
+  } catch {
+    return null;
+  }
+}
+
+/** Acknowledge a desktop session after it has been durably saved or queued. */
+export async function acknowledgeDesktopTimerSave(id: string): Promise<boolean> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return false;
+  try {
+    return await bridge.timerSaveAck(id);
+  } catch {
+    return false;
+  }
+}
+
+/** Send a control action (start / pause / reset / stop-and-save) to the main process timer. */
+export async function controlDesktopTimer(action: string, payload?: Record<string, unknown>): Promise<DesktopTimerState | null> {
+  const bridge = getDesktopBridge();
+  if (!bridge) return null;
+  try {
+    return await bridge.timerControl(action, payload);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Subscribe to timer ticks from the main process. Returns an unsubscribe
+ * function. The callback receives the full timer state every second while
+ * studying, and once on any state change.
+ */
+export function onDesktopTimerUpdate(cb: (state: DesktopTimerState) => void): () => void {
+  const bridge = getDesktopBridge();
+  if (!bridge) return () => {};
+  return bridge.onTimerUpdate(cb);
+}
+
+/**
+ * Subscribe to "save session" requests from the main process (fires when
+ * the pomodoro completes or the user clicks "Save & Exit" in the widget).
+ */
+export function onDesktopTimerSaveRequest(cb: (payload: DesktopTimerSaveRequest) => void): () => void {
+  const bridge = getDesktopBridge();
+  if (!bridge) return () => {};
+  return bridge.onTimerSaveRequest(cb);
+}
+
+/**
+ * Subscribe to pomodoro completion events from the main process.
+ * The web UI should show a toast / save the session in response.
+ */
+export function onDesktopTimerComplete(cb: (payload: { minutes: number; pomodoroDuration: number }) => void): () => void {
+  const bridge = getDesktopBridge();
+  if (!bridge) return () => {};
+  return bridge.onTimerComplete(cb);
 }
