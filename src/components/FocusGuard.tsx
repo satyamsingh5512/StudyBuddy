@@ -60,12 +60,16 @@ export default function FocusGuard() {
 
   const firstSeenRef = useRef<number>(0);
   const announcedRef = useRef(false);
+  const pollVersionRef = useRef(0);
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
   // --- Announce OUR OWN local timer so other devices guard themselves ---
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      announcedRef.current = false;
+      return;
+    }
     if (timerSessionStart && !announcedRef.current) {
       announcedRef.current = true;
       void announceFocusStart(undefined, undefined);
@@ -84,6 +88,7 @@ export default function FocusGuard() {
   }, [user, timerSessionStart]);
 
   const poll = useCallback(async () => {
+    const requestVersion = ++pollVersionRef.current;
     if (!user) return;
     // No need to poll while we ourselves are the active focus owner.
     if (timerSessionStart) {
@@ -91,6 +96,9 @@ export default function FocusGuard() {
       return;
     }
     const state = await fetchRemoteFocus();
+    // A slow poll must not resurrect a session that was ended locally after
+    // the request started.
+    if (requestVersion !== pollVersionRef.current) return;
     setRemote(state);
   }, [user, timerSessionStart]);
 
@@ -144,7 +152,9 @@ export default function FocusGuard() {
       if (elapsed >= GRACE_MS) {
         window.clearInterval(tick);
         setEnding(true);
+        pollVersionRef.current += 1;
         void interruptRemoteFocus().finally(() => {
+          pollVersionRef.current += 1;
           setRemote({ active: false });
           setEnding(false);
           toastRef.current({
@@ -218,6 +228,7 @@ export default function FocusGuard() {
             disabled={ending}
             onClick={() => {
               setEnding(true);
+              pollVersionRef.current += 1;
               void interruptRemoteFocus().finally(() => {
                 setRemote({ active: false });
                 setEnding(false);
