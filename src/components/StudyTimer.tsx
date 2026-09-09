@@ -25,6 +25,17 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import {
+  isDesktopApp,
+  getDesktopTimer,
+  acknowledgeDesktopTimerSave,
+  syncDesktopTimer,
+  controlDesktopTimer,
+  onDesktopTimerUpdate,
+  onDesktopTimerSaveRequest,
+  onDesktopTimerComplete,
+  type DesktopTimerSaveRequest,
+} from '@/lib/desktop';
 
 interface Lap {
   id: number;
@@ -66,6 +77,8 @@ export default function StudyTimer() {
   const [selectedSubject, setSelectedSubject] = useState<string | undefined>();
   const [newSubject, setNewSubject] = useState('');
   const { mutateAsync: updateProfile } = useUpdateProfile();
+  const desktopApp = isDesktopApp();
+  const handledDesktopSaveIds = useRef(new Set<string>());
 
   const handleAddSubject = async () => {
     if (!newSubject.trim() || !user) return;
@@ -192,7 +205,9 @@ export default function StudyTimer() {
   }, [setUser, toast, selectedSubject]);
 
   useEffect(() => {
-    if (!studying || showFullscreen) return;
+    // Electron owns the timer tick so the tray/widget and web UI cannot race
+    // each other. The browser still uses this local interval.
+    if (desktopApp || !studying || showFullscreen) return;
 
     const interval = setInterval(() => {
       setStudyTime((prev) => {
@@ -225,7 +240,62 @@ export default function StudyTimer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
+  }, [desktopApp, studying, showFullscreen, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
+
+  // ---- Desktop widget sync ----
+  // Push settings to the main process so the OS-wide floating dot stays in
+  // sync, and listen for completion events fired by the main process tick.
+  useEffect(() => {
+    if (!desktopApp) return;
+    void syncDesktopTimer({ pomodoroDuration, unlimited: unlimitedTimer });
+  }, [desktopApp, pomodoroDuration, unlimitedTimer]);
+
+  useEffect(() => {
+    if (!desktopApp) return;
+    let mounted = true;
+    const applyState = (state: Awaited<ReturnType<typeof getDesktopTimer>>) => {
+      if (!mounted || !state) return;
+      setStudying(state.studying);
+      setStudyTime(state.studyTime);
+      setTimerSessionStart(state.sessionStart ?? null);
+    };
+    // Receive ticks from the main process (keeps the widget in sync)
+    const unsubUpdate = onDesktopTimerUpdate((state) => {
+      applyState(state);
+    });
+    const saveDesktopRequest = async (payload: DesktopTimerSaveRequest) => {
+      if (!payload?.id || handledDesktopSaveIds.current.has(payload.id)) return;
+      handledDesktopSaveIds.current.add(payload.id);
+      const minutes = Number.isFinite(payload.minutes) ? Math.max(0, payload.minutes) : 0;
+      const startTime = payload.startTime || new Date(Date.now() - minutes * 60 * 1000).toISOString();
+      await saveSession({ minutes, startTime, endTime: payload.endTime || new Date().toISOString() });
+      setTimerSessionStart(null);
+      await acknowledgeDesktopTimerSave(payload.id);
+    };
+    const unsubSave = onDesktopTimerSaveRequest(saveDesktopRequest);
+    // A widget may already be running before the dashboard is mounted. The
+    // main process also replays saves that were emitted while this route was
+    // not mounted, so a completed session cannot disappear between screens.
+    void getDesktopTimer().then((state) => {
+      applyState(state);
+      for (const request of state?.pendingSaves || []) void saveDesktopRequest(request);
+    });
+    // Completion is a UI event; saving is handled by the save-request event so
+    // manual stop-and-save and automatic completion share one write path.
+    const unsubComplete = onDesktopTimerComplete(({ pomodoroDuration: pd }) => {
+      soundManager.playTimerComplete();
+      toast({
+        title: 'Pomodoro Complete!',
+        description: `Great job! You studied for ${pd} minutes. Points awarded!`,
+      });
+    });
+    return () => {
+      mounted = false;
+      unsubUpdate();
+      unsubSave();
+      unsubComplete();
+    };
+  }, [desktopApp, setStudying, setStudyTime, setTimerSessionStart, saveSession, toast]);
 
   const toggleStudying = () => {
     const next = !studying;
@@ -234,9 +304,14 @@ export default function StudyTimer() {
     }
     setStudying(next);
     soundManager.playClick();
+    // Sync with the OS-wide widget
+    if (desktopApp) {
+      void controlDesktopTimer(next ? 'start' : 'pause');
+    }
   };
 
   const clearTimer = async () => {
+    if (desktopApp) await controlDesktopTimer('pause');
     if (timerSessionStart || studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
       const endTime = new Date().toISOString();
@@ -251,6 +326,7 @@ export default function StudyTimer() {
     setStudying(false);
     setStudyTime(0);
     setTimerSessionStart(null);
+    if (desktopApp) await controlDesktopTimer('reset');
     setLaps([]);
     soundManager.playClick();
     toast({ title: 'Timer cleared', description: 'All progress reset' });
@@ -270,6 +346,7 @@ export default function StudyTimer() {
   };
 
   const stopAndSave = async () => {
+    if (desktopApp) await controlDesktopTimer('pause');
     if (timerSessionStart || studyTime > 0) {
       const minutes = Math.floor(studyTime / 60);
       const endTime = new Date().toISOString();
@@ -283,6 +360,7 @@ export default function StudyTimer() {
       setStudyTime(0);
       setTimerSessionStart(null);
       setLaps([]);
+      if (desktopApp) await controlDesktopTimer('reset');
       return;
     }
 
@@ -290,6 +368,7 @@ export default function StudyTimer() {
     setStudyTime(0);
     setTimerSessionStart(null);
     setLaps([]);
+    if (desktopApp) await controlDesktopTimer('reset');
   };
 
   const toggleExpanded = () => {
