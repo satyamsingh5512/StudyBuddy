@@ -23,6 +23,7 @@ import { Label } from './ui/label';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
 import FlipClock from './FlipClock';
+import { controlDesktopTimer, isDesktopApp } from '@/lib/desktop';
 
 interface FullscreenTimerProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeLeft, setBreakTimeLeft] = useState(BREAK_DURATION_SECONDS);
   const [hasShownBreakRecommendation, setHasShownBreakRecommendation] = useState(false);
+  const desktopApp = isDesktopApp();
 
   // Keep duration and unlimited mode in sync when StudyTimer (or any tab) changes them
   useEffect(() => {
@@ -86,12 +88,14 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     }
     setStudying(next);
     soundManager.playClick();
-  }, [isOnBreak, studying, setStudying, timerSessionStart, setTimerSessionStart]);
+    if (desktopApp) void controlDesktopTimer(next ? 'start' : 'pause');
+  }, [desktopApp, isOnBreak, studying, setStudying, timerSessionStart, setTimerSessionStart]);
 
   const startBreak = useCallback(() => {
     if (isOnBreak) return;
 
     setStudying(false);
+    if (desktopApp) void controlDesktopTimer('pause');
     setIsOnBreak(true);
     setBreakTimeLeft(BREAK_DURATION_SECONDS);
     toast({
@@ -99,7 +103,7 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
       description: '10-minute break started. Break time has no penalty.',
     });
     soundManager.playClick();
-  }, [isOnBreak, setStudying, toast]);
+  }, [desktopApp, isOnBreak, setStudying, toast]);
 
   const endBreakEarly = useCallback(() => {
     if (!isOnBreak) return;
@@ -239,7 +243,8 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
   }, [studyTime, hasShownBreakRecommendation]);
 
   useEffect(() => {
-    if (!studying || !isOpen || isOnBreak) return;
+    // The Electron main process is the single timer authority on desktop.
+    if (desktopApp || !studying || !isOpen || isOnBreak) return;
 
     const interval = setInterval(() => {
       setStudyTime((prev) => {
@@ -267,12 +272,13 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [studying, isOpen, isOnBreak, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
+  }, [desktopApp, studying, isOpen, isOnBreak, setStudyTime, POMODORO_DURATION, pomodoroDuration, toast, setStudying, saveSession, timerSessionStart, setTimerSessionStart, unlimitedTimer]);
 
   const stopAndSave = useCallback(async () => {
     const currentStudyTime = studyTime;
     const currentSessionStart = timerSessionStart;
     setStudying(false);
+    if (desktopApp) await controlDesktopTimer('pause');
 
     const shouldSaveSession = currentStudyTime > 0 || (!!currentSessionStart && !isOnBreak);
 
@@ -292,8 +298,9 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     setHasShownBreakRecommendation(false);
     setStudyTime(0);
     setTimerSessionStart(null);
+    if (desktopApp) await controlDesktopTimer('reset');
     onClose();
-  }, [isOnBreak, onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
+  }, [desktopApp, isOnBreak, onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
 
   // Handle escape key to exit fullscreen and keep awake logic
   useEffect(() => {
