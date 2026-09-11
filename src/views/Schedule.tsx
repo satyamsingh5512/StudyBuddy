@@ -10,16 +10,13 @@ import {
   ChevronRight,
   ListChecks,
   Clock,
-  Star,
   Sparkles,
-  AlertCircle,
+  Info,
 } from 'lucide-react';
 import {
   GlassCard,
   GlassCardContent,
   GlassCardHeader,
-  GlassCardTitle,
-  AmbientBackground,
 } from '@/components/dashboard/glass';
 import { staggerContainer, getRiseItem } from '@/lib/motion';
 import { useToast } from '@/components/ui/use-toast';
@@ -31,8 +28,6 @@ import {
   useSchedules,
   useDeleteSchedule,
   useUpdateScheduleItem,
-  type Schedule,
-  type ScheduleItem,
 } from '@/lib/queries';
 import AvailabilitySetup from '@/components/AvailabilitySetup';
 import AIScheduleGenerator from '@/components/AIScheduleGenerator';
@@ -73,16 +68,17 @@ function addDays(d: Date, n: number): Date {
 // Sub-components
 // ─────────────────────────────────────────────
 
-interface StatPillProps {
+interface StatProps {
   label: string;
   value: string | number;
-  color?: string;
 }
-function StatPill({ label, value, color = 'text-primary' }: StatPillProps) {
+function Stat({ label, value }: StatProps) {
   return (
-    <div className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl bg-secondary/50 border border-border/30 min-w-16">
-      <span className={`text-base font-bold ${color}`}>{value}</span>
-      <span className="text-[10px] text-muted-foreground">{label}</span>
+    <div className="min-w-0 flex-1 px-3 py-2 text-center sm:flex-none sm:px-5">
+      <p className="text-lg font-semibold tabular-nums leading-tight">{value}</p>
+      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }
@@ -118,11 +114,11 @@ export default function Schedule() {
 
   // Derived stats for active schedule
   const stats = useMemo(() => {
-    if (!activeSchedule) return { total: 0, done: 0, pending: 0, points: 0 };
+    if (!activeSchedule) return { total: 0, done: 0, pending: 0, points: 0, pct: 0 };
     const total = activeSchedule.items.length;
     const done = activeSchedule.items.filter((i) => i.completed).length;
     const points = activeSchedule.items.reduce((acc, i) => acc + (i.pointsAwarded ?? 0), 0);
-    return { total, done, pending: total - done, points };
+    return { total, done, pending: total - done, points, pct: total ? Math.round((done / total) * 100) : 0 };
   }, [activeSchedule]);
 
   const handleToggleItem = useCallback(
@@ -136,7 +132,7 @@ export default function Schedule() {
         });
         if (completed && result.pointsAwarded > 0) {
           toast({
-            title: `+${result.pointsAwarded} points! 🎉`,
+            title: `+${result.pointsAwarded} points`,
             description: 'Task marked as complete.',
           });
         }
@@ -166,16 +162,14 @@ export default function Schedule() {
   // ── Loading skeleton ──
   if (schedulesLoading || availLoading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 py-4">
+      <div className="mx-auto max-w-3xl space-y-4 py-4">
         <SkeletonList count={3} />
       </div>
     );
   }
 
   return (
-    <div className="relative max-w-4xl mx-auto space-y-6 py-4">
-      <AmbientBackground />
-
+    <div className="relative mx-auto max-w-3xl space-y-4 py-2">
       {/* Alarm engine */}
       <ScheduleAlarmManager schedules={schedules} />
 
@@ -187,38 +181,40 @@ export default function Schedule() {
         onSaved={() => setAvailabilityOpen(false)}
       />
 
-      {/* ── Page Header ── */}
+      {/* ── Page header ── */}
       <motion.div
         variants={staggerContainer(0.06)}
         initial="hidden"
         animate="show"
-        className="space-y-5"
+        className="space-y-4"
       >
-        <motion.div variants={getRiseItem(reduce)} className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2.5">
-              <CalendarDays className="h-6 w-6 text-primary" />
-              Smart Schedule
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              AI-generated, time-blocked study plans with real-time alarms
-            </p>
+        <motion.div variants={getRiseItem(reduce)} className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-card">
+              <CalendarDays className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold leading-tight tracking-tight">Study schedule</h1>
+              <p className="text-xs text-muted-foreground">
+                {user?.name ? `Planned for ${user.name.split(' ')[0]} · ` : ''}Time-blocked plan with reminders
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-2">
             <button
               onClick={() => setAvailabilityOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Availability</span>
+              <Settings2 className="h-3.5 w-3.5" />
+              Availability
             </button>
             <button
               onClick={() => setShowGenerator((p) => !p)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-sm shadow-primary/30"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">{showGenerator ? 'Hide' : 'Generate'}</span>
+              <Sparkles className="h-3.5 w-3.5" />
+              {showGenerator ? 'Hide planner' : 'New plan'}
             </button>
           </div>
         </motion.div>
@@ -226,34 +222,35 @@ export default function Schedule() {
         {/* ── Availability nudge ── */}
         {!hasAvailability && !availLoading && (
           <motion.div variants={getRiseItem(reduce)}>
-            <div
-              className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 cursor-pointer"
+            <button
               onClick={() => setAvailabilityOpen(true)}
+              className="flex w-full items-start gap-3 rounded-lg border border-border/60 border-l-2 border-l-amber-500 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50"
             >
-              <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-amber-300">Set your availability first</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Tell the AI when you're free so it can plan around your real schedule. Click to set up.
-                </p>
-              </div>
-            </div>
+              <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                <span className="block text-xs font-semibold">Set your availability</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Add your free hours so generated plans fit your real day. Takes under a minute.
+                </span>
+              </span>
+            </button>
           </motion.div>
         )}
 
         {/* ── Date navigator ── */}
         <motion.div variants={getRiseItem(reduce)}>
-          <GlassCard>
-            <GlassCardContent className="p-3">
-              <div className="flex items-center justify-between gap-2">
+          <GlassCard className="border-border/60">
+            <GlassCardContent className="p-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSelectedDate((d) => addDays(d, -1))}
-                  className="h-9 w-9 flex items-center justify-center rounded-xl border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 flex-shrink-0"
+                  aria-label="Previous day"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                <div className="flex flex-1 justify-center gap-1.5">
+                <div className="grid flex-1 grid-cols-3 gap-1 sm:grid-cols-5">
                   {[-2, -1, 0, 1, 2].map((offset) => {
                     const d = addDays(new Date(), offset);
                     const ds = toDateStr(d);
@@ -262,18 +259,20 @@ export default function Schedule() {
                       <button
                         key={ds}
                         onClick={() => setSelectedDate(d)}
-                        className={`${Math.abs(offset) === 2 ? 'hidden sm:flex' : 'flex'} min-w-0 flex-1 flex-col items-center rounded-xl px-2 py-2 text-sm transition-all duration-200 sm:min-w-14 sm:px-3 ${
+                        className={`${Math.abs(offset) === 2 ? 'hidden sm:block' : 'block'} rounded-lg px-2 py-1.5 text-center transition-colors ${
                           isSelected
-                            ? 'bg-primary/20 border border-primary/40 text-primary font-bold'
-                            : 'bg-secondary/40 border border-transparent hover:border-border/50 text-muted-foreground hover:text-foreground'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         }`}
                       >
-                        <span className="text-[10px] uppercase tracking-wide">
+                        <span className="block text-[10px] font-medium uppercase tracking-wide opacity-80">
                           {d.toLocaleDateString('en-US', { weekday: 'short' })}
                         </span>
-                        <span className="text-base font-semibold">{d.getDate()}</span>
+                        <span className="block text-sm font-semibold tabular-nums leading-tight">{d.getDate()}</span>
                         {offset === 0 && (
-                          <span className="text-[9px] text-primary font-medium">Today</span>
+                          <span className={`block text-[10px] font-medium ${isSelected ? 'opacity-80' : 'text-primary'}`}>
+                            Today
+                          </span>
                         )}
                       </button>
                     );
@@ -282,7 +281,8 @@ export default function Schedule() {
 
                 <button
                   onClick={() => setSelectedDate((d) => addDays(d, 1))}
-                  className="h-9 w-9 flex items-center justify-center rounded-xl border border-border bg-secondary/80 hover:bg-secondary text-foreground transition-all duration-150 flex-shrink-0"
+                  aria-label="Next day"
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -299,6 +299,7 @@ export default function Schedule() {
               initial={reduce ? {} : { opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={reduce ? {} : { opacity: 0, height: 0 }}
+              className="overflow-hidden"
             >
               <AIScheduleGenerator
                 onGenerated={() => setShowGenerator(false)}
@@ -311,59 +312,61 @@ export default function Schedule() {
         {/* ── Active Schedule ── */}
         {activeSchedule ? (
           <motion.div variants={getRiseItem(reduce)} className="space-y-4">
-            {/* Stats row */}
-            <GlassCard>
-              <GlassCardContent className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+            <GlassCard className="border-border/60">
+              <GlassCardContent className="p-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold">{formatDateLabel(selectedDate)}'s Schedule</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Generated {new Date(activeSchedule.generatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    <p className="text-sm font-semibold">{formatDateLabel(selectedDate)}&rsquo;s plan</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {activeSchedule.items.length} tasks · Generated{' '}
+                      {new Date(activeSchedule.generatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <StatPill label="Total" value={stats.total} />
-                    <StatPill label="Done" value={stats.done} color="text-emerald-400" />
-                    <StatPill label="Pending" value={stats.pending} color="text-amber-400" />
-                    <StatPill label="Points" value={`+${stats.points}`} color="text-primary" />
-                    <button
-                      onClick={() => handleDeleteSchedule(activeSchedule.id)}
-                      className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/20"
-                      title="Delete schedule"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDeleteSchedule(activeSchedule.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Delete schedule"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
                 </div>
 
-                {/* Completion bar */}
+                <div className="flex divide-x divide-border/50">
+                  <Stat label="Total" value={stats.total} />
+                  <Stat label="Done" value={stats.done} />
+                  <Stat label="Pending" value={stats.pending} />
+                  <Stat label="Points" value={`+${stats.points}`} />
+                </div>
+
                 {stats.total > 0 && (
-                  <div className="mt-3">
-                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="border-t border-border/50 px-4 py-3">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{stats.done} of {stats.total} complete</span>
+                      <span className="font-semibold tabular-nums">{stats.pct}%</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
                       <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary"
+                        className="h-full rounded-full bg-primary"
                         initial={{ width: 0 }}
-                        animate={{ width: `${(stats.done / stats.total) * 100}%` }}
+                        animate={{ width: `${stats.pct}%` }}
                         transition={{ type: 'spring', stiffness: 80, damping: 20 }}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {Math.round((stats.done / stats.total) * 100)}% complete
-                    </p>
                   </div>
                 )}
               </GlassCardContent>
             </GlassCard>
 
             {/* Timeline */}
-            <GlassCard>
-              <GlassCardHeader className="pb-2">
-                <GlassCardTitle className="text-sm flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Time-Blocked Timeline
-                </GlassCardTitle>
+            <GlassCard className="border-border/60">
+              <GlassCardHeader className="border-b border-border/50 px-4 py-3">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  Timeline
+                </p>
               </GlassCardHeader>
-              <GlassCardContent className="px-2 pb-6 sm:px-4">
+              <GlassCardContent className="px-2 py-4 sm:px-3">
                 <ScheduleTimeline
                   items={activeSchedule.items}
                   onToggleItem={handleToggleItem}
@@ -373,27 +376,26 @@ export default function Schedule() {
 
             {/* Older schedules for today */}
             {todaySchedules.length > 1 && (
-              <details className="group">
-                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 select-none">
+              <details className="group rounded-lg border border-border/60 bg-card">
+                <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                   <ListChecks className="h-3.5 w-3.5" />
-                  {todaySchedules.length - 1} older schedule(s) for {formatDateLabel(selectedDate)}
+                  {todaySchedules.length - 1} earlier version{todaySchedules.length - 1 > 1 ? 's' : ''} for {formatDateLabel(selectedDate)}
                 </summary>
-                <div className="mt-3 space-y-3">
+                <div className="space-y-1 border-t border-border/50 p-2">
                   {todaySchedules.slice(1).map((s) => (
-                    <GlassCard key={s.id} className="opacity-70">
-                      <GlassCardContent className="p-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-medium">{s.items.length} tasks</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(s.generatedAt).toLocaleString()}</p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteSchedule(s.id)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </GlassCardContent>
-                    </GlassCard>
+                    <div key={s.id} className="flex items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-muted/60">
+                      <div>
+                        <p className="text-xs font-medium">{s.items.length} tasks</p>
+                        <p className="text-[11px] text-muted-foreground">{new Date(s.generatedAt).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSchedule(s.id)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Delete older schedule"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </details>
@@ -402,23 +404,23 @@ export default function Schedule() {
         ) : (
           /* ── Empty state ── */
           <motion.div variants={getRiseItem(reduce)}>
-            <GlassCard>
-              <GlassCardContent className="flex flex-col items-center gap-4 py-16 text-center">
-                <div className="p-5 rounded-2xl bg-primary/10 ring-1 ring-primary/20">
-                  <CalendarDays className="h-10 w-10 text-primary" />
+            <GlassCard className="border-dashed">
+              <GlassCardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-border/60 bg-muted/50">
+                  <CalendarDays className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-semibold text-lg">No schedule for {formatDateLabel(selectedDate)}</p>
-                  <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-                    Use the AI generator above to create a personalized, time-blocked study plan in seconds.
+                  <p className="text-sm font-semibold">No plan for {formatDateLabel(selectedDate)}</p>
+                  <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
+                    Describe what you want to study and the AI will build a time-blocked plan for this day.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowGenerator(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-primary text-white hover:bg-primary/90 transition-all duration-150 shadow-md shadow-primary/30"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Generate Schedule
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Create plan
                 </button>
               </GlassCardContent>
             </GlassCard>

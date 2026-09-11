@@ -176,11 +176,11 @@ const TaskBlock = memo(function TaskBlock({
       initial={reduce ? {} : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        'absolute overflow-hidden rounded-xl border border-l-[3px] border-border/70 px-3 py-2 select-none',
-        'bg-card/95 shadow-sm backdrop-blur-sm transition-shadow duration-200 dark:bg-card/85',
+        'absolute overflow-hidden rounded-lg border border-l-[3px] border-border/60 px-2.5 py-2 select-none',
+        'bg-card shadow-none transition-colors duration-150',
         colors.accent,
         item.completed && 'opacity-60',
-        isActive && !item.completed && 'ring-2 ring-primary/60 shadow-md shadow-primary/10'
+        isActive && !item.completed && 'border-primary/40 ring-1 ring-primary/40'
       )}
       style={{
         top: `${top}px`,
@@ -206,7 +206,7 @@ const TaskBlock = memo(function TaskBlock({
 
           <p
             className={cn(
-              'truncate text-sm font-semibold leading-tight',
+              'truncate text-[13px] font-semibold leading-tight',
               colors.text,
               item.completed && 'line-through'
             )}
@@ -249,10 +249,10 @@ const TaskBlock = memo(function TaskBlock({
             }
             title={item.completed ? 'Mark incomplete' : 'Mark complete'}
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-lg transition-colors duration-200',
+              'flex h-6 w-6 items-center justify-center rounded-md transition-colors duration-150',
               item.completed
                 ? 'bg-emerald-600 text-white'
-                : 'border border-border bg-secondary text-muted-foreground hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-300'
+                : 'border border-border/70 bg-background text-muted-foreground hover:border-emerald-600/40 hover:text-emerald-600'
             )}
           >
             <Check className="h-3.5 w-3.5" />
@@ -261,10 +261,10 @@ const TaskBlock = memo(function TaskBlock({
           <span
             title={item.alarmFired ? 'Alarm fired' : 'Alarm set'}
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-lg',
+              'flex h-6 w-6 items-center justify-center rounded-md border border-transparent',
               item.alarmFired
-                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300'
-                : 'bg-secondary text-muted-foreground'
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                : 'text-muted-foreground/50'
             )}
           >
             {item.alarmFired ? <Bell className="h-3 w-3" /> : <BellOff className="h-3 w-3" />}
