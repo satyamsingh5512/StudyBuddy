@@ -28,7 +28,10 @@ import {
   useSchedules,
   useDeleteSchedule,
   useUpdateScheduleItem,
+  type Schedule,
+  type ScheduleItem,
 } from '@/lib/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import AvailabilitySetup from '@/components/AvailabilitySetup';
 import AIScheduleGenerator from '@/components/AIScheduleGenerator';
 import ScheduleTimeline from '@/components/ScheduleTimeline';
@@ -95,6 +98,8 @@ export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [showGenerator, setShowGenerator] = useState(true);
+  const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const dateStr = toDateStr(selectedDate);
 
@@ -143,6 +148,58 @@ export default function Schedule() {
     [activeSchedule, updateItem, toast]
   );
 
+  const handleRescheduleItem = useCallback(
+    async (itemId: string, newStart: string, newEnd: string) => {
+      if (!activeSchedule) return;
+      const prev = queryClient.getQueryData<Schedule[]>(['schedules', dateStr]);
+      // Optimistic move so the block lands instantly while the server saves.
+      queryClient.setQueryData<Schedule[]>(['schedules', dateStr], (old = []) =>
+        old.map((s) =>
+          s.id !== activeSchedule.id
+            ? s
+            : {
+                ...s,
+                items: s.items.map((i: ScheduleItem) =>
+                  i.id === itemId ? { ...i, startTime: newStart, endTime: newEnd } : i
+                ),
+              }
+        )
+      );
+      setReschedulingId(itemId);
+      try {
+        const moved = activeSchedule.items.find((i) => i.id === itemId);
+        await updateItem.mutateAsync({
+          scheduleId: activeSchedule.id,
+          itemId,
+          startTime: newStart,
+          endTime: newEnd,
+        });
+        // Warn (but allow) when the new slot overlaps a sibling block.
+        const toMin = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        const sMin = toMin(newStart);
+        const eMin = toMin(newEnd);
+        const overlaps = activeSchedule.items.some(
+          (i) => i.id !== itemId && toMin(i.startTime) < eMin && toMin(i.endTime) > sMin
+        );
+        toast({
+          title: moved ? `“${moved.taskTitle}” moved to ${newStart}–${newEnd}` : `Task moved to ${newStart}–${newEnd}`,
+          description: overlaps ? 'Heads up: it now overlaps another block.' : 'Schedule updated.',
+        });
+      } catch {
+        // Roll back to the server state on failure.
+        if (prev) queryClient.setQueryData(['schedules', dateStr], prev);
+        queryClient.invalidateQueries({ queryKey: ['schedules'] });
+        toast({ title: 'Failed to move task', description: 'Please try again.', variant: 'destructive' });
+      } finally {
+        setReschedulingId(null);
+      }
+    },
+    [activeSchedule, dateStr, queryClient, updateItem, toast]
+  );
+
   const handleDeleteSchedule = useCallback(
     async (id: string) => {
       try {
@@ -162,14 +219,14 @@ export default function Schedule() {
   // ── Loading skeleton ──
   if (schedulesLoading || availLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 py-4">
+      <div className="mx-auto max-w-5xl space-y-4 py-4">
         <SkeletonList count={3} />
       </div>
     );
   }
 
   return (
-    <div className="relative mx-auto max-w-3xl space-y-4 py-2">
+    <div className="relative mx-auto max-w-5xl space-y-4 py-2">
       {/* Alarm engine */}
       <ScheduleAlarmManager schedules={schedules} />
 
@@ -363,13 +420,15 @@ export default function Schedule() {
               <GlassCardHeader className="border-b border-border/50 px-4 py-3">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  Timeline
+                  Day planner — drag &amp; drop
                 </p>
               </GlassCardHeader>
-              <GlassCardContent className="px-2 py-4 sm:px-3">
+              <GlassCardContent className="px-3 py-4">
                 <ScheduleTimeline
                   items={activeSchedule.items}
                   onToggleItem={handleToggleItem}
+                  onRescheduleItem={handleRescheduleItem}
+                  reschedulingId={reschedulingId}
                 />
               </GlassCardContent>
             </GlassCard>

@@ -154,10 +154,15 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		Completed bool `json:"completed"`
+		Completed *bool  `json:"completed"`
+		StartTime *string `json:"startTime"`
+		EndTime   *string `json:"endTime"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if body.Completed == nil && body.StartTime == nil && body.EndTime == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Nothing to update. Send completed and/or startTime+endTime."})
 	}
 
 	col := config.DB.Collection("schedules")
@@ -166,16 +171,35 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 
 	// Calculate points to award when completing a scheduled task
 	pointsToAdd := 0
-	if body.Completed {
+	if body.Completed != nil && *body.Completed {
 		pointsToAdd = 15 // base points per scheduled task completed
 	}
 
 	updateFields := bson.M{
-		"items.$[item].completed": body.Completed,
-		"updatedAt":               time.Now(),
+		"updatedAt": time.Now(),
 	}
-	if body.Completed {
+	if body.Completed != nil {
+		updateFields["items.$[item].completed"] = *body.Completed
+	}
+	if body.Completed != nil && *body.Completed {
 		updateFields["items.$[item].pointsAwarded"] = pointsToAdd
+	}
+
+	// Optional reschedule: validate HH:MM clock strings and keep end > start.
+	if body.StartTime != nil || body.EndTime != nil {
+		if body.StartTime == nil || body.EndTime == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Both startTime and endTime are required to reschedule"})
+		}
+		startMin, okStart := parseClockMinutes(*body.StartTime)
+		endMin, okEnd := parseClockMinutes(*body.EndTime)
+		if !okStart || !okEnd || endMin <= startMin {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid time range. Use HH:MM with end after start."})
+		}
+		if startMin < 0 || endMin > 24*60 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Time range must be within a single day"})
+		}
+		updateFields["items.$[item].startTime"] = formatClockMinutes(startMin)
+		updateFields["items.$[item].endTime"] = formatClockMinutes(endMin)
 	}
 
 	arrayFilters := options.Update().SetArrayFilters(options.ArrayFilters{
@@ -192,7 +216,7 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 	}
 
 	// Award points to user if completing
-	if body.Completed && pointsToAdd > 0 {
+	if body.Completed != nil && *body.Completed && pointsToAdd > 0 {
 		usersCol := config.DB.Collection("users")
 		_, _ = usersCol.UpdateOne(
 			ctx,

@@ -1102,21 +1102,25 @@ export const useDeleteSchedule = () => {
 };
 
 /**
- * Update a single item inside a schedule (mark complete, etc.)
+ * Update a single item inside a schedule — mark complete and/or reschedule
+ * its time block (startTime/endTime in "HH:MM"). Only defined fields are sent.
  */
 export const useUpdateScheduleItem = () => {
   const queryClient = useQueryClient();
   return useMutation<
     { success: boolean; pointsAwarded: number },
     Error,
-    { scheduleId: string; itemId: string; completed: boolean }
+    { scheduleId: string; itemId: string; completed?: boolean; startTime?: string; endTime?: string }
   >({
-    mutationFn: ({ scheduleId, itemId, completed }) =>
+    mutationFn: ({ scheduleId, itemId, completed, startTime, endTime }) =>
       apiFetchJSON<{ success: boolean; pointsAwarded: number }>(
         `/schedule/${scheduleId}/items/${itemId}`,
         {
           method: 'PATCH',
-          body: JSON.stringify({ completed }),
+          body: JSON.stringify({
+            ...(completed !== undefined ? { completed } : {}),
+            ...(startTime !== undefined && endTime !== undefined ? { startTime, endTime } : {}),
+          }),
         }
       ),
     onSuccess: () => {
