@@ -79,11 +79,14 @@ export default function Layout({ children }: LayoutProps) {
   const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
   const { isOnline } = useNetworkStatus();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    if (logoutPending) return;
+    setLogoutPending(true);
     soundManager.playClick();
     try {
       // End the cross-device focus lease before clearing the local marker. If
@@ -106,6 +109,7 @@ export default function Layout({ children }: LayoutProps) {
           .then(({ disableNativeFocusEnforcer }) => disableNativeFocusEnforcer())
           .catch(() => null),
       ]);
+      setLogoutPending(false);
       window.location.assign('/');
     }
   };
@@ -136,6 +140,8 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
+              loading={logoutPending}
+              loadingLabel="Signing out…"
               className="h-11 w-11 p-0 text-muted-foreground hover:text-destructive"
               title="Sign out"
               aria-label="Sign out"
@@ -268,6 +274,8 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
+              loading={logoutPending}
+              loadingLabel="Signing out…"
               className="w-full justify-start gap-3 rounded-md transition-all duration-200 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
             >
               <LogOut className="h-[18px] w-[18px]" />
