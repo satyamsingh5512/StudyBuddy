@@ -101,6 +101,7 @@ GHCR_IMAGE="${GHCR_IMAGE:-}"
 if [ -z "$GHCR_IMAGE" ]; then
   REMOTE="$(git remote get-url origin 2>/dev/null || echo '')"
   OWNER_REPO="$(printf '%s' "$REMOTE" | sed -E 's#.*github\.com[:/]([^/]+/[^/]+?)(\.git)?/?$#\1#')"
+  OWNER_REPO="${OWNER_REPO%.git}" # belt-and-braces: remote URLs end in .git
   if [[ "$OWNER_REPO" == *"/"* ]]; then
     GH_OWNER_DERIVED="$(printf '%s' "$OWNER_REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')"
     REPO_LC="$(printf '%s' "$OWNER_REPO" | tr '[:upper:]' '[:lower:]')"

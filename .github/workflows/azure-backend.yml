@@ -70,14 +70,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase repo for GHCR (registry rejects uppercase)
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/studybuddy-api:latest
-            ghcr.io/${{ github.repository }}/studybuddy-api:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LC }}/studybuddy-api:latest
+            ghcr.io/${{ env.REPO_LC }}/studybuddy-api:${{ github.sha }}
 
       - name: Azure login
         uses: azure/login@v2
@@ -91,7 +94,7 @@ jobs:
             az webapp config container set \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
               --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
-              --docker-custom-image-name "ghcr.io/${{ github.repository }}/studybuddy-api:${{ github.sha }}" \
+              --docker-custom-image-name "ghcr.io/${{ env.REPO_LC }}/studybuddy-api:${{ github.sha }}" \
               --docker-registry-server-url https://ghcr.io
             az webapp restart \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
