@@ -104,7 +104,10 @@ if [ -z "$GHCR_IMAGE" ]; then
   OWNER_REPO="${OWNER_REPO%.git}" # belt-and-braces: remote URLs end in .git
   if [[ "$OWNER_REPO" == *"/"* ]]; then
     GH_OWNER_DERIVED="$(printf '%s' "$OWNER_REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')"
-    REPO_LC="$(printf '%s' "$OWNER_REPO" | tr '[:upper:]' '[:lower:]')"
+    REPO_LC="$(printf '%s' "$OWNER_REPO" | tr '[:upper:]' '[:lower:]' | sed 's/\.git$//')"
+    if [[ ! "$REPO_LC" =~ ^[a-z0-9_.-]+/[a-z0-9_.-]+$ ]]; then
+      die "cannot derive GHCR_IMAGE from remote '$REMOTE' — export GHCR_IMAGE explicitly, e.g. GHCR_IMAGE=ghcr.io/<owner>/<repo>/studybuddy-api:latest"
+    fi
     GHCR_IMAGE="ghcr.io/$REPO_LC/studybuddy-api:latest"
     log "Derived GHCR_IMAGE=$GHCR_IMAGE"
   fi
