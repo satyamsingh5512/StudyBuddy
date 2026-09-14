@@ -8,6 +8,7 @@ import {
   useRouter,
   useSearchParams as useNextSearchParams,
 } from 'next/navigation';
+import { notifyNavigationStart } from '@/components/NavigationProgress';
 
 type NavigateOptions = {
   replace?: boolean;
@@ -25,6 +26,11 @@ interface LinkProps {
 }
 
 export function Link({ to, className, children, onClick, title, prefetch = false }: LinkProps) {
+  const handleClick = () => {
+    notifyNavigationStart(to);
+    onClick?.();
+  };
+
   if (to.startsWith('#')) {
     return (
       <a href={to} className={className} onClick={onClick} title={title}>
@@ -34,7 +40,7 @@ export function Link({ to, className, children, onClick, title, prefetch = false
   }
 
   return (
-    <NextLink href={to} prefetch={prefetch} className={className} onClick={onClick} title={title}>
+    <NextLink href={to} prefetch={prefetch} className={className} onClick={handleClick} title={title}>
       {children}
     </NextLink>
   );
@@ -44,6 +50,7 @@ export function useNavigate() {
   const router = useRouter();
 
   return (to: string, options?: NavigateOptions) => {
+    notifyNavigationStart(to);
     if (options?.replace) {
       router.replace(to);
       return;
