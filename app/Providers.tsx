@@ -24,6 +24,7 @@ import OfflineIndicator from '@/components/OfflineIndicator';
 import FocusGuard from '@/components/FocusGuard';
 import RealtimeSyncBridge from '@/components/RealtimeSyncBridge';
 import { applyAppearancePreferences } from '@/lib/preferences';
+import NavigationProgress from '@/components/NavigationProgress';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [, setUser] = useAtom(userAtom);
@@ -128,6 +129,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
+        <NavigationProgress />
         {children}
         <PwaManager />
         <NativeAppBridge />
