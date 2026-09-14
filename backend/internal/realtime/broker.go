@@ -13,8 +13,12 @@ import (
 )
 
 const (
-	streamPrefix     = "studybuddy:realtime:user:"
-	maxEventsPerUser = 1000
+	streamPrefix = "studybuddy:realtime:user:"
+	// Capped low so the realtime feed shares a ~20MB free Redis
+	// with the query cache without evicting it. Events are tiny
+	// invalidation topics (~100 bytes); 200/user is plenty for
+	// reconnecting clients to catch up.
+	maxEventsPerUser = 200
 	defaultReadBlock = 25 * time.Second
 	operationTimeout = 2 * time.Second
 )
@@ -53,6 +57,14 @@ func Configure(ctx context.Context, rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("parse REDIS_URL: %w", err)
 	}
+	// Redis Cloud free tier caps concurrent connections (30/DB).
+	// Keep this pool tiny; the query cache (internal/cache) has its
+	// own capped pool, so combined usage stays well under the limit.
+	opts.PoolSize = 5
+	opts.MinIdleConns = 1
+	opts.DialTimeout = 3 * time.Second
+	opts.ReadTimeout = operationTimeout
+	opts.WriteTimeout = operationTimeout
 	client := redis.NewClient(opts)
 	pingCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()

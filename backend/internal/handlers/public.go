@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"studybuddy-backend/internal/cache"
 	"studybuddy-backend/internal/config"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,6 +21,12 @@ type Notice struct {
 }
 
 func GetNotices(c *fiber.Ctx) error {
+	// Shared public list: one 10-min key. Changes rarely (admin-only
+	// writes), so TTL expiry is sufficient invalidation.
+	if cached := []Notice(nil); cache.GetJSON(c.Context(), cache.KeyNotices, &cached) {
+		return c.JSON(cached)
+	}
+
 	collection := config.DB.Collection("notices")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -40,6 +47,7 @@ func GetNotices(c *fiber.Ctx) error {
 		notices = []Notice{}
 	}
 
+	cache.SetJSON(context.Background(), cache.KeyNotices, notices, cache.TTLNotices)
 	return c.JSON(notices)
 }
 
@@ -53,6 +61,12 @@ type FAQ struct {
 
 func GetFAQs(c *fiber.Ctx) error {
 	examType := c.Params("examType")
+	key := cache.FAQsKey(examType)
+
+	// One 10-min key per examType. Small bounded set, safe for 20MB.
+	if cached := []FAQ(nil); cache.GetJSON(c.Context(), key, &cached) {
+		return c.JSON(cached)
+	}
 
 	collection := config.DB.Collection("faqs")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -78,5 +92,6 @@ func GetFAQs(c *fiber.Ctx) error {
 		faqs = []FAQ{}
 	}
 
+	cache.SetJSON(context.Background(), key, faqs, cache.TTLFAQs)
 	return c.JSON(faqs)
 }

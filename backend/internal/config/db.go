@@ -18,7 +18,13 @@ func ConnectDB() {
 		log.Fatal("MONGODB_URI is not set in environment variables")
 	}
 
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions := options.Client().ApplyURI(uri).
+		// Atlas M0 free tier caps connections (~500) and shares CPU/RAM.
+		// A single F1/B1 instance needs only a small pool; this also
+		// keeps cold-start connection storms down.
+		SetMaxPoolSize(10).
+		SetMinPoolSize(1).
+		SetMaxConnIdleTime(5 * time.Minute)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

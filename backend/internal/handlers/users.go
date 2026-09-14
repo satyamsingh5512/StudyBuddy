@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"studybuddy-backend/internal/cache"
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/models"
 	"studybuddy-backend/internal/services"
@@ -38,6 +39,12 @@ type LeaderboardUser struct {
 }
 
 func GetLeaderboard(c *fiber.Ctx) error {
+	// Shared response: one 120s key serves all users. Fits the ~20MB
+	// free Redis (single ~5KB value); miss falls back to MongoDB.
+	if cached := []LeaderboardUser(nil); cache.GetJSON(c.Context(), cache.KeyLeaderboard, &cached) {
+		return c.JSON(cached)
+	}
+
 	collection := config.DB.Collection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -70,6 +77,7 @@ func GetLeaderboard(c *fiber.Ctx) error {
 	if leaderboard == nil {
 		leaderboard = []LeaderboardUser{}
 	}
+	cache.SetJSON(context.Background(), cache.KeyLeaderboard, leaderboard, cache.TTLLeaderboard)
 	return c.JSON(leaderboard)
 }
 

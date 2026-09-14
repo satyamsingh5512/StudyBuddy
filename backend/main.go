@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"studybuddy-backend/internal/cache"
 	"studybuddy-backend/internal/config"
 	"studybuddy-backend/internal/middleware"
 	"studybuddy-backend/internal/realtime"
@@ -57,6 +58,15 @@ func normalizeOrigin(origin string) string {
 	return parsed.Scheme + "://" + parsed.Host
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, ":"))
+		}
+	}
+	return ""
+}
+
 func buildAllowedOrigins() string {
 	originsSet := map[string]struct{}{}
 	add := func(origin string) {
@@ -70,6 +80,9 @@ func buildAllowedOrigins() string {
 	}
 	add(os.Getenv("CLIENT_URL"))
 	add(os.Getenv("NEXT_PUBLIC_APP_URL"))
+	// Azure App Service sets WEBSITE_HOSTNAME (e.g. myapp.azurewebsites.net).
+	// Auto-trust it so the default Azure domain works without extra config.
+	add(os.Getenv("WEBSITE_HOSTNAME"))
 
 	// Always keep local development origins available.
 	add("http://localhost:3000")
@@ -116,10 +129,18 @@ func main() {
 	app.Use(middleware.TrustedOrigin())
 
 	config.ConnectDB()
+	// One REDIS_URL feeds both: realtime Streams (invalidation feed)
+	// and the shared-response query cache (leaderboard/notices/FAQs).
+	// Both are best-effort on the ~20MB free tier: any Redis failure
+	// falls back to MongoDB without failing requests.
 	if err := realtime.Configure(context.Background(), os.Getenv("REDIS_URL")); err != nil {
 		log.Printf("Redis realtime disabled: %v", err)
 	}
 	defer realtime.Close()
+	if err := cache.Configure(context.Background(), os.Getenv("REDIS_URL")); err != nil {
+		log.Printf("Query cache disabled: %v", err)
+	}
+	defer cache.Close()
 
 	routes.SetupRoutes(app)
 
@@ -132,10 +153,14 @@ func main() {
 		middleware.SetupIndexes()
 	}()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Azure App Service for Containers injects WEBSITES_PORT (and PORT
+	// on some stacks). Support both so the same image runs on
+	// Render, Azure F1 Free, and local Docker without changes.
+	port := firstNonEmpty(
+		os.Getenv("PORT"),
+		os.Getenv("WEBSITES_PORT"),
+		"8080",
+	)
 
 	shutdown, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -1,0 +1,98 @@
+name: Backend - Build and Deploy to Azure App Service (F1 Free)
+
+# Free-tier safe: builds Docker image on GitHub, pushes to GHCR,
+# then points the Azure Web App at the new image.
+# No ACR (paid) required.
+#
+# Required GitHub Secrets:
+#   AZURE_CREDENTIALS        - `az ad sp create-for-rbac --name studybuddy-deploy
+#                              --role contributor
+#                              --scopes /subscriptions/<sub-id>/resourceGroups/<rg>
+#                              --sdk-auth` JSON output
+#   AZURE_RESOURCE_GROUP     - e.g. studybuddy-rg
+#   AZURE_WEBAPP_NAME        - e.g. studybuddy-api-xyz
+#
+# Final free-tier stack: Azure F1 (always free) + Atlas M0 (512MB free)
+# + tiny Redis free tier (~20MB, e.g. Upstash/Redis Cloud free).
+# One REDIS_URL feeds both realtime Streams and the shared-response
+# query cache (leaderboard/notices/FAQs only — 20MB-safe).
+# Empty REDIS_URL is still fine: both degrade to MongoDB-only.
+#
+# Required Azure App Settings (Portal > Web App > Configuration):
+#   WEBSITES_PORT=8080
+#   PORT=8080
+#   NODE_ENV=production
+#   MONGODB_URI=<Atlas M0 free connection string>
+#   SESSION_SECRET=<32+ bytes>
+#   ALLOWED_ORIGINS=https://<frontend>
+#   CLIENT_URL=https://<frontend>
+#   REDIS_URL=<rediss://... free tier> (optional but recommended)
+#   CACHE_DISABLED=1 (optional kill-switch; omit normally)
+#
+# Health check in Azure: /api/health/live (liveness, no DB dependency).
+# Use /api/health/ready only for DB-backed monitoring.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/azure-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: backend/go.sum
+
+      - name: Vet + test
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/studybuddy-api:latest
+            ghcr.io/${{ github.repository }}/studybuddy-api:${{ github.sha }}
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Point Web App at new image
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az webapp config container set \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+              --docker-custom-image-name "ghcr.io/${{ github.repository }}/studybuddy-api:${{ github.sha }}" \
+              --docker-registry-server-url https://ghcr.io
+            az webapp restart \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ secrets.AZURE_WEBAPP_NAME }}"
