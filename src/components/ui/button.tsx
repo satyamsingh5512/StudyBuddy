@@ -50,6 +50,8 @@ export interface ButtonProps
   VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   disableSound?: boolean; // Option to disable sound for specific buttons
+  loading?: boolean;
+  loadingLabel?: string;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -62,6 +64,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       onClick,
       disableSound = false,
       disabled,
+      loading = false,
+      loadingLabel,
       type,
       children,
     },
@@ -104,10 +108,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        disabled={disabled}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
         type={type}
       >
-        {children}
+        {loading && (
+          <span
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
+          />
+        )}
+        {loading && loadingLabel ? loadingLabel : children}
       </Comp>
     );
   }
