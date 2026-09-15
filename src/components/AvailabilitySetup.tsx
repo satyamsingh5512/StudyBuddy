@@ -439,8 +439,9 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
           <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
             <Sunrise className="h-4 w-4 text-amber-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-muted-foreground">Wake up</p>
+              <label htmlFor="availability-wake-time" className="text-[10px] text-muted-foreground">Wake up</label>
               <input
+                id="availability-wake-time"
                 type="time"
                 value={wakeTime}
                 onChange={(e) => setWakeTime(e.target.value)}
@@ -451,8 +452,9 @@ export default function AvailabilitySetup({ open, onOpenChange, initialData, onS
           <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2">
             <Moon className="h-4 w-4 text-blue-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-muted-foreground">Sleep</p>
+              <label htmlFor="availability-sleep-time" className="text-[10px] text-muted-foreground">Sleep</label>
               <input
+                id="availability-sleep-time"
                 type="time"
                 value={sleepTime}
                 onChange={(e) => setSleepTime(e.target.value)}
