@@ -9,18 +9,23 @@
  */
 import { CloudOff, RefreshCw } from 'lucide-react';
 import { useOfflineSync } from '@/lib/offline/useOfflineSync';
+import { useAtomValue } from 'jotai';
+import { userAtom } from '@/store/atoms';
 
 export default function OfflineIndicator() {
+  const user = useAtomValue(userAtom);
   const { pending, isSyncing, isOnline, syncNow } = useOfflineSync();
 
-  if (isOnline && pending === 0) return null;
+  // Public/auth pages have no account-scoped offline queue. Hiding this global
+  // control there prevents it from covering the auth form on short phones.
+  if (!user || (isOnline && pending === 0)) return null;
 
   return (
     <button
       type="button"
       onClick={() => void syncNow()}
       title={isOnline ? 'Retry sync now' : 'You are offline — changes are saved on this device'}
-      className={`fixed bottom-4 left-4 z-[90] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur transition-colors min-h-[44px] ${
+      className={`fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))] z-[90] flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur transition-colors min-h-[44px] ${
         isOnline
           ? 'bg-background/90 border-border text-foreground'
           : 'bg-amber-500/15 border-amber-500/40 text-amber-200'
