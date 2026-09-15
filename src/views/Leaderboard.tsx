@@ -4,6 +4,7 @@ import { Trophy, Medal, Flame, Star, Award, ChevronUp } from 'lucide-react';
 import { SkeletonList } from '@/components/Skeleton';
 import { useLeaderboard } from '@/lib/queries';
 import { getAvatarUrl } from '@/lib/avatar';
+import { QueryErrorState } from '@/components/QueryErrorState';
 
 interface LeaderboardUser {
   id: string;
@@ -17,7 +18,7 @@ interface LeaderboardUser {
 }
 
 export default function Leaderboard() {
-  const { data: usersData = [], isLoading } = useLeaderboard();
+  const { data: usersData = [], isLoading, isError, refetch, isRefetching } = useLeaderboard();
 
   const users = useMemo(() => {
     return (usersData as LeaderboardUser[]).map((user: any) => ({
@@ -50,7 +51,9 @@ export default function Leaderboard() {
         <p className="text-muted-foreground">Study consistently to climb the ranks and earn badges.</p>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <QueryErrorState title="Could not load the leaderboard" onRetry={refetch} retrying={isRefetching} />
+      ) : isLoading ? (
         <div className="p-4 bg-card/50 rounded-2xl border border-border/50">
           <SkeletonList count={8} />
         </div>
