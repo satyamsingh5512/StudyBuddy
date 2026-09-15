@@ -261,6 +261,20 @@
     line-height: 1.5;
   }
 
+  /* The compact landscape layout gives the clock a bounded column. Scale its
+     digits from the viewport rather than letting the clock overflow that
+     column on short phones. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .fullscreen-timer-clock-digit {
+      width: clamp(1.5rem, 7vw, 3rem) !important;
+      height: clamp(2.2rem, 14vw, 6rem) !important;
+    }
+
+    .fullscreen-timer-clock-digit-value {
+      font-size: clamp(1.25rem, 5vw, 3rem) !important;
+    }
+  }
+
   img,
   video,
   canvas {
