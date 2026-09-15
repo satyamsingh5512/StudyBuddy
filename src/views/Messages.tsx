@@ -5,6 +5,7 @@ import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import { Input } from '@/components/ui/input';
 import { useConversations, useFriends, useSendMessage, useMessagesWithUser } from '@/lib/queries';
 
@@ -47,9 +48,16 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: conversationsData = [] } = useConversations();
+  const conversationsQuery = useConversations();
+  const { data: conversationsData = [], isError: conversationsError, refetch: refetchConversations } = conversationsQuery;
   const { data: friendsData = [] } = useFriends();
-  const { data: messagesData = [], isLoading } = useMessagesWithUser(userId);
+  const {
+    data: messagesData = [],
+    isLoading,
+    isError: messagesError,
+    refetch: refetchMessages,
+    isRefetching: messagesRefetching,
+  } = useMessagesWithUser(userId);
   const sendMessageMutation = useSendMessage();
 
   const conversations = conversationsData as Conversation[];
@@ -115,7 +123,9 @@ export default function Messages() {
             <CardTitle className="text-lg">Conversations</CardTitle>
           </CardHeader>
           <CardContent>
-            {conversations.length === 0 ? (
+            {conversationsError ? (
+              <QueryErrorState title="Could not load conversations" onRetry={refetchConversations} />
+            ) : conversations.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">No conversations yet</p>
                 <Button onClick={() => navigate('/friends')}>Find Friends</Button>
@@ -125,8 +135,17 @@ export default function Messages() {
                 {conversations.map((conv) => (
                   <div
                     key={conv.user.id}
+                  role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/messages/${conv.user.id}`);
+                      }
+                    }}
+                    aria-label={`Open conversation with @${conv.user.username}`}
                     onClick={() => navigate(`/messages/${conv.user.id}`)}
-                    className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary/50 hover:shadow-sm"
+                    className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all duration-200 hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <div className="relative">
                       <img
@@ -174,7 +193,8 @@ export default function Messages() {
           variant="ghost"
           size="sm"
           onClick={() => navigate('/messages')}
-          className="h-8 w-8 p-0"
+          aria-label="Back to conversations"
+          className="h-11 w-11 p-0"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -189,7 +209,12 @@ export default function Messages() {
               <p className="font-medium">@{selectedUser.username}</p>
               <p className="text-xs text-muted-foreground">{selectedUser.name}</p>
             </div>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="More conversation actions"
+              className="h-11 w-11 p-0"
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </>
@@ -203,6 +228,12 @@ export default function Messages() {
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">Loading messages...</p>
             </div>
+          ) : messagesError ? (
+            <QueryErrorState
+              title="Could not load messages"
+              onRetry={refetchMessages}
+              retrying={messagesRefetching}
+            />
           ) : messagesData.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-muted-foreground">No messages yet. Say hi! 👋</p>
@@ -263,7 +294,7 @@ export default function Messages() {
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
               className="flex-1"
             />
-            <Button onClick={sendMessage} disabled={!newMessage.trim()}>
+            <Button onClick={sendMessage} disabled={!newMessage.trim()} aria-label="Send message">
               <Send className="h-4 w-4" />
             </Button>
           </div>
