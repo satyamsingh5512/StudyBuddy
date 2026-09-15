@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { SkeletonList } from '@/components/Skeleton';
 import { useFriends, useFriendRequests, useBlockedUsers, useSearchUsers, useSendFriendRequest, useAcceptFriendRequest, useRejectFriendRequest, useUnfriend, useBlockUser, useUnblockUser } from '@/lib/queries';
 import { getAvatarUrl } from '@/lib/avatar';
+import { QueryErrorState } from '@/components/QueryErrorState';
 
 // OPTIMIZATION: useTransition for non-urgent search updates
 function useDebounce<T>(value: T, delay: number): T {
@@ -75,10 +76,15 @@ export default function Friends() {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // React Query hooks
-  const { data: friendsData = [], isLoading: friendsLoading } = useFriends();
-  const { data: requestsData = [], isLoading: requestsLoading } = useFriendRequests();
-  const { data: blockedData = [], isLoading: blockedLoading } = useBlockedUsers();
-  const { data: searchResultsData = [], isLoading: searchLoading } = useSearchUsers(debouncedSearchQuery);
+  const friendsQuery = useFriends();
+  const { data: friendsData = [], isLoading: friendsLoading } = friendsQuery;
+  const requestsQuery = useFriendRequests();
+  const { data: requestsData = [], isLoading: requestsLoading } = requestsQuery;
+  const blockedQuery = useBlockedUsers();
+  const { data: blockedData = [], isLoading: blockedLoading } = blockedQuery;
+  const searchQueryResult = useSearchUsers(debouncedSearchQuery);
+  const { data: searchResultsData = [], isLoading: searchLoading } = searchQueryResult;
+  const hasQueryError = friendsQuery.isError || requestsQuery.isError || blockedQuery.isError || searchQueryResult.isError;
 
   // Mutations
   const sendFriendRequestMutation = useSendFriendRequest();
@@ -208,6 +214,20 @@ export default function Friends() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h1 className="text-2xl md:text-3xl font-bold">Friends</h1>
       </div>
+
+      {hasQueryError && (
+        <QueryErrorState
+          title="Could not load friend data"
+          onRetry={() =>
+            Promise.all([
+              friendsQuery.refetch(),
+              requestsQuery.refetch(),
+              blockedQuery.refetch(),
+              searchQueryResult.refetch(),
+            ])
+          }
+        />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2">
