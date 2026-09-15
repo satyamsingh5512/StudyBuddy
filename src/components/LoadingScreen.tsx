@@ -1,13 +1,20 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Logo from './Logo';
 
 export default function LoadingScreen() {
+  const reduce = useReducedMotion();
+
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-[100]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading StudyBuddy"
+    >
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
+        initial={reduce ? false : { opacity: 0, scale: 0.9 }}
+        animate={reduce ? undefined : { opacity: 1, scale: 1 }}
+        exit={reduce ? undefined : { opacity: 0, scale: 0.9 }}
         className="flex flex-col items-center gap-6"
       >
         <motion.div
