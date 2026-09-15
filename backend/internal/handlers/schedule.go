@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -79,13 +80,11 @@ func UpsertAvailability(c *fiber.Ctx) error {
 			"_id": primitive.NewObjectID(),
 		},
 	}
-	opts := options.Update().SetUpsert(true)
-	if _, err := col.UpdateOne(ctx, filter, update, opts); err != nil {
+	var result models.Availability
+	updateOptions := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
+	if err := col.FindOneAndUpdate(ctx, filter, update, updateOptions).Decode(&result); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save availability"})
 	}
-
-	var result models.Availability
-	_ = col.FindOne(ctx, filter).Decode(&result)
 	return c.JSON(result)
 }
 
@@ -154,7 +153,7 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 	}
 
 	var body struct {
-		Completed *bool  `json:"completed"`
+		Completed *bool   `json:"completed"`
 		StartTime *string `json:"startTime"`
 		EndTime   *string `json:"endTime"`
 	}
@@ -169,20 +168,25 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Calculate points to award when completing a scheduled task
+	updateFields := bson.M{"updatedAt": time.Now()}
+	unsetFields := bson.M{}
 	pointsToAdd := 0
-	if body.Completed != nil && *body.Completed {
-		pointsToAdd = 15 // base points per scheduled task completed
-	}
+	itemFilter := bson.M{"item._id": itemID}
+	filter := bson.M{"_id": scheduleID, "userId": user.ID}
 
-	updateFields := bson.M{
-		"updatedAt": time.Now(),
-	}
 	if body.Completed != nil {
-		updateFields["items.$[item].completed"] = *body.Completed
-	}
-	if body.Completed != nil && *body.Completed {
-		updateFields["items.$[item].pointsAwarded"] = pointsToAdd
+		if *body.Completed {
+			// Only a false -> true transition awards points. The item predicate
+			// makes retries idempotent and prevents unbounded point inflation.
+			itemFilter["item.completed"] = bson.M{"$ne": true}
+			filter["items"] = bson.M{"$elemMatch": bson.M{"_id": itemID, "completed": bson.M{"$ne": true}}}
+			updateFields["items.$[item].completed"] = true
+			updateFields["items.$[item].pointsAwarded"] = 15
+			pointsToAdd = 15
+		} else {
+			updateFields["items.$[item].completed"] = false
+			unsetFields["items.$[item].pointsAwarded"] = ""
+		}
 	}
 
 	// Optional reschedule: validate HH:MM clock strings and keep end > start.
@@ -200,29 +204,42 @@ func UpdateScheduleItem(c *fiber.Ctx) error {
 		}
 		updateFields["items.$[item].startTime"] = formatClockMinutes(startMin)
 		updateFields["items.$[item].endTime"] = formatClockMinutes(endMin)
+		// A reschedule should match the item regardless of completion state.
+		if body.Completed == nil {
+			filter["items._id"] = itemID
+		}
 	}
 
-	arrayFilters := options.Update().SetArrayFilters(options.ArrayFilters{
-		Filters: []interface{}{bson.M{"item._id": itemID}},
-	})
-	_, err = col.UpdateOne(
-		ctx,
-		bson.M{"_id": scheduleID, "userId": user.ID},
-		bson.M{"$set": updateFields},
-		arrayFilters,
-	)
+	update := bson.M{"$set": updateFields}
+	if len(unsetFields) > 0 {
+		update["$unset"] = unsetFields
+	}
+	arrayFilters := options.Update().SetArrayFilters(options.ArrayFilters{Filters: []interface{}{itemFilter}})
+	result, err := col.UpdateOne(ctx, filter, update, arrayFilters)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update item"})
 	}
 
-	// Award points to user if completing
-	if body.Completed != nil && *body.Completed && pointsToAdd > 0 {
+	if result.MatchedCount == 0 {
+		// A repeated completion is a successful idempotent no-op; missing or
+		// unowned schedule items remain a real not-found error.
+		if body.Completed != nil && *body.Completed {
+			var existing struct {
+				ID primitive.ObjectID `bson:"_id"`
+			}
+			lookupErr := col.FindOne(ctx, bson.M{"_id": scheduleID, "userId": user.ID, "items._id": itemID}, options.FindOne().SetProjection(bson.M{"_id": 1})).Decode(&existing)
+			if lookupErr == nil {
+				return c.JSON(fiber.Map{"success": true, "pointsAwarded": 0})
+			}
+		}
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Schedule item not found"})
+	}
+
+	if pointsToAdd > 0 {
 		usersCol := config.DB.Collection("users")
-		_, _ = usersCol.UpdateOne(
-			ctx,
-			bson.M{"_id": user.ID},
-			bson.M{"$inc": bson.M{"totalPoints": pointsToAdd}},
-		)
+		if _, err := usersCol.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"totalPoints": pointsToAdd}}); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to award points"})
+		}
 	}
 
 	return c.JSON(fiber.Map{"success": true, "pointsAwarded": pointsToAdd})
@@ -403,11 +420,12 @@ func GenerateSchedule(c *fiber.Ctx) error {
 
 	// Fetch availability context
 	availCol := config.DB.Collection("availabilities")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
+	// Availability is a small read; keep its timeout independent from the
+	// slower external AI call so a successful generation can still be saved.
+	availabilityCtx, availabilityCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	var avail models.Availability
-	_ = availCol.FindOne(ctx, bson.M{"userId": user.ID}).Decode(&avail)
+	_ = availCol.FindOne(availabilityCtx, bson.M{"userId": user.ID}).Decode(&avail)
+	availabilityCancel()
 
 	availContext := buildAvailabilityContext(avail)
 
@@ -431,8 +449,12 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour zero-padded time format
 		body.Date,
 	)
 
-	// Call Gemini
-	scheduleItems, err := callGemini(systemPrompt)
+	// Bound the external generation separately from MongoDB writes. Provider
+	// retries must not consume the context needed to persist a valid result.
+	aiCtx, aiCancel := context.WithTimeout(context.Background(), 90*time.Second)
+	requestID, _ := c.Locals("requestid").(string)
+	scheduleItems, err := callGemini(aiCtx, systemPrompt, requestID)
+	aiCancel()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "AI generation failed: " + err.Error()})
 	}
@@ -471,7 +493,9 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour zero-padded time format
 	}
 
 	col := config.DB.Collection("schedules")
-	if _, err := col.InsertOne(ctx, schedule); err != nil {
+	writeCtx, writeCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer writeCancel()
+	if _, err := col.InsertOne(writeCtx, schedule); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save schedule"})
 	}
 
@@ -479,7 +503,8 @@ Rules: 6-10 blocks, no overlaps, include breaks, 24-hour zero-padded time format
 	//    Dashboard task list. Skip "Break" items. Replace any previously
 	//    schedule-generated todos for this same date to avoid duplicates on
 	//    regeneration. ──
-	syncScheduleToTodos(ctx, user.ID, body.Date, scheduleItems)
+	syncScheduleToTodos(writeCtx, user.ID, body.Date, scheduleItems, loc)
+	notifyTodoChanged(user.ID)
 
 	return c.JSON(schedule)
 }
@@ -498,16 +523,17 @@ func priorityToDifficulty(priority string) string {
 
 // syncScheduleToTodos creates Dashboard todos from schedule items for a date,
 // clearing any prior schedule-generated todos for that date first.
-func syncScheduleToTodos(ctx context.Context, userID primitive.ObjectID, date string, items []models.ScheduleItem) {
+func syncScheduleToTodos(ctx context.Context, userID primitive.ObjectID, date string, items []models.ScheduleItem, loc *time.Location) {
 	todosCol := config.DB.Collection("todos")
 
-	// Parse the schedule date (used as scheduledDate/dueDate for the todos)
-	parsedDate, err := time.Parse("2006-01-02", date)
+	// Parse the schedule date in the user's calendar timezone. Storing local
+	// midnight as UTC shifts plans to the previous day for negative offsets.
+	parsedDate, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
-		parsedDate = time.Now()
+		parsedDate = time.Now().In(loc)
 	}
-	dayStart := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.UTC)
-	dayEnd := dayStart.Add(24 * time.Hour)
+	dayStart := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, loc)
+	dayEnd := dayStart.AddDate(0, 0, 1)
 
 	// Remove previously schedule-generated todos for this date (avoid dupes on re-gen)
 	_, _ = todosCol.DeleteMany(ctx, bson.M{
@@ -593,7 +619,7 @@ func buildAvailabilityContext(avail models.Availability) string {
 // callGemini generates schedule items using whatever AI provider is configured.
 // Tries Groq first (fast, reliable, generous free tier), then falls back to
 // OpenRouter. Works as long as EITHER key is present.
-func callGemini(prompt string) ([]models.ScheduleItem, error) {
+func callGemini(ctx context.Context, prompt, requestID string) ([]models.ScheduleItem, error) {
 	groqKey := os.Getenv("GROQ_API_KEY")
 	orKey := os.Getenv("OPENROUTER_API_KEY")
 
@@ -610,7 +636,7 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 			model = "openai/gpt-oss-120b"
 		}
 		items, err := callScheduleAI(
-			"https://api.groq.com/openai/v1/chat/completions",
+			ctx, requestID, "groq", "https://api.groq.com/openai/v1/chat/completions",
 			groqKey, model, prompt, false,
 		)
 		if err == nil {
@@ -628,7 +654,7 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 		// Gemma needs system merged into user; other models can use system role.
 		mergeSystem := strings.Contains(strings.ToLower(model), "gemma")
 		items, err := callScheduleAI(
-			"https://openrouter.ai/api/v1/chat/completions",
+			ctx, requestID, "openrouter", "https://openrouter.ai/api/v1/chat/completions",
 			orKey, model, prompt, mergeSystem,
 		)
 		if err == nil {
@@ -647,15 +673,23 @@ func callGemini(prompt string) ([]models.ScheduleItem, error) {
 // callScheduleAI calls any OpenAI-compatible chat endpoint and parses schedule items.
 // Retries up to 3 times on 429. `mergeSystem` merges instructions into the user
 // message (required for Gemma which rejects the system role).
-func callScheduleAI(endpoint, apiKey, model, userPrompt string, mergeSystem bool) ([]models.ScheduleItem, error) {
+func callScheduleAI(ctx context.Context, requestID, provider, endpoint, apiKey, model, userPrompt string, mergeSystem bool) ([]models.ScheduleItem, error) {
 	const maxAttempts = 3
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		items, retryAfter, err := doScheduleRequest(endpoint, apiKey, model, userPrompt, mergeSystem)
+		items, retryAfter, err := doScheduleRequest(ctx, requestID, provider, endpoint, apiKey, model, userPrompt, mergeSystem, attempt)
 		if err == nil {
 			return items, nil
 		}
 		if retryAfter > 0 && attempt < maxAttempts {
-			time.Sleep(retryAfter)
+			timer := time.NewTimer(retryAfter)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
 			continue
 		}
 		if attempt == maxAttempts && retryAfter > 0 {
@@ -668,7 +702,11 @@ func callScheduleAI(endpoint, apiKey, model, userPrompt string, mergeSystem bool
 
 // doScheduleRequest makes a single OpenAI-compatible chat completion call.
 // Returns (items, retryAfter, error). retryAfter > 0 means it was a 429.
-func doScheduleRequest(endpoint, apiKey, model, userPrompt string, mergeSystem bool) ([]models.ScheduleItem, time.Duration, error) {
+// Reuse one transport so repeated schedule attempts keep connections warm and
+// do not allocate a new HTTP client for every request.
+var scheduleHTTPClient = &http.Client{Timeout: 45 * time.Second}
+
+func doScheduleRequest(ctx context.Context, requestID, provider, endpoint, apiKey, model, userPrompt string, mergeSystem bool, attempt int) ([]models.ScheduleItem, time.Duration, error) {
 	instruction := "You ONLY output a raw JSON array. No markdown, no code fences, no explanation before or after. Start your response with [ and end with ]."
 
 	var messages []map[string]string
@@ -697,7 +735,7 @@ func doScheduleRequest(endpoint, apiKey, model, userPrompt string, mergeSystem b
 		return nil, 0, err
 	}
 
-	httpReq, err := http.NewRequest("POST", endpoint, bytes.NewReader(bodyBytes))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -706,12 +744,15 @@ func doScheduleRequest(endpoint, apiKey, model, userPrompt string, mergeSystem b
 	httpReq.Header.Set("HTTP-Referer", "https://sbd.satym.in")
 	httpReq.Header.Set("X-Title", "StudyBuddy")
 
-	client := &http.Client{Timeout: 90 * time.Second}
-	resp, err := client.Do(httpReq)
+	startedAt := time.Now()
+	resp, err := scheduleHTTPClient.Do(httpReq)
+	latencyMs := time.Since(startedAt).Milliseconds()
 	if err != nil {
+		log.Printf("ai_call request_id=%s provider=%s model=%s attempt=%d status=0 latency_ms=%d network_error=true", requestID, provider, model, attempt, latencyMs)
 		return nil, 0, fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
+	log.Printf("ai_call request_id=%s provider=%s model=%s attempt=%d status=%d latency_ms=%d", requestID, provider, model, attempt, resp.StatusCode, latencyMs)
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
