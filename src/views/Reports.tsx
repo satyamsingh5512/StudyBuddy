@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonPage } from '@/components/Skeleton';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import { useReports, useDailyEfficiency, useCreateReport } from '@/lib/queries';
 
 interface Report {
@@ -47,18 +48,26 @@ export default function Reports() {
   // OPTIMIZATION: shared React Query cache — same /reports/efficiency
   // endpoint & cache entries Dashboard already populates, so navigating
   // here after visiting the dashboard is instant (no refetch needed).
-  const { data: reports = [], isLoading: reportsLoading } = useReports();
-  const { data: dailyEfficiency, isLoading: efficiencyLoading } = useDailyEfficiency(1) as {
+  const reportsQuery = useReports();
+  const { data: reports = [], isLoading: reportsLoading, isError: reportsError, refetch: refetchReports } = reportsQuery;
+  const dailyEfficiencyQuery = useDailyEfficiency(1) as {
     data: DailyEfficiency | undefined;
     isLoading: boolean;
+    isError: boolean;
+    refetch: () => Promise<unknown>;
   };
-  const { data: trendData, isLoading: trendLoading } = useDailyEfficiency(trendDays) as {
+  const { data: dailyEfficiency, isLoading: efficiencyLoading, isError: efficiencyError, refetch: refetchDailyEfficiency } = dailyEfficiencyQuery;
+  const trendQuery = useDailyEfficiency(trendDays) as {
     data: EfficiencyTrendResponse | undefined;
     isLoading: boolean;
+    isError: boolean;
+    refetch: () => Promise<unknown>;
   };
+  const { data: trendData, isLoading: trendLoading, isError: trendError, refetch: refetchTrend } = trendQuery;
   const { mutateAsync: createReport } = useCreateReport();
 
   const loading = reportsLoading || efficiencyLoading;
+  const queryError = reportsError || efficiencyError || trendError;
 
   const efficiencyTrend = useMemo(
     () => (Array.isArray(trendData?.trend) ? trendData!.trend : []),
@@ -126,8 +135,15 @@ export default function Reports() {
         </Button>
       </div>
 
-      {loading && <SkeletonPage rows={4} />}
-      {!loading && (
+      {queryError ? (
+        <QueryErrorState
+          title="Could not load reports"
+          description="Your report data could not be fetched. Try again without losing any saved reports."
+          onRetry={() => Promise.all([refetchReports(), refetchDailyEfficiency(), refetchTrend()])}
+        />
+      ) : loading ? (
+        <SkeletonPage rows={4} />
+      ) : (
         <>
       <Card>
         <CardHeader>
