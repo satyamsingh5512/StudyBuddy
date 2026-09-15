@@ -18,6 +18,13 @@ func indexSpecifications() map[string][]indexSpec {
 			{bson.D{{Key: "lastActive", Value: -1}}, options.Index().SetName("idx_users_lastActive")},
 			{bson.D{{Key: "totalPoints", Value: -1}}, options.Index().SetName("idx_users_totalPoints")},
 		},
+		"availabilities": {
+			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("uq_availabilities_userId").SetUnique(true)},
+		},
+		"schedules": {
+			{bson.D{{Key: "userId", Value: 1}, {Key: "date", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_schedules_userId_date_createdAt")},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_schedules_userId_createdAt")},
+		},
 		"todos": {
 			{bson.D{{Key: "userId", Value: 1}}, options.Index().SetName("idx_todos_userId")},
 			{bson.D{{Key: "userId", Value: 1}, {Key: "dueDate", Value: -1}}, options.Index().SetName("idx_todos_userId_dueDate")},
