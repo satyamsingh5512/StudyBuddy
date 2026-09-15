@@ -36,6 +36,7 @@ import AvailabilitySetup from '@/components/AvailabilitySetup';
 import AIScheduleGenerator from '@/components/AIScheduleGenerator';
 import ScheduleTimeline from '@/components/ScheduleTimeline';
 import ScheduleAlarmManager from '@/components/ScheduleAlarmManager';
+import { QueryErrorState } from '@/components/QueryErrorState';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -104,8 +105,18 @@ export default function Schedule() {
   const dateStr = toDateStr(selectedDate);
 
   // Queries
-  const { data: availability, isLoading: availLoading } = useAvailability();
-  const { data: schedules = [], isLoading: schedulesLoading } = useSchedules(dateStr);
+  const {
+    data: availability,
+    isLoading: availLoading,
+    isError: availError,
+    refetch: refetchAvailability,
+  } = useAvailability();
+  const {
+    data: schedules = [],
+    isLoading: schedulesLoading,
+    isError: schedulesError,
+    refetch: refetchSchedules,
+  } = useSchedules(dateStr);
   const deleteSchedule = useDeleteSchedule();
   const updateItem = useUpdateScheduleItem();
 
@@ -133,6 +144,7 @@ export default function Schedule() {
         const result = await updateItem.mutateAsync({
           scheduleId: activeSchedule.id,
           itemId,
+          date: dateStr,
           completed,
         });
         if (completed && result.pointsAwarded > 0) {
@@ -145,7 +157,7 @@ export default function Schedule() {
         toast({ title: 'Failed to update task', variant: 'destructive' });
       }
     },
-    [activeSchedule, updateItem, toast]
+    [activeSchedule, dateStr, updateItem, toast]
   );
 
   const handleRescheduleItem = useCallback(
@@ -171,6 +183,7 @@ export default function Schedule() {
         await updateItem.mutateAsync({
           scheduleId: activeSchedule.id,
           itemId,
+          date: dateStr,
           startTime: newStart,
           endTime: newEnd,
         });
@@ -221,6 +234,18 @@ export default function Schedule() {
     return (
       <div className="mx-auto max-w-5xl space-y-4 py-4">
         <SkeletonList count={3} />
+      </div>
+    );
+  }
+
+  if (availError || schedulesError) {
+    return (
+      <div className="mx-auto max-w-5xl py-4">
+        <QueryErrorState
+          title="Could not load your schedule"
+          description="Your schedule data could not be fetched. Nothing was changed; try again when the connection is ready."
+          onRetry={() => Promise.all([refetchAvailability(), refetchSchedules()])}
+        />
       </div>
     );
   }
@@ -302,7 +327,7 @@ export default function Schedule() {
                 <button
                   onClick={() => setSelectedDate((d) => addDays(d, -1))}
                   aria-label="Previous day"
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -316,7 +341,7 @@ export default function Schedule() {
                       <button
                         key={ds}
                         onClick={() => setSelectedDate(d)}
-                        className={`${Math.abs(offset) === 2 ? 'hidden sm:block' : 'block'} rounded-lg px-2 py-1.5 text-center transition-colors ${
+                        className={`${Math.abs(offset) === 2 ? 'hidden sm:block' : 'block'} min-h-11 rounded-lg px-2 py-1.5 text-center transition-colors ${
                           isSelected
                             ? 'bg-primary text-primary-foreground'
                             : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -339,7 +364,7 @@ export default function Schedule() {
                 <button
                   onClick={() => setSelectedDate((d) => addDays(d, 1))}
                   aria-label="Next day"
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
