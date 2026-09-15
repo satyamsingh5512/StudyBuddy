@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { SkeletonPage } from '@/components/Skeleton';
+import { QueryErrorState } from '@/components/QueryErrorState';
 import { useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/lib/queries';
 import { Pin, PinOff, Pencil, Trash2, Search, Plus, X, StickyNote } from 'lucide-react';
 
@@ -53,7 +54,7 @@ export default function Notes() {
   const [tagInput, setTagInput] = useState('');
   const { toast } = useToast();
 
-  const { data: notes = [], isLoading } = useNotes();
+  const { data: notes = [], isLoading, isError, refetch, isRefetching } = useNotes();
   const createNoteMutation = useCreateNote();
   const updateNoteMutation = useUpdateNote();
   const deleteNoteMutation = useDeleteNote();
@@ -207,7 +208,8 @@ export default function Notes() {
           <button
             type="button"
             onClick={() => setColorFilter('')}
-            className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+            aria-pressed={colorFilter === ''}
+            className={`min-h-11 px-3 rounded-full text-xs font-medium border transition-colors ${
               colorFilter === '' ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-secondary'
             }`}
           >
@@ -218,8 +220,9 @@ export default function Notes() {
               key={c.key}
               type="button"
               onClick={() => setColorFilter(colorFilter === c.key ? '' : c.key)}
-              title={c.label}
-              className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${c.swatch} ${
+              aria-label={c.label}
+              aria-pressed={colorFilter === c.key}
+              className={`min-h-11 min-w-11 rounded-full border-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${c.swatch} ${
                 colorFilter === c.key ? 'ring-2 ring-offset-2 ring-primary ring-offset-background border-white' : 'border-transparent'
               }`}
             />
@@ -227,9 +230,17 @@ export default function Notes() {
         </div>
       </div>
 
+      {isError && (
+        <QueryErrorState
+          title="Could not load your notes"
+          onRetry={refetch}
+          retrying={isRefetching}
+        />
+      )}
+
       {isLoading && <SkeletonPage rows={4} />}
 
-      {!isLoading && !hasNotes && (
+      {!isLoading && !isError && !hasNotes && (
         <Card>
           <CardContent className="py-16 flex flex-col items-center text-center gap-3">
             <StickyNote className="h-12 w-12 text-muted-foreground/50" />
@@ -250,7 +261,7 @@ export default function Notes() {
         </Card>
       )}
 
-      {!isLoading && pinned.length > 0 && (
+      {!isLoading && !isError && pinned.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <Pin className="h-4 w-4" /> Pinned
@@ -269,7 +280,7 @@ export default function Notes() {
         </section>
       )}
 
-      {!isLoading &&
+      {!isLoading && !isError &&
         groupedByDate.map((group) => (
           <section key={group.key} className="space-y-3">
             <div className="flex items-center gap-3">
@@ -327,8 +338,9 @@ export default function Notes() {
                     key={c.key || 'default'}
                     type="button"
                     onClick={() => setDraft((d) => ({ ...d, color: c.key }))}
-                    title={c.label}
-                    className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${c.swatch} ${
+                    aria-label={`Set highlight color to ${c.label}`}
+                    aria-pressed={draft.color === c.key}
+                    className={`min-h-11 min-w-11 rounded-full border-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${c.swatch} ${
                       draft.color === c.key ? 'ring-2 ring-offset-2 ring-primary ring-offset-background' : 'border-transparent'
                     }`}
                   />
@@ -361,7 +373,7 @@ export default function Notes() {
                   {draft.tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="gap-1">
                       {tag}
-                      <button type="button" onClick={() => removeTag(tag)} className="hover:text-destructive">
+                      <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`} className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
