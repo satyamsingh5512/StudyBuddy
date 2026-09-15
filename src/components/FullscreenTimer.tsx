@@ -302,9 +302,25 @@ export default function FullscreenTimer({ isOpen, onClose, selectedSubject }: Fu
     onClose();
   }, [desktopApp, isOnBreak, onClose, saveSession, setStudyTime, setStudying, setTimerSessionStart, studyTime, timerSessionStart]);
 
-  // Handle escape key to exit fullscreen and keep awake logic
+  // Handle escape key to exit fullscreen and keep awake logic.
+  // Skips editable targets so typing a topic/subject (space, "b", Escape)
+  // in any input/textarea/select/contenteditable is never hijacked —
+  // otherwise the mobile soft keyboard input gets preventDefaulted away.
   useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.isContentEditable) return true;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      return !!target.closest?.('input, textarea, select, [contenteditable="true"]');
+    };
+
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) {
+        // Let Escape blur the field instead of saving & exiting mid-typing.
+        if (e.key === 'Escape') (e.target as HTMLElement).blur();
+        return;
+      }
       if (e.key === 'Escape' && isOpen) {
         e.preventDefault();
         void stopAndSave();

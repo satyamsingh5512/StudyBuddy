@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Play, Pause, Settings, RotateCcw, Clock, Maximize } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { studyingAtom, studyTimeAtom, userAtom, timerSessionStartAtom } from '@/store/atoms';
 import { Button } from './ui/button';
@@ -73,6 +73,10 @@ export default function StudyTimer() {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [laps, setLaps] = useState<Lap[]>([]);
   const { toast } = useToast();
+  // Drag is started explicitly from the card header handle only, so taps in
+  // inputs/selects/buttons never get stolen by framer-motion's touch-drag
+  // (which otherwise prevents the mobile soft keyboard from staying open).
+  const dragControls = useDragControls();
 
   const [selectedSubject, setSelectedSubject] = useState<string | undefined>();
   const [newSubject, setNewSubject] = useState('');
@@ -81,16 +85,21 @@ export default function StudyTimer() {
   const handledDesktopSaveIds = useRef(new Set<string>());
 
   const handleAddSubject = async () => {
-    if (!newSubject.trim() || !user) return;
-    const currentSubjects = user.subjects || [];
-    if (currentSubjects.includes(newSubject.trim())) return;
+    const name = newSubject.trim();
+    if (!name || !user) return;
+    const currentSubjects: string[] = user.subjects || [];
+    if (currentSubjects.some((s) => s.toLowerCase() === name.toLowerCase())) {
+      setSelectedSubject(currentSubjects.find((s) => s.toLowerCase() === name.toLowerCase()));
+      setNewSubject('');
+      return;
+    }
 
-    const updatedSubjects = [...currentSubjects, newSubject.trim()];
+    const updatedSubjects = [...currentSubjects, name];
     
     try {
       await updateProfile({ subjects: updatedSubjects });
       setUser((prev: any) => ({ ...prev, subjects: updatedSubjects }));
-      setSelectedSubject(newSubject.trim());
+      setSelectedSubject(name);
       setNewSubject('');
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to add subject' });
@@ -447,6 +456,8 @@ export default function StudyTimer() {
           <motion.div
             key="expanded-card"
             drag
+            dragControls={dragControls}
+            dragListener={false}
             dragMomentum={false}
             dragConstraints={dragBoundaryRef}
             whileDrag={{ cursor: 'grabbing' }}
@@ -459,13 +470,16 @@ export default function StudyTimer() {
               damping: 30,
               mass: 1
             }}
-            className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 cursor-grab active:cursor-grabbing pointer-events-auto"
+            className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 pointer-events-auto"
           >
             {/* RESPONSIVE FIX: Fluid width for mobile */}
             <Card tier="elevated" className="shadow-lg" style={{ width: 'clamp(280px, 90vw, 320px)' }}>
               <CardContent className="p-4 sm:p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+                {/* Header — the only drag handle, so form fields stay tappable */}
+                <div
+                  className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing touch-none select-none"
+                  onPointerDown={(e) => dragControls.start(e)}
+                >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-muted rounded-lg">
                       <Clock className="h-4 w-4 text-muted-foreground" />
@@ -481,6 +495,7 @@ export default function StudyTimer() {
                     size="sm"
                     variant="ghost"
                     onClick={toggleExpanded}
+                    onPointerDown={(e) => e.stopPropagation()}
                     className="h-8 w-8 p-0"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,49 +516,84 @@ export default function StudyTimer() {
                   </p>
                 </div>
 
-                {/* Subject Selector */}
-                <div className="mb-4">
+                {/* Subject / topic selector.
+                    NOTE: the "new topic" input lives OUTSIDE SelectContent.
+                    An <input> nested inside Radix SelectContent steals/closes
+                    focus on mobile, so the soft keyboard flashes open then is
+                    immediately dismissed ("always rejects keyboard opening").
+                    It also needs >=16px font to avoid iOS zoom-dismiss. */}
+                <div className="mb-4 space-y-2" onPointerDown={(e) => e.stopPropagation()}>
                   <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                    <SelectTrigger className="w-full text-sm h-8">
+                    <SelectTrigger className="w-full text-sm h-11">
                       <SelectValue placeholder="Select Subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      {user?.subjects?.map(sub => (
-                        <div key={sub} className="flex items-center justify-between w-full pr-2">
-                          <SelectItem value={sub} className="flex-1">{sub}</SelectItem>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-4 w-4 text-red-500 hover:text-red-700 hover:bg-transparent"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleRemoveSubject(sub);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      {(user?.subjects ?? []).map((sub: string) => (
+                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
                       ))}
-                      <div className="flex items-center p-2 mt-2 border-t gap-2">
-                        <Input 
-                          placeholder="New subject" 
-                          value={newSubject}
-                          onChange={(e) => setNewSubject(e.target.value)}
-                          className="h-8 text-xs"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddSubject();
-                            }
-                          }}
-                        />
-                        <Button size="sm" onClick={handleAddSubject} className="h-8 shrink-0 px-2">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="text"
+                      enterKeyHint="done"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="sentences"
+                      aria-label="Add new topic or subject"
+                      placeholder="New topic / subject"
+                      value={newSubject}
+                      onChange={(e) => setNewSubject(e.target.value)}
+                      className="h-11 text-[16px] sm:text-xs"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleAddSubject();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => void handleAddSubject()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="h-11 shrink-0 px-3"
+                      aria-label="Add topic"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {(user?.subjects ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(user?.subjects ?? []).map((sub: string) => (
+                        <span
+                          key={sub}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] leading-none ${selectedSubject === sub ? 'border-primary/50 bg-primary/10' : 'border-border/60 bg-muted/50'}`}
+                        >
+                          <button
+                            type="button"
+                            className="max-w-[120px] truncate"
+                            onClick={() => setSelectedSubject(sub)}
+                            title={sub}
+                          >
+                            {sub}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${sub}`}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-red-600"
+                            onClick={() => void handleRemoveSubject(sub)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress Bar */}
