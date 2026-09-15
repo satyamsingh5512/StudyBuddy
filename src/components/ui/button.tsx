@@ -68,6 +68,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       loadingLabel,
       type,
       children,
+      ...props
     },
     ref
   ) => {
@@ -99,6 +100,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <Comp
+        {...props}
         className={cn(
           buttonVariants({ variant, size, className }),
           isPressed && !disabled && 'scale-[0.98] transition-transform'
