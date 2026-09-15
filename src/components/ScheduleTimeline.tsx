@@ -564,7 +564,7 @@ export default function ScheduleTimeline({
                       aria-pressed={item.completed}
                       aria-label={item.completed ? `Mark ${item.taskTitle} incomplete` : `Mark ${item.taskTitle} complete`}
                       className={cn(
-                        'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
+                        'flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors',
                         item.completed
                           ? 'bg-emerald-600 text-white'
                           : 'border border-border/70 bg-background text-muted-foreground hover:border-emerald-600/50 hover:text-emerald-600'
@@ -605,9 +605,9 @@ export default function ScheduleTimeline({
 
         <div
           ref={scrollRef}
-          className="max-h-[720px] overflow-y-auto rounded-xl border border-border/60 bg-card"
+          className="max-h-[720px] overflow-x-auto overflow-y-auto rounded-xl border border-border/60 bg-card"
         >
-          <div ref={contentRef} className="relative w-full" style={{ height: `${contentHeight}px` }}>
+          <div ref={contentRef} className="relative min-w-[32rem] sm:min-w-0" style={{ height: `${contentHeight}px` }}>
             {/* Hour rows */}
             {Array.from({ length: 24 }, (_, h) => {
               const top = h * ROW_H_PX;
@@ -786,7 +786,7 @@ export default function ScheduleTimeline({
                         aria-pressed={item.completed}
                         aria-label={item.completed ? `Mark ${item.taskTitle} incomplete` : `Mark ${item.taskTitle} complete`}
                         className={cn(
-                          'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+                          'flex min-h-11 min-w-11 items-center justify-center rounded-md transition-colors',
                           item.completed
                             ? 'bg-emerald-600 text-white'
                             : 'border border-border/70 bg-background text-muted-foreground hover:border-emerald-600/50 hover:text-emerald-600'
