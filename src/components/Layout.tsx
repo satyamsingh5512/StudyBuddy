@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from '@/lib/router';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard,
@@ -79,6 +79,8 @@ export default function Layout({ children }: LayoutProps) {
   const [timerSessionStart, setTimerSessionStart] = useAtom(timerSessionStartAtom);
   const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const { isOnline } = useNetworkStatus();
   const location = useLocation();
@@ -113,6 +115,47 @@ export default function Layout({ children }: LayoutProps) {
       window.location.assign('/');
     }
   };
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const frame = window.requestAnimationFrame(() => mobileMenuCloseRef.current?.focus());
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileMenuOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const drawer = document.getElementById('app-navigation');
+      const focusable = drawer
+        ? Array.from(
+            drawer.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          )
+        : [];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) mobileMenuTriggerRef.current?.focus();
+  }, [mobileMenuOpen]);
 
   const handleNavClick = () => {
     setMobileMenuOpen(false);
@@ -153,6 +196,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              ref={mobileMenuTriggerRef}
               aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
               aria-expanded={mobileMenuOpen}
               aria-controls="app-navigation"
@@ -172,8 +216,11 @@ export default function Layout({ children }: LayoutProps) {
 
         <aside
           id="app-navigation"
+          role="navigation"
+          aria-label="Primary navigation"
           className={`
           glass-panel fixed inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex-col
+          pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]
           transition-transform duration-300 ease-in-out shadow-2xl md:flex md:shadow-none
           ${mobileMenuOpen ? 'flex translate-x-0' : 'hidden -translate-x-full md:translate-x-0'}
         `}
@@ -191,11 +238,12 @@ export default function Layout({ children }: LayoutProps) {
               <h1 className="font-bold text-lg tracking-tight">StudyBuddy</h1>
             </div>
             <Button
+              ref={mobileMenuCloseRef}
               variant="ghost"
               size="sm"
               onClick={() => setMobileMenuOpen(false)}
               aria-label="Close navigation"
-              className="md:hidden h-8 w-8 p-0"
+              className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center p-0"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -302,7 +350,7 @@ export default function Layout({ children }: LayoutProps) {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-3 hover:opacity-80 transition-all duration-200 focus:outline-none group bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-lg border border-border/50">
+                  <button className="flex items-center gap-3 bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-lg border border-border/50 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group">
                     <div className="text-right hidden lg:block">
                       <p className="text-sm font-semibold tracking-tight text-foreground">
                         {(user as any)?.username ? `@${(user as any).username}` : user?.name}
@@ -364,6 +412,7 @@ export default function Layout({ children }: LayoutProps) {
           <main
             id="main-content"
             tabIndex={-1}
+            aria-hidden={mobileMenuOpen ? true : undefined}
             className="flex-1 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto"
             style={{ padding: 'clamp(1rem, 4vw, 2rem)' }}
           >
