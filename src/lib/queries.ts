@@ -1082,6 +1082,8 @@ export const useGenerateSchedule = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules(data.date) });
       queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules() });
+      // Schedule generation mirrors non-break items into Dashboard todos.
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.todos() });
     },
   });
 };
@@ -1110,7 +1112,7 @@ export const useUpdateScheduleItem = () => {
   return useMutation<
     { success: boolean; pointsAwarded: number },
     Error,
-    { scheduleId: string; itemId: string; completed?: boolean; startTime?: string; endTime?: string }
+    { scheduleId: string; itemId: string; date?: string; completed?: boolean; startTime?: string; endTime?: string }
   >({
     mutationFn: ({ scheduleId, itemId, completed, startTime, endTime }) =>
       apiFetchJSON<{ success: boolean; pointsAwarded: number }>(
@@ -1123,12 +1125,19 @@ export const useUpdateScheduleItem = () => {
           }),
         }
       ),
-    onSuccess: () => {
-      // Prefix-invalidate so the currently viewed date's schedule refetches.
-      queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      // Also refresh user stats so points update immediately in the nav/header
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userStats() });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+    onSuccess: (_result, variables) => {
+      // A date-scoped mutation only needs to refresh the visible schedule.
+      // Keep the prefix fallback for non-schedule callers.
+      if (variables.date) {
+        queryClient.invalidateQueries({ queryKey: SCHEDULE_QUERY_KEYS.schedules(variables.date) });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      }
+      // Time-only moves do not change points, profile, or user statistics.
+      if (variables.completed !== undefined) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userStats() });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+      }
     },
   });
 };
