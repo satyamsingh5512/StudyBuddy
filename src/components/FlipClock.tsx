@@ -8,7 +8,7 @@ interface FlipClockProps {
 const FlipDigit = ({ value }: { value: string }) => {
     return (
         <div
-            className="relative bg-zinc-900 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center m-0.5 sm:m-1 perspective-1000"
+            className="relative bg-zinc-900 rounded-lg sm:rounded-xl overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center m-0.5 sm:m-1 perspective-1000 fullscreen-timer-clock-digit"
             style={{
                 width: 'clamp(2.4rem, 13vw, 8rem)',
                 height: 'clamp(3.4rem, 20vw + 2rem, 12rem)',
@@ -25,7 +25,7 @@ const FlipDigit = ({ value }: { value: string }) => {
                     className="absolute inset-0 flex items-center justify-center"
                 >
                     <span
-                        className="font-bold text-white tabular-nums drop-shadow-md tracking-tighter"
+                className="font-bold text-white tabular-nums drop-shadow-md tracking-tighter fullscreen-timer-clock-digit-value"
                         style={{ fontSize: 'clamp(1.75rem, 10vw, 8rem)' }}
                     >
                         {value}
