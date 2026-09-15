@@ -116,7 +116,11 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(recover.New())
 	app.Use(helmet.New())
-	app.Use(logger.New())
+	app.Use(logger.New(logger.Config{
+		Format:     "${time} request_id=${locals:requestid} status=${status} method=${method} path=${path} latency=${latency} error=${error}\n",
+		TimeFormat: time.RFC3339Nano,
+		TimeZone:   "UTC",
+	}))
 	allowedOrigins := buildAllowedOrigins()
 	log.Printf("CORS allowed origins: %s", allowedOrigins)
 	app.Use(cors.New(cors.Config{
