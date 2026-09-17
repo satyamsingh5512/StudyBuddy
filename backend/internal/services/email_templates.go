@@ -14,6 +14,9 @@ func displayName(name string) string {
 	return html.EscapeString(trimmed)
 }
 
+// queriesEmailAddress is the human contact for questions about automated mail.
+const queriesEmailAddress = "satyam.singh@satym.in"
+
 func layoutEmail(title, preheader, intro, contentHTML, outro, supportEmail string) (string, string) {
 	titleEscaped := html.EscapeString(title)
 	preheaderEscaped := html.EscapeString(preheader)
@@ -23,41 +26,45 @@ func layoutEmail(title, preheader, intro, contentHTML, outro, supportEmail strin
 
 	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
-  <body style="margin:0;padding:0;background:#0a0f1f;background-image:linear-gradient(135deg,#0a0f1f 0%%,#111a2f 55%%,#1c2a46 100%%);font-family:Arial,Helvetica,sans-serif;color:#f3f4f6;">
+  <body style="margin:0;padding:0;background-color:#f6f1e7;font-family:Georgia,'Times New Roman',serif;color:#292524;">
     <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">%s</span>
-    <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="padding:24px 12px;">
+    <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="padding:32px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#0f172a;border:1px solid #22314f;border-radius:18px;overflow:hidden;">
+          <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border:1px solid #e7dcc3;border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="padding:28px 32px;background:linear-gradient(90deg,#102042 0%%,#1b2f57 100%%);border-bottom:1px solid #2d4066;">
-                <h1 style="margin:0;font-size:22px;line-height:1.3;color:#f8fafc;">StudyBuddy</h1>
-                <p style="margin:8px 0 0;font-size:13px;color:#c7d2fe;letter-spacing:0.2px;">Reliable study support for competitive exam preparation</p>
+              <td style="padding:26px 36px;background-color:#92400e;border-bottom:3px solid #f59e0b;">
+                <h1 style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:21px;line-height:1.3;font-weight:bold;color:#fffbeb;letter-spacing:0.3px;">StudyBuddy</h1>
+                <p style="margin:6px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#fde68a;">Study support for competitive exam preparation</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:28px 32px;">
-                <h2 style="margin:0 0 12px;font-size:20px;line-height:1.3;color:#f8fafc;">%s</h2>
-                <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#d1d5db;">%s</p>
+              <td style="padding:30px 36px;">
+                <h2 style="margin:0 0 12px;font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.35;font-weight:bold;color:#1c1917;">%s</h2>
+                <p style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#44403c;">%s</p>
                 %s
-                <p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#cbd5e1;">%s</p>
+                <p style="margin:18px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:#57534e;">%s</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:18px 32px;border-top:1px solid #22314f;background:#0b1327;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  Need help? Contact us at <a href="mailto:%s" style="color:#c7d2fe;text-decoration:none;">%s</a>.
+              <td style="padding:20px 36px;border-top:1px solid #e7dcc3;background-color:#faf6ec;">
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:#78716c;">
+                  This is an automated email — please do not reply directly. For any queries, email us at <a href="mailto:%s" style="color:#92400e;text-decoration:underline;">%s</a>.
+                </p>
+                <p style="margin:8px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:#78716c;">
+                  Need help? Contact us at <a href="mailto:%s" style="color:#92400e;text-decoration:underline;">%s</a>.
                 </p>
               </td>
             </tr>
           </table>
+          <p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#a8a29e;">&copy; StudyBuddy &middot; sbd.satym.in</p>
         </td>
       </tr>
     </table>
   </body>
-</html>`, preheaderEscaped, titleEscaped, introEscaped, contentHTML, outroEscaped, supportEmailEscaped, supportEmailEscaped)
+</html>`, preheaderEscaped, titleEscaped, introEscaped, contentHTML, outroEscaped, queriesEmailAddress, queriesEmailAddress, supportEmailEscaped, supportEmailEscaped)
 
-	textBody := fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s\n\nSupport: %s", title, intro, strings.TrimSpace(contentHTML), outro, supportEmail)
+	textBody := fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s\n\nThis is an automated email. For any queries, email: %s\n\nSupport: %s", title, intro, strings.TrimSpace(contentHTML), outro, queriesEmailAddress, supportEmail)
 	return htmlBody, textBody
 }
 
@@ -69,10 +76,10 @@ func verificationEmailTemplate(name, otp, supportEmail string) (string, string, 
 	intro := fmt.Sprintf("Hi %s, please use the verification code below to confirm your StudyBuddy account.", safeName)
 	content := fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
   <tr>
-    <td style="background:#111b35;border:1px solid #334b7c;border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:11px;color:#94a3b8;letter-spacing:1.6px;text-transform:uppercase;">Verification Code</div>
-      <div style="margin-top:8px;font-size:32px;font-weight:700;letter-spacing:8px;color:#f8fafc;">%s</div>
-      <div style="margin-top:10px;font-size:13px;color:#cbd5e1;">This code expires in 10 minutes.</div>
+    <td style="background-color:#fffbeb;border:1px solid #d97706;border-radius:10px;padding:18px;text-align:center;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#92400e;letter-spacing:1.6px;text-transform:uppercase;">Verification Code</div>
+      <div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:32px;font-weight:bold;letter-spacing:8px;color:#78350a;">%s</div>
+      <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#92600e;">This code expires in 10 minutes.</div>
     </td>
   </tr>
 </table>`, safeOTP)
@@ -91,10 +98,10 @@ func resetEmailTemplate(name, otp, supportEmail string) (string, string, string)
 	intro := fmt.Sprintf("Hi %s, we received a request to reset your StudyBuddy password.", safeName)
 	content := fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
   <tr>
-    <td style="background:#111b35;border:1px solid #334b7c;border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:11px;color:#94a3b8;letter-spacing:1.6px;text-transform:uppercase;">Reset Code</div>
-      <div style="margin-top:8px;font-size:32px;font-weight:700;letter-spacing:8px;color:#f8fafc;">%s</div>
-      <div style="margin-top:10px;font-size:13px;color:#cbd5e1;">This code expires in 10 minutes.</div>
+    <td style="background-color:#fffbeb;border:1px solid #d97706;border-radius:10px;padding:18px;text-align:center;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#92400e;letter-spacing:1.6px;text-transform:uppercase;">Reset Code</div>
+      <div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:32px;font-weight:bold;letter-spacing:8px;color:#78350a;">%s</div>
+      <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#92600e;">This code expires in 10 minutes.</div>
     </td>
   </tr>
 </table>`, safeOTP)
@@ -112,8 +119,8 @@ func onboardingWelcomeTemplate(name, supportEmail string) (string, string, strin
 	intro := fmt.Sprintf("Hi %s, your profile setup is complete and your workspace is ready.", safeName)
 	content := `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
   <tr>
-    <td style="background:#111b35;border:1px solid #334b7c;border-radius:12px;padding:16px;">
-      <p style="margin:0;font-size:14px;line-height:1.7;color:#dbe4ff;">
+    <td style="background-color:#fffbeb;border:1px solid #e7dcc3;border-radius:10px;padding:18px;">
+      <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#44403c;">
         You can now access your dashboard, track study sessions, and organize your exam preparation plan with StudyBuddy.
       </p>
     </td>
@@ -132,9 +139,9 @@ func dailyStatsEmailTemplate(name string, minutes, todosCompleted, streak, total
 	subject := fmt.Sprintf("Your StudyBuddy day — %s", safeDate)
 	intro := fmt.Sprintf("Hi %s, here is how your %s went on StudyBuddy.", safeName, safeDate)
 	statCell := func(label, value string) string {
-		return fmt.Sprintf(`<td style="background:#111b35;border:1px solid #334b7c;border-radius:12px;padding:14px;text-align:center;">
-        <div style="font-size:11px;color:#94a3b8;letter-spacing:1.6px;text-transform:uppercase;">%s</div>
-        <div style="margin-top:6px;font-size:26px;font-weight:700;color:#f8fafc;">%s</div>
+		return fmt.Sprintf(`<td style="background-color:#fffbeb;border:1px solid #e7dcc3;border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#92400e;letter-spacing:1.6px;text-transform:uppercase;">%s</div>
+        <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:26px;font-weight:bold;color:#1c1917;">%s</div>
       </td>`, html.EscapeString(label), html.EscapeString(value))
 	}
 	content := fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
@@ -156,5 +163,27 @@ func dailyStatsEmailTemplate(name string, minutes, todosCompleted, streak, total
 	outro := "Keep the streak alive — even a short session counts."
 
 	htmlBody, textBody := layoutEmail("Your daily study summary", fmt.Sprintf("%d minutes, %d tasks on %s", minutes, todosCompleted, date), intro, content, outro, supportEmail)
+	return subject, htmlBody, textBody
+}
+
+func accountDeletionEmailTemplate(name, otp, supportEmail string) (string, string, string) {
+	safeName := displayName(name)
+	safeOTP := html.EscapeString(otp)
+
+	subject := "Confirm permanent deletion of your StudyBuddy account"
+	intro := fmt.Sprintf("Hi %s, we received a request to permanently delete your StudyBuddy account and all associated data.", safeName)
+	content := fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
+  <tr>
+    <td style="background-color:#fef2f2;border:1px solid #b91c1c;border-radius:10px;padding:18px;text-align:center;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#991b1b;letter-spacing:1.6px;text-transform:uppercase;">Deletion Code</div>
+      <div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:32px;font-weight:bold;letter-spacing:8px;color:#7f1d1d;">%s</div>
+      <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#991b1b;">This code expires in 10 minutes. Deletion is irreversible: tasks, goals, journals, notes, schedules, messages, and your profile are removed.</div>
+    </td>
+  </tr>
+</table>`, safeOTP)
+	outro := "If you did not request this, do nothing — your account stays untouched. Consider changing your password."
+
+	htmlBody, textBody := layoutEmail("Confirm account deletion", "Your StudyBuddy account deletion code", intro, content, outro, supportEmail)
+	textBody = fmt.Sprintf("Deletion code: %s\n\n%s", otp, textBody)
 	return subject, htmlBody, textBody
 }
