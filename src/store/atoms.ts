@@ -17,6 +17,7 @@ export interface User {
   bestStreak?: number;
   showProfile?: boolean;
   emailVerified?: boolean;
+  role?: string;
   totalPoints: number;
   totalStudyMinutes: number;
   streak: number;
