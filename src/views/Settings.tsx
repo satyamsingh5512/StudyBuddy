@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
+import { useQueryClient } from '@tanstack/react-query';
+import { clearOfflineAccountData } from '@/lib/offline/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getAvatarUrl } from '@/lib/avatar';
-import { Camera, Upload, RefreshCw, X, Info } from 'lucide-react';
+import { Camera, Upload, RefreshCw, X, Info, AlertTriangle, Trash2 } from 'lucide-react';
 import { apiFetch } from '@/config/api';
 import DashboardWidgetSettings from '@/components/dashboard/DashboardWidgetSettings';
 import {
@@ -36,6 +38,7 @@ import MobileFocusEnforcerSettings from '@/components/MobileFocusEnforcerSetting
 
 export default function Settings() {
   const [user, setUser] = useAtom(userAtom);
+  const queryClient = useQueryClient();
   const { data: profileData } = useProfile();
   const { mutateAsync: updateProfile } = useUpdateProfile();
   const [examGoal, setExamGoal] = useState(user?.examGoal || '');
@@ -65,6 +68,12 @@ export default function Settings() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => getNotificationPermission());
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  // ── Permanent account deletion state ───────────────────────────────────────
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<'confirm' | 'code'>('confirm');
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteAck, setDeleteAck] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   // ── Avatar upload state ──────────────────────────────────────────────────
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -197,6 +206,57 @@ export default function Settings() {
       toast({ title: 'Verification Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  // ── Permanent account deletion handlers ────────────────────────────────────
+  const openDeleteDialog = () => {
+    setDeleteStep('confirm');
+    setDeleteOtp('');
+    setDeleteAck(false);
+    setShowDeleteDialog(true);
+  };
+
+  const handleRequestDeletion = async () => {
+    setDeleteBusy(true);
+    try {
+      const res = await apiFetch('/users/delete/request', { method: 'POST' });
+      const data = (await res.json().catch(() => null)) as { message?: string; error?: string } | null;
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Could not send the verification code');
+      setDeleteStep('code');
+      toast({ title: 'Code sent', description: data?.message || 'Check your email for the deletion code.' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const handleConfirmDeletion = async () => {
+    setDeleteBusy(true);
+    try {
+      const res = await apiFetch('/users/delete/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: deleteOtp }),
+      });
+      const data = (await res.json().catch(() => null)) as { message?: string; error?: string } | null;
+      if (!res.ok) throw new Error(data?.message || data?.error || 'Account deletion failed');
+      toast({ title: 'Account deleted', description: data?.message || 'Your account is gone.' });
+      setShowDeleteDialog(false);
+      // The account no longer exists: drop every local trace like a logout does.
+      setUser(null);
+      queryClient.clear();
+      try {
+        await clearOfflineAccountData();
+      } catch {
+        /* Local cleanup is best-effort; the server data is already gone. */
+      }
+      window.location.assign('/');
+    } catch (error: any) {
+      toast({ title: 'Deletion failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -433,6 +493,31 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Danger Zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label>Permanently delete account</Label>
+              <p className="text-sm text-muted-foreground">
+                Removes your profile and every task, goal, journal, note, schedule, message, and
+                study record. This cannot be undone — deletion is verified with a code sent to
+                your email.
+              </p>
+            </div>
+            <Button variant="destructive" onClick={openDeleteDialog} className="shrink-0 gap-2">
+              <Trash2 className="h-4 w-4" />
+              Delete account
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Profile</CardTitle>
@@ -606,6 +691,74 @@ export default function Settings() {
               {isVerifying ? 'Verifying...' : 'Verify'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Account Deletion Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={(o) => { if (!deleteBusy) setShowDeleteDialog(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete your account?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently removes your profile and all of your data. There is no recovery.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteStep === 'confirm' ? (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">
+                We will email a 6-digit verification code to <span className="font-medium text-foreground">{user?.email}</span>.
+                Enter it on the next step to confirm the deletion.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={handleRequestDeletion} disabled={deleteBusy}>
+                  {deleteBusy ? 'Sending...' : 'Send verification code'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">
+                Enter the 6-digit code we sent to <span className="font-medium text-foreground">{user?.email}</span>.
+                The code expires in 10 minutes.
+              </p>
+              <Input
+                value={deleteOtp}
+                onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                maxLength={6}
+                inputMode="numeric"
+                className="text-center text-2xl tracking-widest"
+              />
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deleteAck}
+                  onChange={(e) => setDeleteAck(e.target.checked)}
+                  className="mt-1 accent-red-600"
+                />
+                <span>
+                  I understand this permanently deletes my account and all my data, and that this
+                  cannot be undone.
+                </span>
+              </label>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setDeleteStep('confirm')} disabled={deleteBusy}>
+                  Back
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmDeletion}
+                  disabled={deleteBusy || deleteOtp.length < 6 || !deleteAck}
+                >
+                  {deleteBusy ? 'Deleting...' : 'Permanently delete my account'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
