@@ -104,9 +104,9 @@
   --page: #000000;
   --surface: #000000;
   --surface-muted: #0a0a0a;
-  --ink: #ececec;
-  --ink-rgb: 236 236 236;
-  --muted-ink: #8a8a8a;
+  --ink: #f4f4f5;
+  --ink-rgb: 244 244 245;
+  --muted-ink: #b8b8b8;
 
   --accent-light: rgba(29, 77, 255, 0.16);
   --accent-subtle: rgba(29, 77, 255, 0.1);
@@ -115,21 +115,21 @@
   --hairline-strong: rgba(236, 236, 236, 0.16);
 
   --background: 0 0% 0%; /* #000000 */
-  --foreground: 0 0% 93%; /* #ececec */
+  --foreground: 0 0% 96%; /* #f4f4f5 */
 
   --card: 0 0% 0%; /* #000000 */
-  --card-foreground: 0 0% 93%;
+  --card-foreground: 0 0% 96%;
   --popover: 0 0% 0%; /* #000000 */
-  --popover-foreground: 0 0% 93%;
+  --popover-foreground: 0 0% 96%;
 
   --primary: 227 100% 56%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 6%; /* #0f0f0f */
-  --secondary-foreground: 0 0% 93%;
+  --secondary-foreground: 0 0% 96%;
 
   --muted: 0 0% 6%;
-  --muted-foreground: 0 0% 54%; /* #8a8a8a */
+  --muted-foreground: 0 0% 72%; /* #b8b8b8 */
 
   --accent: 227 100% 56%;
   --accent-foreground: 0 0% 100%;
