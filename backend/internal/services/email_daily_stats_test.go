@@ -25,6 +25,20 @@ func TestDailyStatsEmailTemplateEscapesName(t *testing.T) {
 	}
 }
 
+func TestAccountDeletionEmailTemplate(t *testing.T) {
+	subject, htmlBody, textBody := accountDeletionEmailTemplate("Asha", "123456", "support@example.com")
+
+	if subject == "" || htmlBody == "" || textBody == "" {
+		t.Fatal("template returned an empty part")
+	}
+	if !strings.Contains(htmlBody, "123456") || !strings.Contains(textBody, "123456") {
+		t.Fatal("template bodies do not contain the code")
+	}
+	if strings.Contains(strings.ToLower(htmlBody), "irreversible") == false {
+		t.Fatal("template must warn that deletion is irreversible")
+	}
+}
+
 func TestEmailSendingConfigured(t *testing.T) {
 	t.Setenv("RESEND_API_KEY", "")
 	t.Setenv("ZEPTOMAIL_SMTP_USER", "")
@@ -37,5 +51,18 @@ func TestEmailSendingConfigured(t *testing.T) {
 	t.Setenv("RESEND_API_KEY", "re_test")
 	if !EmailSendingConfigured() {
 		t.Fatal("did not detect RESEND_API_KEY")
+	}
+}
+
+func TestLayoutEmailAutomatedFooter(t *testing.T) {
+	_, htmlBody, textBody := verificationEmailTemplate("Asha", "123456", "support@example.com")
+
+	for _, want := range []string{"automated email", "satyam.singh@satym.in"} {
+		if !strings.Contains(strings.ToLower(htmlBody), want) {
+			t.Fatalf("HTML body does not contain %q", want)
+		}
+		if !strings.Contains(strings.ToLower(textBody), want) {
+			t.Fatalf("text body does not contain %q", want)
+		}
 	}
 }
