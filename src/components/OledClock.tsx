@@ -110,7 +110,7 @@ export default function OledClock({ isOpen, onClose }: OledClockProps) {
           e.stopPropagation();
           onClose();
         }}
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 min-h-[44px] min-w-[44px] text-neutral-500 hover:text-neutral-300 hover:bg-white/5"
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 min-h-[44px] min-w-[44px] text-neutral-400 hover:text-neutral-200 hover:bg-white/5"
         aria-label="Close clock"
       >
         <X className="h-5 w-5" />
@@ -125,7 +125,7 @@ export default function OledClock({ isOpen, onClose }: OledClockProps) {
         </div>
 
         <div
-          className="font-light text-neutral-500 select-none"
+          className="font-light text-neutral-300 select-none"
           style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1.25rem)' }}
         >
           {dateString}
@@ -140,7 +140,7 @@ export default function OledClock({ isOpen, onClose }: OledClockProps) {
               {daysUntilGoal} {daysUntilGoal === 1 ? 'day' : 'days'}
             </div>
             <div
-              className="text-neutral-600 select-none max-w-[80vw] truncate"
+              className="text-neutral-400 select-none max-w-[80vw] truncate"
               style={{ fontSize: 'clamp(0.75rem, 2vw, 0.95rem)' }}
             >
               remaining &middot; {nearestDeadline.label}
