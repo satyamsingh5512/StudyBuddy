@@ -211,3 +211,8 @@ func SendDailyStatsEmail(to, name string, minutes, todosCompleted, streak, total
 	subject, htmlBody, textBody := dailyStatsEmailTemplate(name, minutes, todosCompleted, streak, totalPoints, date, supportEmailAddress())
 	return sendEmail(to, subject, htmlBody, textBody)
 }
+
+func SendAccountDeletionEmail(to, name, otp string) error {
+	subject, htmlBody, textBody := accountDeletionEmailTemplate(name, otp, supportEmailAddress())
+	return sendEmail(to, subject, htmlBody, textBody)
+}
