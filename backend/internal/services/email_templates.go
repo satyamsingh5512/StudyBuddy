@@ -124,3 +124,37 @@ func onboardingWelcomeTemplate(name, supportEmail string) (string, string, strin
 	htmlBody, textBody := layoutEmail("Profile setup complete", "Your StudyBuddy account is ready", intro, content, outro, supportEmail)
 	return subject, htmlBody, textBody
 }
+
+func dailyStatsEmailTemplate(name string, minutes, todosCompleted, streak, totalPoints int, date, supportEmail string) (string, string, string) {
+	safeName := displayName(name)
+	safeDate := html.EscapeString(date)
+
+	subject := fmt.Sprintf("Your StudyBuddy day — %s", safeDate)
+	intro := fmt.Sprintf("Hi %s, here is how your %s went on StudyBuddy.", safeName, safeDate)
+	statCell := func(label, value string) string {
+		return fmt.Sprintf(`<td style="background:#111b35;border:1px solid #334b7c;border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:11px;color:#94a3b8;letter-spacing:1.6px;text-transform:uppercase;">%s</div>
+        <div style="margin-top:6px;font-size:26px;font-weight:700;color:#f8fafc;">%s</div>
+      </td>`, html.EscapeString(label), html.EscapeString(value))
+	}
+	content := fmt.Sprintf(`<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 8px;">
+  <tr>
+    %s
+    %s
+  </tr>
+  <tr><td style="height:10px;line-height:10px;">&nbsp;</td><td style="height:10px;line-height:10px;">&nbsp;</td></tr>
+  <tr>
+    %s
+    %s
+  </tr>
+</table>`,
+		statCell("Minutes studied", fmt.Sprintf("%d", minutes)),
+		statCell("Tasks completed", fmt.Sprintf("%d", todosCompleted)),
+		statCell("Day streak", fmt.Sprintf("%d", streak)),
+		statCell("Total points", fmt.Sprintf("%d", totalPoints)),
+	)
+	outro := "Keep the streak alive — even a short session counts."
+
+	htmlBody, textBody := layoutEmail("Your daily study summary", fmt.Sprintf("%d minutes, %d tasks on %s", minutes, todosCompleted, date), intro, content, outro, supportEmail)
+	return subject, htmlBody, textBody
+}
