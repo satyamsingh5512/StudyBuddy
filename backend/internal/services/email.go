@@ -16,6 +16,17 @@ import (
 
 var ErrEmailServiceNotConfigured = errors.New("email service is not configured")
 
+// EmailSendingConfigured reports whether any outbound provider can deliver
+// mail: Resend, or ZeptoMail SMTP with a sender address.
+func EmailSendingConfigured() bool {
+	if strings.TrimSpace(strings.Trim(os.Getenv("RESEND_API_KEY"), `"`)) != "" {
+		return true
+	}
+	return strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_USER")) != "" &&
+		strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_PASSWORD")) != "" &&
+		strings.TrimSpace(os.Getenv("EMAIL_FROM")) != ""
+}
+
 // supportEmailAddress extracts the raw email address from EMAIL_FROM, which may
 // be in either "Display Name <addr@example.com>" or plain "addr@example.com" form.
 func supportEmailAddress() string {
@@ -193,5 +204,10 @@ func SendPasswordResetEmail(to, name, otp string) error {
 
 func SendOnboardingWelcomeEmail(to, name string) error {
 	subject, htmlBody, textBody := onboardingWelcomeTemplate(name, supportEmailAddress())
+	return sendEmail(to, subject, htmlBody, textBody)
+}
+
+func SendDailyStatsEmail(to, name string, minutes, todosCompleted, streak, totalPoints int, date string) error {
+	subject, htmlBody, textBody := dailyStatsEmailTemplate(name, minutes, todosCompleted, streak, totalPoints, date, supportEmailAddress())
 	return sendEmail(to, subject, htmlBody, textBody)
 }
