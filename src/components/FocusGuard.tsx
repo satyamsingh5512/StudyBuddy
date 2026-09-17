@@ -238,7 +238,7 @@ export default function FocusGuard() {
             {ending ? 'Ending…' : 'End focus session now'}
           </Button>
         </div>
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] text-zinc-300">
           Tip: open the StudyBuddy timer on this phone instead — using the same app never triggers
           this warning. Device {myDeviceId().slice(0, 8)}…
         </p>
