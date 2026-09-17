@@ -231,7 +231,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: 'StudyBuddy',
-    backgroundColor: '#0e0f10',
+    backgroundColor: '#000000',
     autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
     webPreferences: {
