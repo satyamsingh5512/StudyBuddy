@@ -85,7 +85,7 @@ func SetupRoutes(app *fiber.App) {
 	protected.Patch("/users/profile", handlers.UpdateProfile) // Support PATCH for frontend compatibility
 
 	// Admin
-	admin := protected.Group("/admin")
+	admin := protected.Group("/admin", middleware.RequireAdmin)
 	admin.Get("/stats", handlers.GetAdminStats)
 	admin.Post("/send-daily-stats", handlers.SendDailyStats)
 
