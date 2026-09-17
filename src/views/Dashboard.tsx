@@ -89,6 +89,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import DashboardCompactWidgets from '@/components/dashboard/DashboardCompactWidgets';
+import { AdminPanel } from '@/views/Admin';
 import { normalizePreferences } from '@/lib/preferences';
 import OledClock from '@/components/OledClock';
 
@@ -1277,8 +1278,8 @@ export default function Dashboard() {
           }
         />
 
-        {/* Admin Panel - Only visible to admin users */}
-        {user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+        {/* Admin Panel - embedded directly for admin users, no separate page needed */}
+        {(user?.role === 'admin' || user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) && (
           <SolidCard className="border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20">
             <SolidCardHeader>
               <SolidCardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
@@ -1290,20 +1291,11 @@ export default function Dashboard() {
                     d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                   />
                 </svg>
-                Admin Access
+                Admin
               </SolidCardTitle>
             </SolidCardHeader>
             <SolidCardContent>
-              <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
-                You have administrator privileges. Access the admin dashboard to manage users and
-                send daily stats emails.
-              </p>
-              <Button
-                onClick={() => navigate('/admin')}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                Open Admin Dashboard
-              </Button>
+              <AdminPanel />
             </SolidCardContent>
           </SolidCard>
         )}
