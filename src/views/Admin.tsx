@@ -23,7 +23,14 @@ export default function Admin() {
       const response = await apiFetch('/admin/stats');
 
       if (!response.ok) {
-        throw new Error('Failed to fetch stats');
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            body?.message ||
+              'This account is not an admin. Ask the owner to set ADMIN_EMAIL to your login email.'
+          );
+        }
+        throw new Error(body?.message || 'Admin stats are temporarily unavailable. Try again in a moment.');
       }
 
       const data = await response.json();
@@ -31,7 +38,7 @@ export default function Admin() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to load admin stats',
+        description: error instanceof Error ? error.message : 'Failed to load admin stats',
         variant: 'destructive',
       });
     } finally {
@@ -55,7 +62,8 @@ export default function Admin() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send emails');
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message || 'Failed to send emails');
       }
 
       const data = await response.json();
@@ -66,7 +74,7 @@ export default function Admin() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to send daily stats emails',
+        description: error instanceof Error ? error.message : 'Failed to send daily stats emails',
         variant: 'destructive',
       });
     } finally {
