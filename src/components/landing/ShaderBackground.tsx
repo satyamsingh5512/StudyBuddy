@@ -19,7 +19,7 @@ export default function ShaderBackground() {
         fineY={40}
       />
       <ChromaFlow
-        baseColor="#09090B"
+        baseColor="#000000"
         upColor="#6C47FF"
         downColor="#F59E0B"
         leftColor="#10B981"
