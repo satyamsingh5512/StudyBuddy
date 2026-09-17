@@ -89,6 +89,9 @@ type User struct {
 	LoginLockedUntil     *time.Time         `bson:"loginLockedUntil,omitempty" json:"-"`
 	VerificationAttempts int                `bson:"verificationAttempts,omitempty" json:"-"`
 	ResetAttempts        int                `bson:"resetAttempts,omitempty" json:"-"`
+	DeletionOtp          string             `bson:"deletionOtp,omitempty" json:"-"`
+	DeletionOtpExpiry    time.Time          `bson:"deletionOtpExpiry,omitempty" json:"-"`
+	DeletionAttempts     int                `bson:"deletionAttempts,omitempty" json:"-"`
 	SessionVersion       int                `bson:"sessionVersion,omitempty" json:"-"`
 	OnboardingDone       bool               `bson:"onboardingDone" json:"onboardingDone"`
 	TotalPoints          int                `bson:"totalPoints" json:"totalPoints"`
