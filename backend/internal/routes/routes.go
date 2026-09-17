@@ -65,6 +65,10 @@ func SetupRoutes(app *fiber.App) {
 	protected.Post("/upload/avatar", handlers.UploadAvatar)
 	protected.Delete("/upload/avatar", handlers.DeleteAvatar)
 
+	// Permanent account deletion (email-OTP verified, wipes all user data)
+	protected.Post("/users/delete/request", middleware.RateLimit(3, time.Hour), handlers.RequestAccountDeletion)
+	protected.Post("/users/delete/confirm", middleware.RateLimit(5, time.Hour), handlers.ConfirmAccountDeletion)
+
 	// News
 	protected.Get("/news/:examType", middleware.RateLimit(20, time.Hour), handlers.GetNews)
 	protected.Get("/news/:examType/dates", middleware.RateLimit(20, time.Hour), handlers.GetNewsDates)
