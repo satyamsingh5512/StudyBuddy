@@ -16,6 +16,7 @@ import (
 	"studybuddy-backend/internal/middleware"
 	"studybuddy-backend/internal/realtime"
 	"studybuddy-backend/internal/routes"
+	"studybuddy-backend/internal/services"
 	"studybuddy-backend/internal/session"
 
 	"github.com/gofiber/fiber/v2"
@@ -103,6 +104,9 @@ func main() {
 	}
 	if err := session.ValidateConfiguration(); err != nil {
 		log.Fatalf("invalid session configuration: %v", err)
+	}
+	if !services.EmailSendingConfigured() {
+		log.Printf("WARNING: no email provider configured (set RESEND_API_KEY + EMAIL_FROM, or ZEPTOMAIL_SMTP_USER/PASSWORD + EMAIL_FROM) — verification codes will fail to send")
 	}
 
 	app := fiber.New(fiber.Config{
