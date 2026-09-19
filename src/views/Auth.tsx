@@ -128,11 +128,22 @@ export default function Auth() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-        toast({
-          title: 'Account Created',
-          description: data.message || 'Please check your email for the verification code.',
-          duration: 5000,
-        });
+        if (data.emailSent === false) {
+          toast({
+            title: 'Account Created — email failed to send',
+            description:
+              data.message ||
+              'Account created, but the verification email could not be sent. Tap Resend to request a new code.',
+            variant: 'destructive',
+            duration: 8000,
+          });
+        } else {
+          toast({
+            title: 'Account Created',
+            description: data.message || 'Please check your email for the verification code.',
+            duration: 5000,
+          });
+        }
 
         setAuthType('verify-signup');
         setResendCooldown(60);
@@ -169,13 +180,18 @@ export default function Auth() {
         const data = await res.json();
         if (!res.ok) {
           if (data.code === 'EMAIL_NOT_VERIFIED') {
-            toast({
-              title: 'Email Not Verified',
-              description: 'A new verification code has been sent to your email.',
-              duration: 5000,
-            });
+            // Backend already issues + emails a fresh OTP on this 403, so
+            // just move to the verify screen with its message instead of
+            // claiming a resend we never made.
             setAuthType('verify-signup');
             setResendCooldown(60);
+            toast({
+              title: 'Email Not Verified',
+              description:
+                data.message || 'A new verification code has been sent to your email.',
+              duration: 8000,
+            });
+            return;
           }
           throw new Error(data.error || 'Login failed');
         }
