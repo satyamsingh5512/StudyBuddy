@@ -102,12 +102,21 @@ func Signup(c *fiber.Ctx) error {
 	}
 	newUser.ID = result.InsertedID.(primitive.ObjectID)
 
+	emailSent := true
 	if err := services.SendVerificationEmail(newUser.Email, newUser.Name, otp); err != nil {
+		emailSent = false
 		log.Printf("signup verification email failed for user %s: %v", newUser.ID.Hex(), err)
 	}
 
+	if !emailSent {
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message":   "Account created, but the verification email could not be sent. Please use Resend code to request a new one.",
+			"emailSent": false,
+		})
+	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "If the details are valid, a verification code has been sent.",
+		"message":   "If the details are valid, a verification code has been sent.",
+		"emailSent": true,
 	})
 }
 
@@ -156,9 +165,30 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	if !user.EmailVerified {
+		// The account exists but was never verified (or the previous code
+		// expired). Issue a fresh code here so the client does not have to
+		// make a second resend-otp call that it may forget. Sending is
+		// best-effort: even if the mail provider is down the user still
+		// gets a 403 with EMAIL_NOT_VERIFIED and can retry via resend-otp.
+		if otp, otpHash, otpErr := security.NewOneTimeCode(); otpErr != nil {
+			log.Printf("login verification code generation failed for user %s: %v", user.ID.Hex(), otpErr)
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			if _, dbErr := usersCollection.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": bson.M{
+				"verificationOtp":      otpHash,
+				"otpExpiry":            time.Now().UTC().Add(10 * time.Minute),
+				"verificationAttempts": 0,
+			}}); dbErr != nil {
+				log.Printf("login verification code store failed for user %s: %v", user.ID.Hex(), dbErr)
+			} else if sendErr := services.SendVerificationEmail(user.Email, user.Name, otp); sendErr != nil {
+				log.Printf("login verification email failed for user %s: %v", user.ID.Hex(), sendErr)
+			}
+			cancel()
+		}
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Verify your email before signing in.",
-			"code":  "EMAIL_NOT_VERIFIED",
+			"error":   "Verify your email before signing in.",
+			"message": "Verify your email before signing in. A new verification code has been sent to your email.",
+			"code":    "EMAIL_NOT_VERIFIED",
 		})
 	}
 
