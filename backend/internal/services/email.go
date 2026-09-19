@@ -16,21 +16,27 @@ import (
 
 var ErrEmailServiceNotConfigured = errors.New("email service is not configured")
 
+// cleanEnv trims whitespace and stray surrounding quotes that Render /
+// dashboard editors often introduce when pasting secrets.
+func cleanEnv(key string) string {
+	return strings.TrimSpace(strings.Trim(strings.TrimSpace(os.Getenv(key)), `"'`))
+}
+
 // EmailSendingConfigured reports whether any outbound provider can deliver
 // mail: Resend, or ZeptoMail SMTP with a sender address.
 func EmailSendingConfigured() bool {
-	if strings.TrimSpace(strings.Trim(os.Getenv("RESEND_API_KEY"), `"`)) != "" {
+	if cleanEnv("RESEND_API_KEY") != "" {
 		return true
 	}
-	return strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_USER")) != "" &&
-		strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_PASSWORD")) != "" &&
-		strings.TrimSpace(os.Getenv("EMAIL_FROM")) != ""
+	return cleanEnv("ZEPTOMAIL_SMTP_USER") != "" &&
+		cleanEnv("ZEPTOMAIL_SMTP_PASSWORD") != "" &&
+		cleanEnv("EMAIL_FROM") != ""
 }
 
 // supportEmailAddress extracts the raw email address from EMAIL_FROM, which may
 // be in either "Display Name <addr@example.com>" or plain "addr@example.com" form.
 func supportEmailAddress() string {
-	from := strings.TrimSpace(strings.Trim(os.Getenv("EMAIL_FROM"), `"`))
+	from := cleanEnv("EMAIL_FROM")
 	if from == "" {
 		return "support@studybuddy.app"
 	}
@@ -46,7 +52,7 @@ func supportEmailAddress() string {
 
 // emailFromHeader returns the full "Name <addr>" sender string for the From header.
 func emailFromHeader() string {
-	from := strings.TrimSpace(strings.Trim(os.Getenv("EMAIL_FROM"), `"`))
+	from := cleanEnv("EMAIL_FROM")
 	if from == "" {
 		return "StudyBuddy <support@studybuddy.app>"
 	}
@@ -56,12 +62,18 @@ func emailFromHeader() string {
 // sendEmail is the main dispatcher. It tries Resend (HTTP API) first since that
 // is the primary configured provider, then falls back to ZeptoMail SMTP.
 func sendEmail(to, subject, htmlBody, textBody string) error {
-	resendKey := strings.TrimSpace(strings.Trim(os.Getenv("RESEND_API_KEY"), `"`))
+	resendKey := cleanEnv("RESEND_API_KEY")
 	if resendKey != "" {
 		if err := sendViaResend(resendKey, to, subject, htmlBody, textBody); err != nil {
-			// Resend failed — try SMTP fallback before giving up
-			if smtpErr := sendZeptoEmail(to, subject, htmlBody, textBody); smtpErr == nil {
-				return nil
+			// Resend failed — try SMTP fallback before giving up, but only
+			// when SMTP is actually configured. Otherwise return the
+			// original Resend error with full context.
+			if EmailSendingConfigured() && cleanEnv("ZEPTOMAIL_SMTP_USER") != "" {
+				if smtpErr := sendZeptoEmail(to, subject, htmlBody, textBody); smtpErr == nil {
+					return nil
+				} else {
+					return fmt.Errorf("resend failed (%v); smtp fallback also failed (%v)", err, smtpErr)
+				}
 			}
 			return err
 		}
@@ -129,20 +141,20 @@ func sendViaResend(apiKey, to, subject, htmlBody, textBody string) error {
 //	ZEPTOMAIL_SMTP_HOST     – defaults to smtp.zeptomail.in
 //	ZEPTOMAIL_SMTP_PORT     – defaults to 587
 func sendZeptoEmail(to, subject, htmlBody, textBody string) error {
-	smtpUser := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_USER"))
-	smtpPass := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_PASSWORD"))
-	from := strings.TrimSpace(os.Getenv("EMAIL_FROM"))
+	smtpUser := cleanEnv("ZEPTOMAIL_SMTP_USER")
+	smtpPass := cleanEnv("ZEPTOMAIL_SMTP_PASSWORD")
+	from := cleanEnv("EMAIL_FROM")
 
 	if smtpUser == "" || smtpPass == "" || from == "" {
 		return ErrEmailServiceNotConfigured
 	}
 
-	smtpHost := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_HOST"))
+	smtpHost := cleanEnv("ZEPTOMAIL_SMTP_HOST")
 	if smtpHost == "" {
 		smtpHost = "smtp.zeptomail.in"
 	}
 
-	smtpPort := strings.TrimSpace(os.Getenv("ZEPTOMAIL_SMTP_PORT"))
+	smtpPort := cleanEnv("ZEPTOMAIL_SMTP_PORT")
 	if smtpPort == "" {
 		smtpPort = "587"
 	}
