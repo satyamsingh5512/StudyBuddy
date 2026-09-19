@@ -18,3 +18,11 @@ services:
         value: production
       - key: MONGODB_URI
         sync: false # Set this securely in the Render dashboard!
+      - key: RESEND_API_KEY
+        sync: false # Resend API key (re_...) — primary email provider for OTP codes
+      - key: EMAIL_FROM
+        sync: false # Sender, e.g. "StudyBuddy <noreply@yourdomain.com>" (domain must be verified in Resend)
+      - key: ZEPTOMAIL_SMTP_USER
+        sync: false # Optional SMTP fallback: ZeptoMail mail-agent username
+      - key: ZEPTOMAIL_SMTP_PASSWORD
+        sync: false # Optional SMTP fallback: ZeptoMail mail-agent token
