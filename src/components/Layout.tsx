@@ -1,31 +1,19 @@
-import { Link, useLocation, useNavigate } from '@/lib/router';
+import { useLocation, useNavigate } from '@/lib/router';
 import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  LayoutDashboard,
-  FileText,
-  Trophy,
-  Bell,
-  MessageSquare,
-  Settings,
   LogOut,
   User,
   ChevronDown,
   Menu,
   X,
-  Newspaper,
-  StickyNote,
-  CalendarDays,
-  ListTodo,
-  Target,
-  CalendarCheck,
-  Bot,
-  BookOpen,
-  Award,
-  CircleHelp,
+  Settings,
+  PanelLeftOpen,
+  PanelRightOpen,
 } from 'lucide-react';
 import { useAtom } from 'jotai';
 import { userAtom, studyingAtom, studyTimeAtom, timerSessionStartAtom } from '@/store/atoms';
+import { useSidebarLayout } from '@/store/sidebarLayout';
 import { useNetworkStatus } from '@/lib/networkStatus';
 import { getAvatarUrl } from '@/lib/avatar';
 import PageTransition from '@/components/PageTransition';
@@ -39,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
+import AppSidebar from '@/components/AppSidebar';
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 import ShowUpReminderManager from '@/components/ShowUpReminderManager';
@@ -47,26 +36,6 @@ import { apiFetch } from '@/config/api';
 import { clearOfflineAccountData } from '@/lib/offline/storage';
 import { soundManager } from '@/lib/sounds';
 import { announceFocusEnd, clearLocalFocusState } from '@/lib/focusSession';
-
-const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { path: '/goals', icon: Target, label: 'Goals' },
-  { path: '/show-up', icon: CalendarCheck, label: 'Show Up' },
-  { path: '/schedule', icon: CalendarDays, label: 'Schedule' },
-  { path: '/reports', icon: FileText, label: 'Reports' },
-  { path: '/journal', icon: BookOpen, label: 'Journal' },
-  { path: '/mentor', icon: Bot, label: 'Mentor' },
-  { path: '/achievements', icon: Award, label: 'Achievements' },
-  { path: '/notes', icon: StickyNote, label: 'Notepad' },
-  { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { path: '/news', icon: Newspaper, label: 'News' },
-  { path: '/notices', icon: Bell, label: 'Notices' },
-  { path: '/friends', icon: User, label: 'Friends' },
-  { path: '/messages', icon: MessageSquare, label: 'Messages' },
-  { path: '/help', icon: CircleHelp, label: 'Help' },
-  { path: '/settings', icon: Settings, label: 'Settings' },
-];
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -85,6 +54,7 @@ export default function Layout({ children }: LayoutProps) {
   const { isOnline } = useNetworkStatus();
   const location = useLocation();
   const navigate = useNavigate();
+  const sidebar = useSidebarLayout();
 
   const handleLogout = async () => {
     if (logoutPending) return;
@@ -157,10 +127,17 @@ export default function Layout({ children }: LayoutProps) {
     if (!mobileMenuOpen) mobileMenuTriggerRef.current?.focus();
   }, [mobileMenuOpen]);
 
+  // A route change must not leave the mobile drawer covering the new page.
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const handleNavClick = () => {
     setMobileMenuOpen(false);
     soundManager.playClick();
   };
+
+  const RestoreIcon = sidebar.side === 'left' ? PanelLeftOpen : PanelRightOpen;
 
   return (
     <UnifiedPageWrapper>
@@ -171,7 +148,13 @@ export default function Layout({ children }: LayoutProps) {
       >
         Skip to main content
       </a>
-      <div className="min-h-screen flex flex-col md:h-dvh md:min-h-0 md:flex-row md:overflow-hidden">
+      <div
+        style={{
+          ['--sb-ml' as string]: sidebar.side === 'left' ? `${sidebar.occupiedWidth}px` : '0px',
+          ['--sb-mr' as string]: sidebar.side === 'right' ? `${sidebar.occupiedWidth}px` : '0px',
+        }}
+        className="min-h-screen flex flex-col md:h-dvh md:min-h-0 md:flex-row md:overflow-hidden"
+      >
         <header className="glass-panel md:hidden h-14 border-x-0 border-t-0 flex items-center justify-between gap-2 px-3 sm:px-4 sticky top-0 z-40">
           {/* RESPONSIVE FIX: Touch targets min 44x44px */}
           <div className="flex min-w-0 items-center gap-2">
@@ -214,125 +197,35 @@ export default function Layout({ children }: LayoutProps) {
           />
         )}
 
-        <aside
-          id="app-navigation"
-          role="navigation"
-          aria-label="Primary navigation"
-          className={`
-          glass-panel fixed inset-y-0 left-0 z-40 w-64 border-y-0 border-l-0 flex-col
-          pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]
-          transition-transform duration-300 ease-in-out shadow-2xl md:flex md:shadow-none
-          ${mobileMenuOpen ? 'flex translate-x-0' : 'hidden -translate-x-full md:translate-x-0'}
-        `}
-        >
-          <div className="p-6 border-b border-border/50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Logo className="w-8 h-8" />
-                {studying && (
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-success">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                  </span>
-                )}
-              </div>
-              <h1 className="font-bold text-lg tracking-tight">StudyBuddy</h1>
-            </div>
-            <Button
-              ref={mobileMenuCloseRef}
-              variant="ghost"
-              size="sm"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="Close navigation"
-              className="md:hidden inline-flex min-h-11 min-w-11 items-center justify-center p-0"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
+        <AppSidebar
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+          mobileCloseRef={mobileMenuCloseRef}
+          onNavigate={handleNavClick}
+          onLogout={handleLogout}
+          logoutPending={logoutPending}
+          studying={studying}
+          isOnline={isOnline}
+          user={user}
+        />
 
-          <div className="md:hidden p-4 border-b">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <img
-                  src={getAvatarUrl(user)}
-                  alt={(user as any)?.username || user?.name}
-                  className="h-10 w-10 rounded-full ring-2 ring-border"
-                />
-                <span
-                  className={`absolute top-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
-                    isOnline ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                ></span>
-                {studying && (
-                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-blue-600 border-2 border-background"></span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {(user as any)?.username ? `@${(user as any).username}` : user?.name}
-                </p>
-                <p className="text-xs text-muted-foreground">{user?.totalPoints} points</p>
-              </div>
-            </div>
-          </div>
+        {/* Panel fully hidden: keep one affordance to bring it back. */}
+        {sidebar.mode === 'hidden' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sidebar.setMode('expanded')}
+            title="Show navigation panel (Ctrl+Shift+B)"
+            aria-label="Show navigation panel"
+            className={`hidden md:inline-flex fixed top-1/2 -translate-y-1/2 z-40 h-16 w-8 items-center justify-center rounded-2xl p-0 ${
+              sidebar.side === 'left' ? 'left-0 rounded-l-none' : 'right-0 rounded-r-none'
+            }`}
+          >
+            <RestoreIcon className="h-4 w-4" />
+          </Button>
+        )}
 
-          <nav className="flex-1 p-3 overflow-y-auto w-full mt-4">
-            <div className="space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={handleNavClick}
-                    aria-current={isActive ? 'page' : undefined}
-                    className="block w-full"
-                  >
-                    <div
-                      className={`
-                      flex items-center gap-3 px-3 py-2.5 mx-1 rounded-md text-sm font-medium
-                      transition-all duration-200 ease-out group relative overflow-hidden
-                      min-h-[44px]
-                      ${
-                        isActive
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                      }
-                    `}
-                    >
-                      {isActive && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
-                      )}
-                      <Icon
-                        className={`h-[18px] w-[18px] flex-shrink-0 ${
-                          isActive
-                            ? 'text-primary'
-                            : 'text-muted-foreground group-hover:text-foreground transition-colors'
-                        }`}
-                      />
-                      {item.label}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-          <div className="p-4 border-t border-border/50">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              loading={logoutPending}
-              loadingLabel="Signing out…"
-              className="w-full justify-start gap-3 rounded-md transition-all duration-200 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
-            >
-              <LogOut className="h-[18px] w-[18px]" />
-              <span className="font-medium text-sm">Sign out</span>
-            </Button>
-          </div>
-        </aside>
-
-        <div className="flex-1 flex flex-col min-w-0 md:ml-64 md:h-dvh md:min-h-0">
+        <div className="flex-1 flex flex-col min-w-0 md:h-dvh md:min-h-0 md:ml-[var(--sb-ml)] md:mr-[var(--sb-mr)] md:transition-[margin] md:duration-300 md:ease-in-out">
           <header className="glass-panel hidden md:flex h-16 border-x-0 border-t-0 items-center justify-between px-6 sticky top-0 z-30">
             <div className="flex items-center gap-3">
               {studying && (
