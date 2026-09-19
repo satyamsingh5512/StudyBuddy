@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"studybuddy-backend/internal/config"
@@ -36,7 +37,8 @@ func VerifyOTP(c *fiber.Ctx) error {
 		return badRequest(c, "Invalid request body")
 	}
 	email, err := security.NormalizeEmail(req.Email)
-	if err != nil || len(req.OTP) != 6 {
+	otp := strings.TrimSpace(req.OTP)
+	if err != nil || len(otp) != 6 {
 		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 
@@ -52,7 +54,7 @@ func VerifyOTP(c *fiber.Ctx) error {
 		return badRequest(c, "Email is already verified")
 	}
 	if user.VerificationAttempts >= maxCodeAttempts || time.Now().After(user.OtpExpiry) ||
-		!security.VerifyOneTimeCode(user.VerificationOtp, req.OTP) {
+		!security.VerifyOneTimeCode(user.VerificationOtp, otp) {
 		_, _ = users.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"verificationAttempts": 1}})
 		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
@@ -107,7 +109,7 @@ func ResendOTP(c *fiber.Ctx) error {
 		"email": email, "emailVerified": false,
 	}, bson.M{"$set": bson.M{
 		"verificationOtp":      otpHash,
-		"otpExpiry":            time.Now().Add(10 * time.Minute),
+		"otpExpiry":            time.Now().UTC().Add(10 * time.Minute),
 		"verificationAttempts": 0,
 	}})
 	if err != nil {
@@ -116,6 +118,18 @@ func ResendOTP(c *fiber.Ctx) error {
 	if result.MatchedCount > 0 {
 		if err := services.SendVerificationEmail(email, "", otp); err != nil {
 			log.Printf("resend verification email failed: %v", err)
+			// Surface the delivery failure so the UI can tell the user to
+			// retry instead of showing a false "code sent" success.
+			if err == services.ErrEmailServiceNotConfigured {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":   "Email service is not configured. Please try again later.",
+					"message": "Email service is not configured. Please try again later.",
+				})
+			}
+			return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+				"error":   "Could not send the verification code. Please try again.",
+				"message": "Could not send the verification code. Please try again.",
+			})
 		}
 	}
 
@@ -156,7 +170,7 @@ func ForgotPassword(c *fiber.Ctx) error {
 	defer cancel()
 	result, err := config.DB.Collection("users").UpdateOne(ctx, bson.M{"email": email}, bson.M{"$set": bson.M{
 		"resetToken":       otpHash,
-		"resetTokenExpiry": time.Now().Add(10 * time.Minute),
+		"resetTokenExpiry": time.Now().UTC().Add(10 * time.Minute),
 		"resetAttempts":    0,
 	}})
 	if err != nil {
@@ -165,7 +179,22 @@ func ForgotPassword(c *fiber.Ctx) error {
 	}
 	if result.MatchedCount > 0 {
 		if err := services.SendPasswordResetEmail(email, "", otp); err != nil {
-			log.Printf("password reset email failed: %v", err)
+			log.Printf("password reset email failed for %s: %v", email, err)
+			// Account existence is already discoverable via signup
+			// ("Unable to create account"), so surfacing a delivery
+			// failure here does not open a new enumeration oracle — and
+			// it stops the UI from showing a false "code sent" success
+			// when nothing was delivered.
+			if err == services.ErrEmailServiceNotConfigured {
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error":   "Email service is not configured. Please try again later.",
+					"message": "Email service is not configured. Please try again later.",
+				})
+			}
+			return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+				"error":   "Could not send the reset code. Please try again.",
+				"message": "Could not send the reset code. Please try again.",
+			})
 		}
 	}
 	return c.JSON(genericResponse)
@@ -186,7 +215,8 @@ func ResetPassword(c *fiber.Ctx) error {
 		return badRequest(c, err.Error())
 	}
 	email, err := security.NormalizeEmail(req.Email)
-	if err != nil || len(req.OTP) != 6 {
+	otp := strings.TrimSpace(req.OTP)
+	if err != nil || len(otp) != 6 {
 		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 
@@ -199,7 +229,7 @@ func ResetPassword(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
 	if user.ResetAttempts >= maxCodeAttempts || time.Now().After(user.ResetTokenExpiry) ||
-		!security.VerifyOneTimeCode(user.ResetToken, req.OTP) {
+		!security.VerifyOneTimeCode(user.ResetToken, otp) {
 		_, _ = users.UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$inc": bson.M{"resetAttempts": 1}})
 		return c.Status(fiber.StatusBadRequest).JSON(invalidCodeResponse)
 	}
