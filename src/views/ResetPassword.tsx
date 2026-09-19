@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from '@/lib/router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +19,55 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleSendCode = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      toast({
+        title: 'Email required',
+        description: 'Enter your account email first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsSending(true);
+    soundManager.playClick();
+    try {
+      await apiFetchJSON('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      setCodeSent(true);
+      setResendCooldown(60);
+      toast({
+        title: 'Code sent',
+        description: 'Check your email for the 6-digit reset code.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not send code',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const trimmedOtp = otp.trim();
 
-    if (otp.length !== 6) {
+    if (trimmedOtp.length !== 6) {
       toast({
         title: 'Invalid code',
         description: 'Enter the 6-digit code from your email.',
@@ -54,7 +98,7 @@ export default function ResetPassword() {
     try {
       await apiFetchJSON('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), otp, password }),
+        body: JSON.stringify({ email: email.trim(), otp: trimmedOtp, password }),
       });
       toast({
         title: 'Password reset',
@@ -116,6 +160,21 @@ export default function ResetPassword() {
                 <p id="reset-code-help" className="text-xs text-muted-foreground">
                   The code expires after 10 minutes.
                 </p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-sm"
+                  onClick={handleSendCode}
+                  disabled={isSending || resendCooldown > 0}
+                >
+                  {isSending
+                    ? 'Sending…'
+                    : resendCooldown > 0
+                      ? `Resend code in ${resendCooldown}s`
+                      : codeSent
+                        ? "Didn't receive the code? Resend"
+                        : 'Send reset code'}
+                </Button>
               </div>
 
               <div className="space-y-2">
