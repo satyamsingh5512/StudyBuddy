@@ -57,6 +57,17 @@ func deletionWipePlan(userID primitive.ObjectID, email string) []wipeTarget {
 		{collection: "direct_messages", filter: eitherSide},
 		{collection: "friend_requests", filter: eitherSide},
 		{collection: "blocks", filter: blockSide},
+		// Study Rooms. Membership, presence, accountability records, authored
+		// chat and contributed resources are the account's own data and must go
+		// with it, or "all associated data have been permanently deleted" is a
+		// false claim. Shared room documents (study_rooms, room_sessions) are not
+		// deleted here: they belong to the room's other members. Rooms the
+		// account owned are archived separately by archiveOwnedRooms.
+		{collection: "room_members", filter: owned},
+		{collection: "room_presence", filter: owned},
+		{collection: "room_session_participants", filter: owned},
+		{collection: "room_messages", filter: owned},
+		{collection: "room_resources", filter: bson.M{"addedBy": userID}},
 	}
 	if email != "" {
 		plan = append(plan, wipeTarget{collection: "waitlist", filter: bson.M{"email": email}})
@@ -70,6 +81,44 @@ func executeDeletionWipe(ctx context.Context, db *mongo.Database, plan []wipeTar
 		if _, err := db.Collection(target.collection).DeleteMany(ctx, target.filter); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	return errors.Join(errs...)
+}
+
+// releaseRoomMemberships decrements the denormalized memberCount for every room
+// the account belonged to, and archives the rooms it owned. It must run BEFORE
+// the wipe removes the room_members documents, otherwise the counts are lost and
+// every room the user was in would over-report its size forever.
+//
+// Owned rooms are archived rather than deleted: other members' contributions,
+// sessions and chat live there, so deleting the room would destroy their data
+// along with the owner's.
+func releaseRoomMemberships(ctx context.Context, db *mongo.Database, userID primitive.ObjectID) error {
+	cursor, err := db.Collection("room_members").Find(ctx, bson.M{"userId": userID})
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	var memberships []models.RoomMember
+	if err := cursor.All(ctx, &memberships); err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, membership := range memberships {
+		if membership.Status != models.RoomMemberActive {
+			continue
+		}
+		if _, err := db.Collection("study_rooms").UpdateOne(ctx,
+			bson.M{"_id": membership.RoomID, "memberCount": bson.M{"$gt": 0}},
+			bson.M{"$inc": bson.M{"memberCount": -1}}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if _, err := db.Collection("study_rooms").UpdateMany(ctx,
+		bson.M{"ownerId": userID, "archived": false},
+		bson.M{"$set": bson.M{"archived": true, "updatedAt": time.Now().UTC()}}); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }
@@ -148,6 +197,15 @@ func ConfirmAccountDeletion(c *fiber.Ctx) error {
 		"$set":   bson.M{"deletionAttempts": 0},
 	}); err != nil {
 		return serverError(c)
+	}
+
+	// Must precede the wipe: it reads room_members before they are deleted.
+	if err := releaseRoomMemberships(ctx, config.DB, user.ID); err != nil {
+		log.Printf("room membership release failed for user %s: %v", user.ID.Hex(), err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Account deletion did not complete",
+			"message": "Account deletion did not complete. Please try again.",
+		})
 	}
 
 	if err := executeDeletionWipe(ctx, config.DB, deletionWipePlan(user.ID, user.Email)); err != nil {
