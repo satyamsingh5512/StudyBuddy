@@ -5,7 +5,7 @@
 # API on sbd.satym.in.
 #
 # Secrets are NEVER stored in this file — export them in your shell before
-# running (see the export example at the bottom of this header).
+# running if you want them set (all optional now; missing = skipped with warning).
 #   ./azure.sh            # everything (phase=full)
 #   ./azure.sh build      # only: git pull + docker build + push
 #   ./azure.sh provision  # only: Azure RG/plan/app/settings/image
@@ -13,7 +13,7 @@
 #   ./azure.sh verify     # only: re-run health checks
 #   ./azure.sh all        # provision + bind (no build)
 #
-# Required env (export before running; the script fails fast if missing):
+# Optional env (all skipped if empty):
 #   MONGODB_URI        Atlas M0 connection string
 #   FRONTEND_ORIGINS   e.g. https://app.satym.in
 # Optional env:
