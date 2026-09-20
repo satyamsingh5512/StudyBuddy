@@ -199,4 +199,40 @@ func SetupRoutes(app *fiber.App) {
 	availability.Get("/", handlers.GetAvailability)
 	availability.Post("/", handlers.UpsertAvailability)
 	availability.Put("/", handlers.UpsertAvailability)
+
+	// Study Rooms. Collection-level literal paths are registered before any
+	// /:id route so "mine", "leaderboard" and "achievements" are never captured
+	// as a room ID. Limits are per-user (RateLimit keys on the authenticated
+	// user) and sized per write cost: chat is cheap and frequent, room creation
+	// is rare and expensive for discovery.
+	rooms := protected.Group("/rooms")
+	rooms.Get("/", middleware.RateLimit(120, time.Minute), handlers.GetRooms)
+	rooms.Post("/", middleware.RateLimit(10, time.Hour), handlers.CreateRoom)
+	rooms.Get("/mine", middleware.RateLimit(120, time.Minute), handlers.GetMyRooms)
+	rooms.Get("/leaderboard", middleware.RateLimit(60, time.Minute), handlers.GetRoomRankings)
+	rooms.Get("/achievements", middleware.RateLimit(60, time.Minute), handlers.GetRoomAchievements)
+	rooms.Get("/:id", middleware.RateLimit(120, time.Minute), handlers.GetRoom)
+	rooms.Patch("/:id", middleware.RateLimit(30, time.Minute), handlers.UpdateRoom)
+	rooms.Delete("/:id", middleware.RateLimit(5, time.Hour), handlers.ArchiveRoom)
+	rooms.Post("/:id/restore", middleware.RateLimit(5, time.Hour), handlers.RestoreRoom)
+	rooms.Post("/:id/transfer/:userId", middleware.RateLimit(5, time.Hour), handlers.TransferRoomOwnership)
+	rooms.Post("/:id/join", middleware.RateLimit(30, time.Hour), handlers.JoinRoom)
+	rooms.Post("/:id/leave", middleware.RateLimit(30, time.Hour), handlers.LeaveRoom)
+	rooms.Get("/:id/members", middleware.RateLimit(120, time.Minute), handlers.GetRoomMembers)
+	rooms.Patch("/:id/members/:userId", middleware.RateLimit(60, time.Hour), handlers.UpdateRoomMember)
+	// Presence and the change feed are polled, so their ceilings must clear the
+	// 30s heartbeat and the 25s long-poll with headroom for several open tabs.
+	rooms.Get("/:id/presence", middleware.RateLimit(240, time.Minute), handlers.GetRoomPresence)
+	rooms.Post("/:id/presence", middleware.RateLimit(240, time.Minute), handlers.UpsertRoomPresence)
+	rooms.Get("/:id/changes", middleware.RateLimit(240, time.Minute), handlers.GetRoomChanges)
+	rooms.Get("/:id/messages", middleware.RateLimit(240, time.Minute), handlers.GetRoomMessages)
+	rooms.Post("/:id/messages", middleware.RateLimit(30, time.Minute), handlers.CreateRoomMessage)
+	rooms.Post("/:id/messages/:messageId/reactions", middleware.RateLimit(120, time.Minute), handlers.ToggleRoomMessageReaction)
+	rooms.Patch("/:id/messages/:messageId/pin", middleware.RateLimit(60, time.Minute), handlers.PinRoomMessage)
+	rooms.Delete("/:id/messages/:messageId", middleware.RateLimit(60, time.Minute), handlers.DeleteRoomMessage)
+	rooms.Post("/:id/sessions", middleware.RateLimit(20, time.Hour), handlers.CreateRoomSession)
+	rooms.Get("/:id/sessions/active", middleware.RateLimit(240, time.Minute), handlers.GetActiveRoomSession)
+	rooms.Post("/:id/sessions/:sessionId/join", middleware.RateLimit(60, time.Hour), handlers.JoinRoomSession)
+	rooms.Post("/:id/sessions/:sessionId/complete", middleware.RateLimit(60, time.Hour), handlers.CompleteRoomSession)
+	rooms.Get("/:id/leaderboard", middleware.RateLimit(120, time.Minute), handlers.GetRoomLeaderboard)
 }
