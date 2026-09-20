@@ -126,11 +126,11 @@ if [[ -n "${IMAGE:-}" ]]; then
   container_args=(
     --resource-group "$RG"
     --name "$APP"
-    --docker-custom-image-name "$IMAGE"
-    --docker-registry-server-url "$registry_url"
+    --container-image-name "$IMAGE"
+    --container-registry-url "$registry_url"
   )
-  [[ -n "${REGISTRY_USER:-}" ]] && container_args+=(--docker-registry-server-user "$REGISTRY_USER")
-  [[ -n "${REGISTRY_PASSWORD:-}" ]] && container_args+=(--docker-registry-server-password "$REGISTRY_PASSWORD")
+  [[ -n "${REGISTRY_USER:-}" ]] && container_args+=(--container-registry-user "$REGISTRY_USER")
+  [[ -n "${REGISTRY_PASSWORD:-}" ]] && container_args+=(--container-registry-password "$REGISTRY_PASSWORD")
   az webapp config container set "${container_args[@]}" --output none
 fi
 
