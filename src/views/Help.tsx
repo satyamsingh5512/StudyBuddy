@@ -17,7 +17,7 @@ import {
 import { installInstructions } from '@/lib/pwa';
 import { Button } from '@/components/ui/button';
 
-const DOWNLOADS_URL = 'https://satm.in/studybuddy-links';
+const DOWNLOADS_URL = 'https://satym.in/study-buddy-files';
 
 const features = [
   { icon: ListTodo, title: 'Plan and focus', copy: 'Create tasks, build schedules, and use the study timer without leaving your dashboard.' },
