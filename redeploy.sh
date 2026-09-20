@@ -91,8 +91,8 @@ docker push "$IMAGE_LATEST_TAG"
 # is not observed by App Service.)
 log "Repointing $APP at $IMAGE_SHA_TAG"
 az webapp config container set -g "$RG" -n "$APP" \
-  --docker-custom-image-name "$IMAGE_SHA_TAG" \
-  --docker-registry-server-url https://ghcr.io -o none
+  --container-image-name "$IMAGE_SHA_TAG" \
+  --container-registry-url https://ghcr.io -o none
 log "Restarting $APP"
 az webapp restart -g "$RG" -n "$APP" -o none
 
