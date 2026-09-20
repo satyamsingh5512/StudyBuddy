@@ -98,5 +98,57 @@ func indexSpecifications() map[string][]indexSpec {
 		"waitlist": {
 			{bson.D{{Key: "email", Value: 1}}, options.Index().SetName("uq_waitlist_email").SetUnique(true)},
 		},
+
+		// ---- Study Rooms ----
+		// One index per access path a handler actually uses. Discovery sorts on
+		// denormalized counters, so those sorts must be indexed or Atlas M0 will
+		// blocking-sort the whole collection.
+		"study_rooms": {
+			{bson.D{{Key: "slug", Value: 1}}, options.Index().SetName("uq_study_rooms_slug").SetUnique(true)},
+			{bson.D{{Key: "archived", Value: 1}, {Key: "visibility", Value: 1}, {Key: "lastActivityAt", Value: -1}}, options.Index().SetName("idx_study_rooms_discovery")},
+			{bson.D{{Key: "archived", Value: 1}, {Key: "visibility", Value: 1}, {Key: "memberCount", Value: -1}}, options.Index().SetName("idx_study_rooms_members")},
+			{bson.D{{Key: "archived", Value: 1}, {Key: "visibility", Value: 1}, {Key: "totalStudyMinutes", Value: -1}}, options.Index().SetName("idx_study_rooms_hours")},
+			{bson.D{{Key: "archived", Value: 1}, {Key: "category", Value: 1}, {Key: "lastActivityAt", Value: -1}}, options.Index().SetName("idx_study_rooms_category")},
+			{bson.D{{Key: "tags", Value: 1}}, options.Index().SetName("idx_study_rooms_tags")},
+			{bson.D{{Key: "ownerId", Value: 1}, {Key: "archived", Value: 1}}, options.Index().SetName("idx_study_rooms_owner")},
+		},
+		// (roomId,userId) is the authorization lookup on every room request and
+		// must be unique: it is what makes concurrent joins idempotent.
+		"room_members": {
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "userId", Value: 1}}, options.Index().SetName("uq_room_members_room_user").SetUnique(true)},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "status", Value: 1}, {Key: "lastSeenAt", Value: -1}}, options.Index().SetName("idx_room_members_user_status")},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "status", Value: 1}, {Key: "_id", Value: -1}}, options.Index().SetName("idx_room_members_room_roster")},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "xp", Value: -1}}, options.Index().SetName("idx_room_members_room_xp")},
+		},
+		// expiresAt TTL makes "offline" automatic: no cron job, and a crashed
+		// client cannot stay online. expireAfterSeconds:0 expires at the stored time.
+		"room_presence": {
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "userId", Value: 1}}, options.Index().SetName("uq_room_presence_room_user").SetUnique(true)},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "expiresAt", Value: -1}}, options.Index().SetName("idx_room_presence_room_expires")},
+			{bson.D{{Key: "expiresAt", Value: 1}}, options.Index().SetName("ttl_room_presence").SetExpireAfterSeconds(0)},
+		},
+		"room_sessions": {
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "endsAt", Value: -1}}, options.Index().SetName("idx_room_sessions_room_endsAt")},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "startsAt", Value: -1}}, options.Index().SetName("idx_room_sessions_room_startsAt")},
+			{bson.D{{Key: "hostId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_room_sessions_host")},
+		},
+		// The (sessionId,userId) uniqueness is what makes the XP award idempotent.
+		// (roomId,completedAt) serves the leaderboard aggregation's $match.
+		"room_session_participants": {
+			{bson.D{{Key: "sessionId", Value: 1}, {Key: "userId", Value: 1}}, options.Index().SetName("uq_room_participants_session_user").SetUnique(true)},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "completedAt", Value: -1}}, options.Index().SetName("idx_room_participants_room_completed")},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "completedAt", Value: -1}}, options.Index().SetName("idx_room_participants_user_completed")},
+		},
+		"room_messages": {
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "_id", Value: -1}}, options.Index().SetName("idx_room_messages_room_id")},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "userId", Value: 1}, {Key: "_id", Value: -1}}, options.Index().SetName("idx_room_messages_room_user")},
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "pinned", Value: -1}, {Key: "_id", Value: -1}}, options.Index().SetName("idx_room_messages_room_pinned").SetPartialFilterExpression(bson.M{"pinned": true})},
+		},
+		// Resource Vault endpoints are deferred; the text index ships now so
+		// search can be added later without an index build on a populated collection.
+		"room_resources": {
+			{bson.D{{Key: "roomId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_room_resources_room_created")},
+			{bson.D{{Key: "title", Value: "text"}, {Key: "description", Value: "text"}}, options.Index().SetName("txt_room_resources_search")},
+		},
 	}
 }
