@@ -16,18 +16,18 @@
 #   ./scripts/azure-setup.sh bind        # attach sbd.satym.in, verify, health check
 #   ./scripts/azure-setup.sh verify      # only: re-run all health/endpoint checks
 #
-# Config via env (required ones fail fast with a clear message):
+# Config via env (all optional now — missing values are skipped with a warning):
 #   APP                Web app name, globally unique (default: studybuddy-api)
 #   RG                 Resource group (default: studybuddy-rg)
 #   LOC                Azure region (default: centralindia)
 #   PLAN               App Service plan name (default: studybuddy-plan)
 #   TIER               D1 or B1 (default: B1)
 #   CUSTOM_DOMAIN      (default: sbd.satym.in)
-#   GHCR_IMAGE         e.g. ghcr.io/<owner>/<repo>/studybuddy-api:latest (required)
-#   MONGODB_URI        Atlas M0 connection string (required)
-#   REDIS_URL          Redis Cloud URI (optional but recommended)
+#   GHCR_IMAGE         e.g. ghcr.io/<owner>/<repo>/studybuddy-api:latest (optional: skipped if empty)
+#   MONGODB_URI        Atlas M0 connection string (optional: skipped if empty, /ready will warn)
+#   REDIS_URL          Redis Cloud URI (optional)
 #   SESSION_SECRET     32+ bytes (optional: generated + saved to .azure-secret.local)
-#   FRONTEND_ORIGINS   comma-separated browser origins, e.g. https://app.satym.in (required)
+#   FRONTEND_ORIGINS   comma-separated browser origins, e.g. https://app.satym.in (optional)
 #   EXTRA_SETTINGS     optional keys, space-separated KEY=value (no spaces in values):
 #                      "GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GROQ_API_KEY=... OPENROUTER_API_KEY=...
 #                       EMAIL_FROM=... RESEND_API_KEY=... ADMIN_EMAIL=... NEXT_PUBLIC_ADMIN_EMAIL=...
@@ -68,9 +68,10 @@ check_prereqs() {
     D1|B1) ;;
     *) die "TIER must be D1 or B1 for custom domains (F1 Free blocks them). Got: $TIER" ;;
   esac
-  need "$GHCR_IMAGE" "GHCR_IMAGE is required, e.g. GHCR_IMAGE=ghcr.io/<owner>/<repo>/studybuddy-api:latest"
-  need "$MONGODB_URI" "MONGODB_URI is required (Atlas M0 connection string)"
-  need "$FRONTEND_ORIGINS" "FRONTEND_ORIGINS is required, e.g. FRONTEND_ORIGINS=https://app.satym.in"
+  # All env vars are optional — warn only, never fail.
+  [ -n "$GHCR_IMAGE" ] || echo "WARNING: GHCR_IMAGE empty — container steps will be skipped."
+  [ -n "$MONGODB_URI" ] || echo "WARNING: MONGODB_URI empty — app will run without DB (/ready will fail) until you set it."
+  [ -n "$FRONTEND_ORIGINS" ] || echo "WARNING: FRONTEND_ORIGINS empty — CORS settings will be skipped."
 }
 
 ensure_secret() {
@@ -98,12 +99,16 @@ provision() {
     if ! az webapp check-name -n "$APP" --query available -o tsv | grep -qi true; then
       die "app name '$APP' is taken globally — set APP= to a unique name"
     fi
-    az webapp create -g "$RG" -p "$PLAN" -n "$APP" \
-      --deployment-container-image-name "$GHCR_IMAGE" -o none
+    if [ -n "$GHCR_IMAGE" ]; then
+      az webapp create -g "$RG" -p "$PLAN" -n "$APP" \
+        --container-image-name "$GHCR_IMAGE" -o none
+    else
+      az webapp create -g "$RG" -p "$PLAN" -n "$APP" --runtime "NODE:22-lts" -o none
+    fi
   fi
 
   CLIENT_URL="${FRONTEND_ORIGINS%%,*}"
-  log "App settings (PORT, NODE_ENV, Mongo, Redis, CORS + extras)"
+  log "App settings (PORT, NODE_ENV + whatever env was provided)"
   # EXTRA_SETTINGS is space-separated KEY=value; values WITH spaces must be
   # double-quoted, e.g. EXTRA_SETTINGS='EMAIL_FROM="StudyBuddy <noreply@satym.in>" GROQ_API_KEY=gsk_...'
   # (eval is used only on your own input to honor those quotes).
@@ -112,22 +117,29 @@ provision() {
     # shellcheck disable=SC2086
     eval "EXTRA_ARR=($EXTRA_SETTINGS)"
   fi
+  SETTINGS=(
+    WEBSITES_PORT=8080
+    PORT=8080
+    NODE_ENV=production
+  )
+  [ -n "$MONGODB_URI" ] && SETTINGS+=(MONGODB_URI="$MONGODB_URI")
+  [ -n "$SESSION_SECRET" ] && SETTINGS+=(SESSION_SECRET="$SESSION_SECRET")
+  [ -n "$REDIS_URL" ] && SETTINGS+=(REDIS_URL="$REDIS_URL")
+  [ -n "$FRONTEND_ORIGINS" ] && SETTINGS+=(ALLOWED_ORIGINS="$FRONTEND_ORIGINS")
+  [ -n "$CLIENT_URL" ] && SETTINGS+=(CLIENT_URL="$CLIENT_URL")
+  SETTINGS+=("${EXTRA_ARR[@]}")
   az webapp config appsettings set -g "$RG" -n "$APP" --settings \
-    WEBSITES_PORT=8080 \
-    PORT=8080 \
-    NODE_ENV=production \
-    MONGODB_URI="$MONGODB_URI" \
-    SESSION_SECRET="$SESSION_SECRET" \
-    REDIS_URL="$REDIS_URL" \
-    ALLOWED_ORIGINS="$FRONTEND_ORIGINS" \
-    CLIENT_URL="$CLIENT_URL" \
-    "${EXTRA_ARR[@]}" \
+    "${SETTINGS[@]}" \
     -o none
 
-  log "Container image → $GHCR_IMAGE"
-  az webapp config container set -g "$RG" -n "$APP" \
-    --docker-custom-image-name "$GHCR_IMAGE" \
-    --docker-registry-server-url https://ghcr.io -o none
+  if [ -n "$GHCR_IMAGE" ]; then
+    log "Container image → $GHCR_IMAGE"
+    az webapp config container set -g "$RG" -n "$APP" \
+      --container-image-name "$GHCR_IMAGE" \
+      --container-registry-url https://ghcr.io -o none
+  else
+    echo "Skipping container image (GHCR_IMAGE empty)."
+  fi
   az webapp log config -g "$RG" -n "$APP" --docker-container-logging filesystem -o none
   az webapp restart -g "$RG" -n "$APP" -o none
 
@@ -218,7 +230,10 @@ EOF
 build() {
   need_cmd docker
   docker info >/dev/null 2>&1 || die "docker daemon is not running"
-  need "$GHCR_IMAGE" "GHCR_IMAGE is required, e.g. GHCR_IMAGE=ghcr.io/<owner>/<repo>/studybuddy-api:latest"
+  if [ -z "$GHCR_IMAGE" ]; then
+    GHCR_IMAGE="ghcr.io/studybuddy-local/studybuddy-api:latest"
+    echo "WARNING: GHCR_IMAGE empty — using default $GHCR_IMAGE"
+  fi
   log "Building $GHCR_IMAGE"
   docker build -f backend/Dockerfile -t "$GHCR_IMAGE" ./backend
   log "Pushing $GHCR_IMAGE"
