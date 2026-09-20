@@ -65,6 +65,41 @@ func TestDeletionWipePlanCoversAllUserData(t *testing.T) {
 	}
 }
 
+func TestDeletionWipePlanCoversStudyRoomData(t *testing.T) {
+	userID := primitive.NewObjectID()
+	plan := deletionWipePlan(userID, "user@example.com")
+	byCollection := map[string]bson.M{}
+	for _, target := range plan {
+		byCollection[target.collection] = target.filter
+	}
+
+	// Every room collection holding this account's own data must be wiped, or the
+	// success message ("all associated data have been permanently deleted") lies.
+	for _, collection := range []string{
+		"room_members", "room_presence", "room_session_participants", "room_messages",
+	} {
+		filter, ok := byCollection[collection]
+		if !ok {
+			t.Fatalf("wipe plan is missing collection %q", collection)
+		}
+		if filter["userId"] != userID {
+			t.Fatalf("collection %q filter is not owner-scoped: %v", collection, filter)
+		}
+	}
+	resources, ok := byCollection["room_resources"]
+	if !ok || resources["addedBy"] != userID {
+		t.Fatalf("room_resources must be scoped by addedBy: %v", resources)
+	}
+
+	// Rooms and sessions are shared with other members: deleting them would
+	// destroy other people's data. They are archived instead.
+	for _, shared := range []string{"study_rooms", "room_sessions"} {
+		if _, ok := byCollection[shared]; ok {
+			t.Fatalf("wipe plan must not delete shared room collection %q", shared)
+		}
+	}
+}
+
 func TestDeletionWipePlanWithoutEmail(t *testing.T) {
 	plan := deletionWipePlan(primitive.NewObjectID(), "")
 	for _, target := range plan {
