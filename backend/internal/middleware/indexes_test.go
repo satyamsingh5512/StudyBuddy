@@ -60,3 +60,62 @@ func TestJournalSlotQuotaIndexIsUniqueAndPartial(t *testing.T) {
 		t.Fatalf("quota index options=%#v", spec.opts)
 	}
 }
+
+func TestStudyRoomIndexSpecifications(t *testing.T) {
+	specs := indexSpecifications()
+	tests := []struct {
+		collection string
+		name       string
+		keys       bson.D
+		unique     bool
+	}{
+		// (roomId,userId) uniqueness is what makes concurrent joins idempotent
+		// and keeps memberCount from being double-incremented.
+		{"room_members", "uq_room_members_room_user", bson.D{{Key: "roomId", Value: 1}, {Key: "userId", Value: 1}}, true},
+		{"room_members", "idx_room_members_user_status", bson.D{{Key: "userId", Value: 1}, {Key: "status", Value: 1}, {Key: "lastSeenAt", Value: -1}}, false},
+		{"room_presence", "uq_room_presence_room_user", bson.D{{Key: "roomId", Value: 1}, {Key: "userId", Value: 1}}, true},
+		// Uniqueness here is what makes the XP award idempotent under retries.
+		{"room_session_participants", "uq_room_participants_session_user", bson.D{{Key: "sessionId", Value: 1}, {Key: "userId", Value: 1}}, true},
+		{"room_session_participants", "idx_room_participants_room_completed", bson.D{{Key: "roomId", Value: 1}, {Key: "completedAt", Value: -1}}, false},
+		{"room_messages", "idx_room_messages_room_id", bson.D{{Key: "roomId", Value: 1}, {Key: "_id", Value: -1}}, false},
+		{"study_rooms", "uq_study_rooms_slug", bson.D{{Key: "slug", Value: 1}}, true},
+		{"study_rooms", "idx_study_rooms_discovery", bson.D{{Key: "archived", Value: 1}, {Key: "visibility", Value: 1}, {Key: "lastActivityAt", Value: -1}}, false},
+	}
+	for _, test := range tests {
+		spec := findIndexByName(t, specs, test.collection, test.name)
+		if !reflect.DeepEqual(spec.keys, test.keys) {
+			t.Errorf("%s keys=%#v want %#v", test.name, spec.keys, test.keys)
+		}
+		isUnique := spec.opts.Unique != nil && *spec.opts.Unique
+		if isUnique != test.unique {
+			t.Errorf("%s unique=%v want %v", test.name, isUnique, test.unique)
+		}
+	}
+}
+
+func TestRoomPresenceTTLExpiresAtStoredTime(t *testing.T) {
+	// expireAfterSeconds must be 0 so Mongo expires each document at its own
+	// expiresAt value. Any other value silently changes presence semantics and
+	// members would appear online long after they left.
+	spec := findIndexByName(t, indexSpecifications(), "room_presence", "ttl_room_presence")
+	if spec.opts.ExpireAfterSeconds == nil || *spec.opts.ExpireAfterSeconds != 0 {
+		t.Fatalf("presence TTL expireAfterSeconds=%v, want 0", spec.opts.ExpireAfterSeconds)
+	}
+	if !reflect.DeepEqual(spec.keys, bson.D{{Key: "expiresAt", Value: 1}}) {
+		t.Fatalf("presence TTL keys=%#v", spec.keys)
+	}
+}
+
+func TestEveryRoomCollectionIsIndexed(t *testing.T) {
+	specs := indexSpecifications()
+	// Every new collection a handler writes to must have at least one index, or
+	// Atlas M0 will collection-scan it under load.
+	for _, collection := range []string{
+		"study_rooms", "room_members", "room_presence", "room_sessions",
+		"room_session_participants", "room_messages", "room_resources",
+	} {
+		if len(specs[collection]) == 0 {
+			t.Errorf("collection %q has no indexes", collection)
+		}
+	}
+}
