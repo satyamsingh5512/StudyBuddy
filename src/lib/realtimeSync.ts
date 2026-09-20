@@ -56,6 +56,12 @@ function invalidateForTopic(queryClient: QueryClient, topic: string) {
     case 'leaderboard':
       void queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
       break;
+    case 'rooms':
+      // Personal room-scoped nudge (invite, role change, mention). The room's own
+      // long-poll carries in-room activity; this only refreshes the user's lists.
+      void queryClient.invalidateQueries({ queryKey: ['rooms', 'mine'] });
+      void queryClient.invalidateQueries({ queryKey: ['rooms', 'achievements'] });
+      break;
     default:
       // Future topics remain forward-compatible; no payload is trusted here.
       break;
