@@ -14,11 +14,19 @@ import (
 
 const (
 	streamPrefix = "studybuddy:realtime:user:"
+	// roomStreamPrefix carries shared room events. A room stream is written
+	// once per event and read by every viewer, so fan-out costs O(1) Redis
+	// commands instead of O(members) — the difference between a 500-member
+	// room being free and blowing the free tier's command budget.
+	roomStreamPrefix = "studybuddy:realtime:room:"
 	// Capped low so the realtime feed shares a ~20MB free Redis
 	// with the query cache without evicting it. Events are tiny
 	// invalidation topics (~100 bytes); 200/user is plenty for
 	// reconnecting clients to catch up.
 	maxEventsPerUser = 200
+	maxEventsPerRoom = 200
+	// Idle room streams are reclaimed; each new event renews the TTL.
+	roomStreamTTL    = 24 * time.Hour
 	defaultReadBlock = 25 * time.Second
 	operationTimeout = 2 * time.Second
 )
@@ -57,13 +65,19 @@ func Configure(ctx context.Context, rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("parse REDIS_URL: %w", err)
 	}
-	// Redis Cloud free tier caps concurrent connections (30/DB).
-	// Keep this pool tiny; the query cache (internal/cache) has its
-	// own capped pool, so combined usage stays well under the limit.
-	opts.PoolSize = 5
+	// Blocking XREAD holds one connection for the whole block, and a user with a
+	// room open runs TWO long-polls (their own stream + the room stream). A pool
+	// of 5 would therefore cap the instance at ~2 concurrent room viewers.
+	// Free Redis tiers allow ~30 connections and internal/cache keeps its own
+	// pool of 5, so 18 here leaves headroom while supporting ~9 concurrent
+	// room viewers per instance. This is the honest ceiling of the free tier:
+	// beyond it, clients fall back to interval polling rather than failing.
+	opts.PoolSize = 18
 	opts.MinIdleConns = 1
 	opts.DialTimeout = 3 * time.Second
-	opts.ReadTimeout = operationTimeout
+	// ReadTimeout must exceed the blocking read or every long-poll would abort
+	// early with i/o timeout instead of returning an empty change set.
+	opts.ReadTimeout = defaultReadBlock + 5*time.Second
 	opts.WriteTimeout = operationTimeout
 	client := redis.NewClient(opts)
 	pingCtx, cancel := context.WithTimeout(ctx, operationTimeout)
@@ -126,6 +140,39 @@ func NotifyChange(userID, topic string) {
 	}()
 }
 
+// NotifyRoom appends one shared event to a room stream. Unlike NotifyChange,
+// a single write serves every member currently viewing the room, so fan-out
+// does not scale with member count. The payload is a topic only: viewers refetch
+// the authorized REST endpoint, so Redis never stores room content and a stream
+// leak cannot leak messages.
+func NotifyRoom(roomID, topic string) {
+	current := currentBroker()
+	if current == nil || current.client == nil || roomID == "" || topic == "" {
+		return
+	}
+	client := current.client
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+		defer cancel()
+		stream := roomStreamPrefix + roomID
+		if err := client.XAdd(ctx, &redis.XAddArgs{
+			Stream: stream,
+			MaxLen: maxEventsPerRoom,
+			Approx: true,
+			Values: map[string]any{
+				"topic": topic,
+				"at":    time.Now().UTC().Format(time.RFC3339Nano),
+			},
+		}).Err(); err != nil {
+			return
+		}
+		// Room streams must expire or an abandoned room keeps its key forever and
+		// slowly consumes a 20MB Redis. Every event pushes the TTL out, so an
+		// active room never expires and a dead one is reclaimed.
+		_ = client.Expire(ctx, stream, roomStreamTTL).Err()
+	}()
+}
+
 func streamCursor(ctx context.Context, client *redis.Client, stream string) string {
 	info, err := client.XInfoStream(ctx, stream).Result()
 	if err != nil || info == nil || info.LastEntry.ID == "" {
@@ -149,6 +196,16 @@ func valueString(value any) string {
 // A fresh client starts at the current stream tail; reconnecting clients supply
 // their previous Redis stream ID and receive missed events deterministically.
 func ReadChanges(ctx context.Context, userID, cursor string, block time.Duration) (Changes, error) {
+	return readStream(ctx, streamPrefix+userID, cursor, block)
+}
+
+// ReadRoomChanges long-polls a room stream. Callers MUST verify the reader is an
+// active member of the room first: this function performs no authorization.
+func ReadRoomChanges(ctx context.Context, roomID, cursor string, block time.Duration) (Changes, error) {
+	return readStream(ctx, roomStreamPrefix+roomID, cursor, block)
+}
+
+func readStream(ctx context.Context, stream, cursor string, block time.Duration) (Changes, error) {
 	current := currentBroker()
 	if current == nil || current.client == nil {
 		return Changes{Enabled: false, Events: []Event{}, Cursor: cursor}, nil
@@ -156,7 +213,6 @@ func ReadChanges(ctx context.Context, userID, cursor string, block time.Duration
 	if block <= 0 || block > defaultReadBlock {
 		block = defaultReadBlock
 	}
-	stream := streamPrefix + userID
 	if cursor == "" {
 		cursor = streamCursor(ctx, current.client, stream)
 	}
