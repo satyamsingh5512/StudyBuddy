@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Users,
 } from 'lucide-react';
 
 export interface NavLink {
@@ -84,6 +85,7 @@ export const navSections: NavSection[] = [
     label: 'Community',
     icon: MessageSquare,
     items: [
+      { path: '/rooms', label: 'Study Rooms', icon: Users },
       { path: '/friends', label: 'Friends', icon: User },
       { path: '/messages', label: 'Messages', icon: MessageSquare },
     ],
