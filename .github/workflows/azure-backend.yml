@@ -94,8 +94,8 @@ jobs:
             az webapp config container set \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
               --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
-              --docker-custom-image-name "ghcr.io/${{ env.REPO_LC }}/studybuddy-api:${{ github.sha }}" \
-              --docker-registry-server-url https://ghcr.io
+              --container-image-name "ghcr.io/${{ env.REPO_LC }}/studybuddy-api:${{ github.sha }}" \
+              --container-registry-url https://ghcr.io
             az webapp restart \
               --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
               --name "${{ secrets.AZURE_WEBAPP_NAME }}"
