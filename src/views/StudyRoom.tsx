@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -39,6 +40,8 @@ import { QueryErrorState } from '@/components/QueryErrorState';
 import { SkeletonList } from '@/components/Skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { getAvatarUrl } from '@/lib/avatar';
+import { userAtom } from '@/store/atoms';
+import { joinNativeStudyRoomFocus } from '@/lib/digitalDiscipline';
 import {
   ROOM_REACTIONS,
   VISIBILITY_LABELS,
@@ -97,6 +100,7 @@ function Avatar({ user, size = 32 }: { user: { username?: string; avatar?: strin
 
 export default function StudyRoom({ roomId }: { roomId: string }) {
   const { toast } = useToast();
+  const user = useAtomValue(userAtom);
   const [tab, setTab] = useState<TabId>('desks');
   const [presenceState, setPresenceState] = useState<PresenceState>('online');
   const [draft, setDraft] = useState('');
@@ -128,6 +132,29 @@ export default function StudyRoom({ roomId }: { roomId: string }) {
 
   const chatMessages = useMemo(() => flattenMessagePages(messages.data?.pages), [messages.data]);
   const activeSession = session.data?.session ?? null;
+  // Only a session the user explicitly joined is associated with native focus.
+  // The room remains server-authoritative; this records local state and starts
+  // elapsed-time calculation when the server state changes to active.
+  const joinedNativeRoomSessionRef = useRef<string | null>(null);
+  const startedNativeRoomSessionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !user?.id ||
+      !activeSession ||
+      activeSession.status !== 'active' ||
+      joinedNativeRoomSessionRef.current !== activeSession.id ||
+      startedNativeRoomSessionRef.current === activeSession.id
+    ) return;
+    startedNativeRoomSessionRef.current = activeSession.id;
+    void joinNativeStudyRoomFocus(user.id, {
+      roomId,
+      serverSessionId: activeSession.id,
+      startsAtMs: new Date(activeSession.startsAt).getTime(),
+      durationMinutes: activeSession.plannedMinutes,
+      topic: activeSession.topic,
+    }).catch(() => undefined);
+  }, [activeSession, roomId, user?.id]);
 
   // Countdown ticks locally from the server's startsAt/endsAt, so every member
   // sees the same clock without polling once per second.
@@ -203,6 +230,33 @@ export default function StudyRoom({ roomId }: { roomId: string }) {
     } catch (error) {
       toast({
         title: 'Could not start a session',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleJoinSharedSession = async () => {
+    if (!activeSession) return;
+    try {
+      await joinSession.mutateAsync({
+        sessionId: activeSession.id,
+        declaredMinutes: activeSession.plannedMinutes,
+      });
+      joinedNativeRoomSessionRef.current = activeSession.id;
+      if (user?.id) {
+        await joinNativeStudyRoomFocus(user.id, {
+          roomId,
+          serverSessionId: activeSession.id,
+          startsAtMs: new Date(activeSession.startsAt).getTime(),
+          durationMinutes: activeSession.plannedMinutes,
+          topic: activeSession.topic,
+        });
+      }
+      toast({ title: 'Joined shared focus', description: 'The room clock remains server-authoritative; your Android focus state is recorded locally.' });
+    } catch (error) {
+      toast({
+        title: 'Could not join shared focus',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -385,12 +439,7 @@ export default function StudyRoom({ roomId }: { roomId: string }) {
                   variant="outline"
                   loading={joinSession.isPending}
                   loadingLabel="Joining…"
-                  onClick={() =>
-                    void joinSession.mutateAsync({
-                      sessionId: activeSession.id,
-                      declaredMinutes: activeSession.plannedMinutes,
-                    })
-                  }
+                  onClick={() => void handleJoinSharedSession()}
                 >
                   Join session
                 </Button>
