@@ -123,10 +123,15 @@ export function syncPendingFocusIntent(): Promise<boolean> {
   return enqueueFocusOperation(syncPendingFocusIntentInternal);
 }
 
-export function announceFocusStart(subject?: string, durationMinutes?: number): Promise<void> {
+export function announceFocusStart(subject?: string, durationMinutes?: number, userId?: string): Promise<void> {
   return enqueueFocusOperation(async () => {
     // Mark this device immediately so a reload remains exempt even offline.
     writeLocalFocus(subject);
+    if (userId) {
+      void import('@/lib/digitalDiscipline')
+        .then(({ startNativeFocusForExistingTimer }) => startNativeFocusForExistingTimer(userId, subject, durationMinutes))
+        .catch(() => undefined);
+    }
     try {
       await requestFocus('/timer/focus-start', { deviceId: myDeviceId(), subject, durationMinutes });
       writePendingFocus(null);
@@ -148,12 +153,17 @@ export function sendFocusHeartbeat(): Promise<boolean> {
   });
 }
 
-export function announceFocusEnd(reason = 'ended'): Promise<void> {
+export function announceFocusEnd(reason = 'ended', userId?: string): Promise<void> {
   return enqueueFocusOperation(async () => {
     try {
       window.localStorage.removeItem(LOCAL_KEY);
     } catch {
       /* ignore */
+    }
+    if (userId) {
+      void import('@/lib/digitalDiscipline')
+        .then(({ completeNativeFocusForExistingTimer }) => completeNativeFocusForExistingTimer(userId))
+        .catch(() => undefined);
     }
     try {
       await requestFocus('/timer/focus-end', { deviceId: myDeviceId(), endReason: reason });
