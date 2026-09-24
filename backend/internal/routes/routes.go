@@ -37,6 +37,9 @@ func SetupRoutes(app *fiber.App) {
 	auth.Post("/reset-password", middleware.RateLimit(10, 15*time.Minute), handlers.ResetPassword)
 	auth.Get("/google", middleware.RateLimit(20, 15*time.Minute), handlers.GoogleAuth)
 	auth.Get("/google/callback", middleware.RateLimit(20, 15*time.Minute), handlers.GoogleCallback)
+	// Android APK completion step: converts a single-use, PKCE-bound code from the
+	// app deep link into the normal cookie session inside the app's WebView.
+	auth.Post("/google/exchange", middleware.RateLimit(20, 15*time.Minute), handlers.GoogleNativeExchange)
 
 	// Public routes
 	api.Get("/notices", handlers.GetNotices)
