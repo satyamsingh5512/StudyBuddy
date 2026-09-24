@@ -23,6 +23,7 @@ export default function MobileFocusEnforcerSettings() {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [currentStep, setCurrentStep] = useState<PermissionStep | null>(null);
+  const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
     if (!isNativeApp()) return;
@@ -59,26 +60,46 @@ export default function MobileFocusEnforcerSettings() {
 
   const openSettingsForStep = async (step: PermissionStep) => {
     setBusy(true);
-    setCurrentStep(step);
-    if (step === 'usageAccess') {
-      await openUsageAccessSettings();
-    } else if (step === 'overlay') {
-      await openOverlaySettings();
+    setError('');
+    try {
+      if (step === 'usageAccess') {
+        await openUsageAccessSettings();
+      } else if (step === 'overlay') {
+        await openOverlaySettings();
+      }
+      // Only show the follow-up instructions once a screen actually opened.
+      setCurrentStep(step);
+    } catch (cause) {
+      // The native side rejects with an actionable message when the device has
+      // no such settings screen. Showing it beats a button that does nothing.
+      setCurrentStep(null);
+      setError(
+        cause instanceof Error && cause.message
+          ? cause.message
+          : 'Android could not open that settings screen on this device.'
+      );
+    } finally {
+      setBusy(false);
     }
-    // Don't set busy=false here — user must return to the app first
   };
 
   const handleEnable = async () => {
     const nextStep = determineNextStep();
     if (nextStep) {
       await openSettingsForStep(nextStep);
-    } else {
-      // Both permissions granted, enable the feature
-      setBusy(true);
-      const next = await enableNativeFocusEnforcer();
-      setStatus(next);
-      setBusy(false);
+      return;
     }
+    // Both permissions are granted: start the guard.
+    setBusy(true);
+    setError('');
+    const next = await enableNativeFocusEnforcer();
+    setStatus(next);
+    if (!next?.enabled) {
+      // enableNativeFocusEnforcer() resolves to null on a native rejection, so
+      // an unexplained failure would otherwise leave the toggle silently off.
+      setError('Android did not start the focus guard. Re-check both permissions and try again.');
+    }
+    setBusy(false);
   };
 
   const handleDisable = async () => {
@@ -134,6 +155,12 @@ export default function MobileFocusEnforcerSettings() {
             </span>
           </div>
         </div>
+      )}
+
+      {error && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
+          {error}
+        </p>
       )}
 
       {/* Step-by-step instructions when settings opened */}
