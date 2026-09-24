@@ -1,4 +1,6 @@
-const CACHE_NAME = 'studybuddy-static-v3';
+// v4: favicon and PWA icons were regenerated from the in-app StudyBuddy logo,
+// so the previous cache entries must be discarded on activation.
+const CACHE_NAME = 'studybuddy-static-v4';
 const OFFLINE_FALLBACK = '/offline.html';
 const STATIC_ASSETS = [
   OFFLINE_FALLBACK,
