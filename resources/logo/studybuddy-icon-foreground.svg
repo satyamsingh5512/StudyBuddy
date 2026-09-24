@@ -1,0 +1,15 @@
+<!--
+  Android adaptive-icon foreground layer.
+
+  The 108x108 viewport is Android's adaptive icon canvas; only the centre 72x72
+  is guaranteed visible after the launcher applies its mask, so the 40x40 logo
+  is scaled by 1.8 and translated by 18 to land exactly inside that safe zone.
+  Background is transparent because the background layer supplies the tile.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="StudyBuddy">
+  <g transform="translate(18 18) scale(1.8)">
+    <path d="M8 10 L8 30 L20 28 L20 8 Z" fill="#6366f1" opacity="0.9"/>
+    <path d="M20 8 L20 28 L32 30 L32 10 Z" fill="#818cf8"/>
+    <path d="M18 6 L18 16 L20 14 L22 16 L22 6 Z" fill="#4f46e5"/>
+  </g>
+</svg>
