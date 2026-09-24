@@ -25,14 +25,23 @@ export async function nativeFocusStatus(): Promise<FocusEnforcerStatus | null> {
   return native ? native.getStatus().catch(() => null) : null;
 }
 
+/**
+ * Opens the Usage Access screen.
+ *
+ * Errors are deliberately NOT swallowed here: when the device cannot resolve the
+ * settings screen the native side rejects with an actionable message, and
+ * hiding it made the button look dead. Callers should show `error.message`.
+ */
 export async function openUsageAccessSettings(): Promise<FocusEnforcerStatus | null> {
   const native = plugin();
-  return native ? native.openUsageAccessSettings().catch(() => null) : null;
+  if (!native) return null;
+  return native.openUsageAccessSettings();
 }
 
 export async function openOverlaySettings(): Promise<FocusEnforcerStatus | null> {
   const native = plugin();
-  return native ? native.openOverlaySettings().catch(() => null) : null;
+  if (!native) return null;
+  return native.openOverlaySettings();
 }
 
 export async function enableNativeFocusEnforcer(): Promise<FocusEnforcerStatus | null> {
