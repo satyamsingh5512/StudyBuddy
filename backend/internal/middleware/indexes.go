@@ -93,6 +93,13 @@ func indexSpecifications() map[string][]indexSpec {
 		"goal_check_ins": {
 			{bson.D{{Key: "userId", Value: 1}, {Key: "goalId", Value: 1}, {Key: "weekStart", Value: 1}}, options.Index().SetName("uq_goal_check_ins_user_goal_weekStart").SetUnique(true)},
 		},
+		// Native Google sign-in hand-off codes. The unique hash makes redemption
+		// single-use and the TTL guarantees an unredeemed code disappears.
+		"auth_exchange_codes": {
+			{bson.D{{Key: "codeHash", Value: 1}}, options.Index().SetName("uq_auth_exchange_codeHash").SetUnique(true)},
+			{bson.D{{Key: "expiresAt", Value: 1}}, options.Index().SetName("ttl_auth_exchange_expiresAt").SetExpireAfterSeconds(0)},
+			{bson.D{{Key: "userId", Value: 1}, {Key: "createdAt", Value: -1}}, options.Index().SetName("idx_auth_exchange_user_created")},
+		},
 		// The waitlist route is public, so the address is the identity: a unique
 		// index keeps concurrent upserts from inserting duplicate rows.
 		"waitlist": {
