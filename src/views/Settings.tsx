@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useAtom } from 'jotai';
 import { userAtom } from '@/store/atoms';
 import { useQueryClient } from '@tanstack/react-query';
@@ -373,6 +374,7 @@ export default function Settings() {
             {typeof window !== 'undefined' && isDesktopApp() ? <DesktopSettings /> : null}
             <MobileReminderSettings />
             <MobileFocusEnforcerSettings />
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-sm font-medium">Digital Discipline (Android)</p><p className="mt-1 text-xs text-muted-foreground">Configure local usage analytics, transparent anti-doomscroll rules, permissions, diagnostics, privacy controls, and managed-device status.</p><Button asChild type="button" size="sm" variant="outline" className="mt-3"><Link href="/digital-discipline">Open Digital Discipline</Link></Button></div>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border pt-5"><div><Label htmlFor="mentorJournalContext">Mentor journal default</Label><p className="text-xs text-muted-foreground">Include journal context by default in Mentor requests.</p></div><Switch id="mentorJournalContext" checked={mentorJournalContext} onCheckedChange={setMentorJournalContext} /></div>
           <Button onClick={saveSettings}>Save experience preferences</Button>
