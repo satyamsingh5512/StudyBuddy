@@ -32,6 +32,10 @@ server/**/*.js.map
 # Capacitor
 android/
 ios/
+# The generated top-level Android project stays ignored. Versioned Android
+# customization sources are copied into it by scripts/prepare-android.mjs.
+!resources/android/
+!resources/android/**
 *.keystore
 *.jks
 
@@ -59,8 +63,8 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Documentation (keep important docs)
-!*.md
+# Documentation
+*.md
 
 # Prisma
 # Keep schema for CI/build compatibility
