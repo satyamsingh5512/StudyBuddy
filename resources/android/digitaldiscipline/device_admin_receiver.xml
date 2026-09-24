@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Intentionally no destructive admin policies. Device Owner capability is
+         detected at runtime; this declaration never provisions or activates it. -->
+    <uses-policies />
+</device-admin>
