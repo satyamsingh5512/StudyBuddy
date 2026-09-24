@@ -64,6 +64,32 @@ func googleErrorRedirect(code string) string {
 	return fmt.Sprintf("%s/auth?error=%s", appClientURL(), code)
 }
 
+// isNativeAuthRequest reports whether the Android app started this flow.
+func isNativeAuthRequest(c *fiber.Ctx) bool {
+	return strings.EqualFold(strings.TrimSpace(c.Query("platform")), "android")
+}
+
+func clearGooglePKCECookie(c *fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     googlePKCECookie,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		SameSite: "lax",
+		Secure:   secureCookie(c),
+	})
+}
+
+// googleFailure sends the browser back to the app deep link for a native flow
+// and to the web auth screen otherwise, so an APK user never lands on an
+// unrecoverable browser page.
+func googleFailure(c *fiber.Ctx, native bool, code string) error {
+	if native {
+		return c.Redirect(androidCallbackRedirect(map[string]string{"error": code}))
+	}
+	return c.Redirect(googleErrorRedirect(code))
+}
+
 func generateOAuthState() (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
@@ -92,6 +118,30 @@ func GoogleAuth(c *fiber.Ctx) error {
 		Secure:   secureCookie(c),
 	})
 
+	// Native (APK) flow: the consent screen runs in a Custom Tab whose cookie jar
+	// the app WebView cannot read, so remember the PKCE challenge and complete
+	// sign-in through a single-use code instead of a browser session cookie.
+	// The challenge is bound to this browser via an HttpOnly cookie so a crafted
+	// callback URL cannot inject a different one.
+	if isNativeAuthRequest(c) {
+		challenge := strings.TrimSpace(c.Query("code_challenge"))
+		if !isValidPKCEValue(challenge) {
+			return c.Redirect(googleErrorRedirect("google_failed"))
+		}
+		c.Cookie(&fiber.Cookie{
+			Name:     googlePKCECookie,
+			Value:    challenge,
+			Expires:  time.Now().Add(10 * time.Minute),
+			HTTPOnly: true,
+			SameSite: "lax",
+			Secure:   secureCookie(c),
+		})
+	} else {
+		// Clear any stale native marker so a later browser sign-in on the same
+		// device cannot be redirected into the app deep link.
+		clearGooglePKCECookie(c)
+	}
+
 	redirectUri := googleCallbackURL(c)
 	if redirectUri == "" {
 		return c.Redirect(googleErrorRedirect("google_failed"))
@@ -111,10 +161,18 @@ func GoogleAuth(c *fiber.Ctx) error {
 }
 
 func GoogleCallback(c *fiber.Ctx) error {
+	// The PKCE challenge cookie is the authoritative signal that this flow was
+	// started by the Android app; the query string is not trusted here. It is
+	// resolved first so every failure path can return the user to the app.
+	pkceChallenge := strings.TrimSpace(c.Cookies(googlePKCECookie))
+	native := isValidPKCEValue(pkceChallenge)
+	// Always clear it so one native attempt cannot affect a later browser sign-in.
+	clearGooglePKCECookie(c)
+
 	clientURL := appClientURL()
 	redirectUri := googleCallbackURL(c)
 	if redirectUri == "" {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 
 	code := c.Query("code")
@@ -123,7 +181,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 	storedState := c.Cookies(googleOAuthStateCookie)
 
 	if errorParam != "" || code == "" {
-		return c.Redirect(googleErrorRedirect("google_denied"))
+		return googleFailure(c, native, "google_denied")
 	}
 
 	// Clear state cookie after callback to prevent replay.
@@ -137,13 +195,13 @@ func GoogleCallback(c *fiber.Ctx) error {
 	})
 
 	if returnedState == "" || storedState == "" || returnedState != storedState {
-		return c.Redirect(googleErrorRedirect("google_invalid_state"))
+		return googleFailure(c, native, "google_invalid_state")
 	}
 
 	clientID := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID"))
 	clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET"))
 	if clientID == "" || clientSecret == "" {
-		return c.Redirect(googleErrorRedirect("google_not_configured"))
+		return googleFailure(c, native, "google_not_configured")
 	}
 
 	// Exchange code for token
@@ -156,7 +214,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 
 	tokenResp, err := http.PostForm("https://oauth2.googleapis.com/token", tokenReqBody)
 	if err != nil || tokenResp.StatusCode != 200 {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 	defer tokenResp.Body.Close()
 
@@ -164,7 +222,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(tokenResp.Body).Decode(&tokenData); err != nil {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 
 	// Fetch Google profile
@@ -174,7 +232,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 	client := &http.Client{}
 	profileResp, err := client.Do(req)
 	if err != nil || profileResp.StatusCode != 200 {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 	defer profileResp.Body.Close()
 
@@ -186,11 +244,11 @@ func GoogleCallback(c *fiber.Ctx) error {
 		VerifiedEmail bool   `json:"verified_email"`
 	}
 	if err := json.NewDecoder(profileResp.Body).Decode(&profile); err != nil {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 
 	if profile.Email == "" || !profile.VerifiedEmail {
-		return c.Redirect(googleErrorRedirect("google_unverified_email"))
+		return googleFailure(c, native, "google_unverified_email")
 	}
 
 	usersCollection := config.DB.Collection("users")
@@ -265,16 +323,27 @@ func GoogleCallback(c *fiber.Ctx) error {
 		})
 
 		if err != nil {
-			return c.Redirect(googleErrorRedirect("google_failed"))
+			return googleFailure(c, native, "google_failed")
 		}
 		user.ID = res.InsertedID.(primitive.ObjectID)
 		user.Email = profile.Email
 		user.Role = "user"
 	}
 
+	if native {
+		// Deliberately no setSessionCookie here: the Custom Tab must not end up
+		// holding a StudyBuddy session. The app exchanges this single-use code
+		// for its own cookie from inside the WebView.
+		exchangeCode, codeErr := newAuthExchangeCode(ctx, user.ID, pkceChallenge)
+		if codeErr != nil {
+			return googleFailure(c, native, "google_failed")
+		}
+		return c.Redirect(androidCallbackRedirect(map[string]string{"code": exchangeCode}))
+	}
+
 	tokenString, err := session.Issue(user.ID.Hex(), user.Email, user.Role, user.SessionVersion)
 	if err != nil {
-		return c.Redirect(googleErrorRedirect("google_failed"))
+		return googleFailure(c, native, "google_failed")
 	}
 
 	setSessionCookie(c, tokenString)
