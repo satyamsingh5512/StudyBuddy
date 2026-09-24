@@ -311,13 +311,22 @@ export async function openDigitalDisciplinePermission(
 ): Promise<DigitalDisciplineDiagnostics | null> {
   const plugin = nativePlugin();
   if (!plugin) return null;
-  const result = await ({
-    usage: plugin.openUsageAccessSettings(),
-    overlay: plugin.openOverlaySettings(),
-    notifications: plugin.openNotificationSettings(),
-    battery: plugin.openBatteryOptimizationSettings(),
-  }[permission]);
-  return parseDiagnostics(result);
+  // Must stay a switch, not an object literal keyed by `permission`: building
+  // such a literal calls every branch, which previously fired all four settings
+  // intents at once (stacking four Settings screens) and produced unhandled
+  // rejections for the three that were discarded.
+  switch (permission) {
+    case 'usage':
+      return parseDiagnostics(await plugin.openUsageAccessSettings());
+    case 'overlay':
+      return parseDiagnostics(await plugin.openOverlaySettings());
+    case 'notifications':
+      return parseDiagnostics(await plugin.openNotificationSettings());
+    case 'battery':
+      return parseDiagnostics(await plugin.openBatteryOptimizationSettings());
+    default:
+      return null;
+  }
 }
 
 export async function setDigitalDisciplineFeatureFlags(
