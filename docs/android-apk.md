@@ -32,6 +32,28 @@ A successful debug build was verified in this workspace using the repository-loc
 
 Because Capacitor currently loads a **remote** Next deployment, a first-ever offline launch cannot load the full authenticated app. The service worker only caches public static assets and `/offline.html`; it intentionally does not cache account navigation HTML. After an online session is already open, cached reads and queued supported writes remain usable during a transport outage. AI, social, news, and live server features still require connectivity.
 
+## App icon and branding assets
+
+All icons derive from the in-app motion logo (`src/components/Logo.tsx`) through two tracked SVG sources:
+
+- `resources/logo/studybuddy-icon.svg` — square brand tile (`#0F172A` background + indigo book/bookmark).
+- `resources/logo/studybuddy-icon-foreground.svg` — Android adaptive foreground, scaled `1.8x` and offset `18dp` into the 72dp safe zone.
+
+```bash
+npm run icons          # regenerate every raster icon
+npm run icons:check    # verify presence and dimensions without rewriting
+```
+
+Generated outputs: `public/icons/icon-192.png`, `public/icons/icon-512.png`, `resources/desktop/icon.png`, `resources/desktop/tray.png`, and `resources/android/launcher/mipmap-*` launcher bitmaps. `public/favicon.svg` is hand-authored with the same geometry.
+
+`scripts/prepare-android.mjs` copies `resources/android/launcher/` into the generated project, deletes the Android Studio template drawables in `drawable-v24/` (which would otherwise win on API 24+), and writes the monochrome status-bar icon `ic_stat_studybuddy`. Adaptive icons declare background, foreground, and an Android 13+ `monochrome` themed layer. `public/sw.js` cache version was bumped to `studybuddy-static-v4` so existing installs drop the old cached icons.
+
+## Google sign-in inside the APK
+
+"Continue with Google" previously navigated the WebView to Google, which Android handed off to an external Chrome tab; the session cookie landed in Chrome and the app never became signed in. Sign-in now runs in an **in-app Custom Tab** (Google rejects OAuth in embedded WebViews), returns to the app through the `studybuddy://auth/callback` deep link with a **single-use, PKCE-bound code**, and the WebView exchanges that code for its own `connect.sid` cookie. No session token is placed in a URL, and the Custom Tab is left with no StudyBuddy session.
+
+Google Cloud configuration is unchanged — the browser leg still uses `https://<app-origin>/api/auth/google/callback`. Full design, security properties, residual custom-scheme risk, and the device checklist are in [Android Google sign-in](./android-google-auth.md).
+
 ## Android reminders
 
 - Local Notifications create a dedicated `studybuddy-alarms` channel and schedule up to seven days of task reminders.
