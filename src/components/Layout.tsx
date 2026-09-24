@@ -64,7 +64,7 @@ export default function Layout({ children }: LayoutProps) {
       // End the cross-device focus lease before clearing the local marker. If
       // the request is offline, focusSession persists an end intent for the
       // next authenticated sync instead of leaking this account's session.
-      if (timerSessionStart || studying) await announceFocusEnd('logout');
+      if (timerSessionStart || studying) await announceFocusEnd('logout', user?.id);
       await apiFetch('/auth/logout', { method: 'POST' });
     } finally {
       // Intentional logout wins over offline durability: queued writes and
