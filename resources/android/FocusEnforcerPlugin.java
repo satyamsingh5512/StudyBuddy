@@ -1,5 +1,6 @@
 package in.satym.studybuddy;
 
+import android.app.Activity;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -58,20 +59,65 @@ public class FocusEnforcerPlugin extends Plugin {
         call.resolve(status());
     }
 
+    /**
+     * Launches the first settings destination that this device can actually
+     * resolve.
+     *
+     * The previous implementation called startActivity() once with no try/catch.
+     * On devices where the screen is not resolvable (some OEM builds and Android
+     * Go editions omit the Usage Access screen) that threw
+     * ActivityNotFoundException, the plugin call failed, and the web layer's
+     * .catch(() => null) swallowed it — so the button appeared to do nothing.
+     */
+    private void launchFirstAvailable(PluginCall call, Intent[] candidates, String failureMessage) {
+        for (Intent intent : candidates) {
+            try {
+                Activity activity = getActivity();
+                if (activity != null) {
+                    activity.startActivity(intent);
+                } else {
+                    // No foreground activity: a task is required for a fresh stack.
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(intent);
+                }
+                call.resolve(status());
+                return;
+            } catch (Exception ignored) {
+                // Fall through to the next, less specific destination.
+            }
+        }
+        call.reject(failureMessage);
+    }
+
     @PluginMethod
     public void openUsageAccessSettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
-        call.resolve(status());
+        Uri self = Uri.parse("package:" + getContext().getPackageName());
+        launchFirstAvailable(
+            call,
+            new Intent[] {
+                // Deep-links straight to StudyBuddy's own row on most OEMs.
+                new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, self),
+                // The full Usage Access list.
+                new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS),
+                // Last resort so the user still lands somewhere useful.
+                new Intent(Settings.ACTION_SETTINGS)
+            },
+            "This device has no Usage Access settings screen. Open Settings > Apps > Special app access > Usage access manually."
+        );
     }
 
     @PluginMethod
     public void openOverlaySettings(PluginCall call) {
-        Intent intent = new Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:" + getContext().getPackageName())
+        Uri self = Uri.parse("package:" + getContext().getPackageName());
+        launchFirstAvailable(
+            call,
+            new Intent[] {
+                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, self),
+                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+                new Intent(Settings.ACTION_SETTINGS)
+            },
+            "This device has no overlay permission screen. Open Settings > Apps > Special app access > Display over other apps manually."
         );
-        getActivity().startActivity(intent);
-        call.resolve(status());
     }
 
     private boolean isAllowedApiBaseUrl(String value) {
