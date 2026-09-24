@@ -1,0 +1,20 @@
+<!--
+  StudyBuddy app icon — single source of truth.
+
+  Geometry is copied from the in-app motion logo (src/components/Logo.tsx):
+  two book pages plus a centered bookmark, authored on a 40x40 grid. The app
+  logo renders with `currentColor` at 0.3 / 0.5 / 1.0 opacity; this icon uses
+  the brand indigo ramp so the same shape reads correctly on a dark tile.
+
+  Generated outputs come from scripts/generate-icons.mjs. Edit this file (and
+  studybuddy-icon-foreground.svg) rather than the generated PNGs.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="StudyBuddy">
+  <rect width="40" height="40" fill="#0f172a"/>
+  <!-- Left page: mirrors the logo's 0.3-opacity page, brightened for an icon tile. -->
+  <path d="M8 10 L8 30 L20 28 L20 8 Z" fill="#6366f1" opacity="0.9"/>
+  <!-- Right page: mirrors the logo's 0.5-opacity page. -->
+  <path d="M20 8 L20 28 L32 30 L32 10 Z" fill="#818cf8"/>
+  <!-- Bookmark: mirrors the logo's full-opacity bookmark. -->
+  <path d="M18 6 L18 16 L20 14 L22 16 L22 6 Z" fill="#4f46e5"/>
+</svg>
