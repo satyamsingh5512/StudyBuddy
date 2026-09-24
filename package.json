@@ -14,6 +14,8 @@
     "desktop:start": "electron electron/main.cjs",
     "desktop:dist": "electron-builder --linux deb AppImage",
     "dist:linux": "electron-builder --linux deb",
+    "icons": "node scripts/generate-icons.mjs",
+    "icons:check": "node scripts/generate-icons.mjs --check",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:android:prepare": "npx cap sync android && node scripts/prepare-android.mjs",
