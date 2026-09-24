@@ -1,18 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Background circle -->
-  <circle cx="50" cy="50" r="48" fill="url(#grad)"/>
-  
-  <!-- Book icon -->
-  <path d="M30 25 L30 75 L50 70 L70 75 L70 25 L50 30 Z" fill="white" opacity="0.9"/>
-  <line x1="50" y1="30" x2="50" y2="70" stroke="white" stroke-width="2" opacity="0.6"/>
-  
-  <!-- Bookmark -->
-  <path d="M55 25 L55 45 L60 40 L65 45 L65 25 Z" fill="#fbbf24"/>
+<!--
+  Favicon uses the same geometry as the in-app motion logo
+  (src/components/Logo.tsx) and resources/logo/studybuddy-icon.svg.
+  The previous circular gradient mark did not match the product logo.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="StudyBuddy">
+  <rect width="40" height="40" rx="8" fill="#0f172a"/>
+  <path d="M8 10 L8 30 L20 28 L20 8 Z" fill="#6366f1" opacity="0.9"/>
+  <path d="M20 8 L20 28 L32 30 L32 10 Z" fill="#818cf8"/>
+  <path d="M18 6 L18 16 L20 14 L22 16 L22 6 Z" fill="#4f46e5"/>
 </svg>
