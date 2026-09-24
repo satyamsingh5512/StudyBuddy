@@ -5,6 +5,7 @@ import { useAtomValue } from 'jotai';
 import { BlurBlobs } from '@/components/ui/blur-blobs';
 import ExamRotator from '@/components/landing/ExamRotator';
 import { Link } from '@/lib/router';
+import { startNativeGoogleSignIn, supportsNativeGoogleSignIn } from '@/lib/nativeGoogleAuth';
 import { userAtom } from '@/store/atoms';
 
 /**
@@ -117,9 +118,16 @@ export default function Landing() {
             </Link>
           ) : (
             <>
-              {/* Full-page navigation, not a router link: OAuth leaves the SPA. */}
+              {/* Full-page navigation on the web, because OAuth leaves the SPA.
+                  In the Android app the click is intercepted so sign-in happens
+                  in an in-app Custom Tab rather than an external Chrome tab. */}
               <a
                 href="/api/auth/google"
+                onClick={(event) => {
+                  if (!supportsNativeGoogleSignIn()) return;
+                  event.preventDefault();
+                  void startNativeGoogleSignIn();
+                }}
                 className="press flex w-full items-center justify-center gap-3 rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-[15px] font-medium text-ink hover:bg-ink/[0.03]"
               >
                 <GoogleMark />
