@@ -5,6 +5,7 @@ import { soundManager } from '../lib/sounds';
 import { useToast } from '@/components/ui/use-toast';
 import { SuccessConfetti } from '@/components/SuccessConfetti';
 import Logo from '@/components/Logo';
+import { startNativeGoogleSignIn, supportsNativeGoogleSignIn } from '@/lib/nativeGoogleAuth';
 import UnifiedPageWrapper from '@/components/UnifiedPageWrapper';
 import ThemeToggle from '@/components/ThemeToggle';
 import { API_URL } from '../config/api';
@@ -681,7 +682,23 @@ export default function Auth() {
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.href = `${API_URL}/auth/google`;
+                        void (async () => {
+                          // Android: Google refuses embedded WebViews, so sign-in
+                          // runs in an in-app Custom Tab and returns via deep link
+                          // instead of leaving the app for a Chrome tab.
+                          if (supportsNativeGoogleSignIn()) {
+                            const result = await startNativeGoogleSignIn();
+                            if (result.status === 'error') {
+                              toast({
+                                title: 'Google sign-in failed',
+                                description: result.message,
+                                variant: 'destructive',
+                              });
+                            }
+                            return;
+                          }
+                          window.location.href = `${API_URL}/auth/google`;
+                        })();
                       }}
                       className="group flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-border/60 bg-foreground/[0.035] text-sm font-medium text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-foreground/[0.06] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                     >
