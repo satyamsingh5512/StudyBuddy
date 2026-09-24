@@ -72,11 +72,11 @@ export default function FocusGuard() {
     }
     if (timerSessionStart && !announcedRef.current) {
       announcedRef.current = true;
-      void announceFocusStart(undefined, undefined);
+      void announceFocusStart(undefined, undefined, user.id);
     }
     if (!timerSessionStart && announcedRef.current) {
       announcedRef.current = false;
-      void announceFocusEnd('completed');
+      void announceFocusEnd('completed', user.id);
     }
   }, [user, timerSessionStart]);
 
