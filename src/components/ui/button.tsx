@@ -72,7 +72,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : 'button';
     const [isPressed, setIsPressed] = React.useState(false);
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -98,13 +97,42 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       setIsPressed(false);
     };
 
+    const sharedClassName = cn(
+      buttonVariants({ variant, size, className }),
+      isPressed && !disabled && 'scale-[0.98] transition-transform'
+    );
+
+    // Radix Slot calls React.Children.only, so it must receive exactly ONE
+    // element. The loading spinner and label are deliberately not injected in
+    // this branch: rendering `{loading && <span/>}` alongside `{children}`
+    // produces a two-item children array (the first item being `false`), which
+    // made Children.only throw
+    //   "React.Children.only expected to receive a single React element child"
+    // and crashed every page containing a <Button asChild>.
+    if (asChild) {
+      return (
+        <Slot
+          {...props}
+          className={sharedClassName}
+          ref={ref}
+          onClick={handleClick}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          // `disabled` is not a valid attribute on the arbitrary element the
+          // caller supplies (commonly an anchor), so express it accessibly.
+          aria-disabled={disabled || loading || undefined}
+          aria-busy={loading || undefined}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
     return (
-      <Comp
+      <button
         {...props}
-        className={cn(
-          buttonVariants({ variant, size, className }),
-          isPressed && !disabled && 'scale-[0.98] transition-transform'
-        )}
+        className={sharedClassName}
         ref={ref}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
@@ -121,7 +149,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           />
         )}
         {loading && loadingLabel ? loadingLabel : children}
-      </Comp>
+      </button>
     );
   }
 );
