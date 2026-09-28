@@ -151,7 +151,80 @@ class UsageAnalyticsEngine(private val context: Context, private val dao: Digita
         dao.upsertUsageApplications(applications)
         dao.upsertUsageSnapshots(snapshots)
         dao.upsertDailySummary(summary)
+        rollUpWeek(userId)
         return summary
+    }
+
+    /**
+     * Collapses the daily summaries of the current calendar week into
+     * `weekly_usage_summaries`.
+     *
+     * The weekly table existed without a producer, so nothing ever read from it.
+     * The rollup is recomputed from the daily rows rather than incremented, so a
+     * re-run after a corrected day is idempotent instead of double-counting.
+     * Week start follows the device locale, matching the calendar week the user
+     * actually sees rather than a fixed Sunday.
+     */
+    fun rollUpWeek(userId: String): WeeklyUsageSummaryEntity? {
+        val now = System.currentTimeMillis()
+        val calendar = Calendar.getInstance().apply { timeInMillis = now }
+        val weekStartDate = (calendar.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val weekKey = dateFormatter.format(Date(weekStartDate.timeInMillis))
+        val days = dao.dailySummariesBetween(userId, weekKey)
+        if (days.isEmpty()) return null
+        val summary = WeeklyUsageSummaryEntity(
+            userId = userId,
+            weekStart = weekKey,
+            screenTimeMs = days.sumOf { it.screenTimeMs },
+            studyTimeMs = days.sumOf { it.studyTimeMs },
+            focusTimeMs = days.sumOf { it.focusTimeMs },
+            doomscrollTimeMs = days.sumOf { it.doomscrollTimeMs },
+            updatedAtMs = now
+        )
+        dao.upsertWeeklySummary(summary)
+        return summary
+    }
+
+    /** Recomputes the trailing weeks, used by the reports view on demand. */
+    fun rollUpRecentWeeks(userId: String, weeks: Int): Int {
+        val safeWeeks = weeks.coerceIn(1, 52)
+        var written = 0
+        for (offset in 0 until safeWeeks) {
+            val weekStart = (Calendar.getInstance() as Calendar).apply {
+                add(Calendar.DAY_OF_YEAR, -7 * offset)
+                set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val weekEnd = (weekStart.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 6) }
+            val days = dao.dailySummariesInRange(
+                userId,
+                dateFormatter.format(Date(weekStart.timeInMillis)),
+                dateFormatter.format(Date(weekEnd.timeInMillis))
+            )
+            if (days.isEmpty()) continue
+            dao.upsertWeeklySummary(
+                WeeklyUsageSummaryEntity(
+                    userId = userId,
+                    weekStart = dateFormatter.format(Date(weekStart.timeInMillis)),
+                    screenTimeMs = days.sumOf { it.screenTimeMs },
+                    studyTimeMs = days.sumOf { it.studyTimeMs },
+                    focusTimeMs = days.sumOf { it.focusTimeMs },
+                    doomscrollTimeMs = days.sumOf { it.doomscrollTimeMs },
+                    updatedAtMs = System.currentTimeMillis()
+                )
+            )
+            written += 1
+        }
+        return written
     }
 }
 
