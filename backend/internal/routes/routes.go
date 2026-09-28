@@ -142,6 +142,12 @@ func SetupRoutes(app *fiber.App) {
 	timer := protected.Group("/timer")
 	timer.Post("/session", handlers.SaveTimerSession)
 	timer.Get("/analytics", handlers.GetTimerAnalytics)
+	// Collection-level paths must be registered before any parameterised route
+	// on the same group would shadow them.
+	timer.Get("/analytics/weeks", handlers.GetWeeklyFocusRollups)
+	timer.Get("/progress", handlers.GetFocusProgress)
+	timer.Get("/goal", handlers.GetFocusGoal)
+	timer.Put("/goal", handlers.SetFocusGoal)
 	timer.Post("/focus-start", handlers.StartFocusSession)
 	timer.Post("/focus-heartbeat", handlers.HeartbeatFocusSession)
 	timer.Post("/focus-end", handlers.EndFocusSession)

@@ -35,6 +35,10 @@ type UserPreferences struct {
 	Dashboard            DashboardPreferences      `bson:"dashboard" json:"dashboard"`
 	ShowUpReminder       ShowUpReminderPreferences `bson:"showUpReminder" json:"showUpReminder"`
 	MentorJournalContext bool                      `bson:"mentorJournalContext" json:"mentorJournalContext"`
+	// FocusGoalMinutes is the user's own daily focus target. It lives here rather
+	// than on the device so the goal follows the user between phones, and so the
+	// weekly rollups and progress figures agree across every client.
+	FocusGoalMinutes int `bson:"focusGoalMinutes,omitempty" json:"focusGoalMinutes"`
 }
 
 func DefaultUserPreferences() UserPreferences {
@@ -69,6 +73,25 @@ func NormalizeUserPreferences(user *User) {
 	if user.Preferences.ShowUpReminder.Days == nil {
 		user.Preferences.ShowUpReminder.Days = []int{}
 	}
+	if user.Preferences.FocusGoalMinutes < MinFocusGoalMinutes || user.Preferences.FocusGoalMinutes > MaxFocusGoalMinutes {
+		user.Preferences.FocusGoalMinutes = DefaultFocusGoalMinutes
+	}
+}
+
+// Focus-goal bounds are shared by the normalizer and the handler so a stored
+// value and a submitted one can never disagree about what is valid.
+const (
+	MinFocusGoalMinutes     = 5
+	MaxFocusGoalMinutes     = 24 * 60
+	DefaultFocusGoalMinutes = 120
+)
+
+// FocusGoalMinutesOrDefault keeps every reader on the same bounded value.
+func (u User) FocusGoalMinutesOrDefault() int {
+	if u.Preferences.FocusGoalMinutes < MinFocusGoalMinutes || u.Preferences.FocusGoalMinutes > MaxFocusGoalMinutes {
+		return DefaultFocusGoalMinutes
+	}
+	return u.Preferences.FocusGoalMinutes
 }
 
 type User struct {
