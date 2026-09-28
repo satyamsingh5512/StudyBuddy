@@ -223,7 +223,9 @@ class ConsumerEnforcementService : Service() {
         val launch = packageManager.getLaunchIntentForPackage(packageName)
         if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            startActivity(launch)
+            // An uncaught throw would terminate this foreground service during an
+            // active intervention; failing to foreground the app is recoverable.
+            runCatching { startActivity(launch) }
         }
     }
 
