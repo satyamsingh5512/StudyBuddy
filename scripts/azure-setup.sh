@@ -26,7 +26,10 @@
 #   GHCR_IMAGE         e.g. ghcr.io/<owner>/<repo>/studybuddy-api:latest (optional: skipped if empty)
 #   MONGODB_URI        Atlas M0 connection string (optional: skipped if empty, /ready will warn)
 #   REDIS_URL          Redis Cloud URI (optional)
-#   SESSION_SECRET     32+ bytes (optional: generated + saved to .azure-secret.local)
+#   SESSION_SECRET     32+ bytes (optional: reused from the live app when unset,
+#                      then .azure-secret.local, and only generated if neither
+#                      exists. Set ROTATE_SESSION_SECRET=1 to force a new one,
+#                      which logs every user out.)
 #   FRONTEND_ORIGINS   comma-separated browser origins, e.g. https://app.satym.in (optional)
 #   EXTRA_SETTINGS     optional keys, space-separated KEY=value (no spaces in values):
 #                      "GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... GROQ_API_KEY=... OPENROUTER_API_KEY=...
@@ -59,6 +62,34 @@ need() { local v="$1" msg="$2"; [ -n "$v" ] || die "$msg"; }
 
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "missing command: $1"; }
 
+# Pinned ARM api-version for direct reads. Some az builds request an
+# api-version that Microsoft.Web rejects (InvalidApiVersionParameter), and a
+# failed read here must not cause a silent SESSION_SECRET rotation.
+ARM_API="${ARM_API:-2024-11-01}"
+
+# Prints the SESSION_SECRET currently configured on the live web app, or
+# returns non-zero if the app/setting does not exist yet. The value is never
+# logged — only whether it was found.
+live_session_secret() {
+  local sub site value
+  sub="$(az account show --query id -o tsv 2>/dev/null)" || return 1
+  [ -n "$sub" ] || return 1
+  site="/subscriptions/$sub/resourceGroups/$RG/providers/Microsoft.Web/sites/$APP"
+
+  value="$(az rest --method post \
+    --url "https://management.azure.com${site}/config/appsettings/list?api-version=${ARM_API}" \
+    --query 'properties.SESSION_SECRET' -o tsv 2>/dev/null)" || value=""
+
+  # Fall back to the convenience command if the direct ARM read was unavailable.
+  if [ -z "$value" ] || [ "$value" = "None" ]; then
+    value="$(az webapp config appsettings list -g "$RG" -n "$APP" \
+      --query "[?name=='SESSION_SECRET'].value | [0]" -o tsv 2>/dev/null)" || value=""
+  fi
+
+  [ -n "$value" ] && [ "$value" != "None" ] || return 1
+  printf '%s' "$value"
+}
+
 check_prereqs() {
   need_cmd az
   need_cmd curl
@@ -75,12 +106,33 @@ check_prereqs() {
 }
 
 ensure_secret() {
-  if [ -z "$SESSION_SECRET" ]; then
+  if [ -n "$SESSION_SECRET" ]; then
+    log "Using SESSION_SECRET supplied by the environment"
+  elif [ "${ROTATE_SESSION_SECRET:-0}" = "1" ]; then
+    # Deliberate rotation: opt-in only, because it invalidates every session.
     SESSION_SECRET="$(openssl rand -hex 32)"
     umask 077
     printf '%s' "$SESSION_SECRET" > .azure-secret.local
-    log "Generated SESSION_SECRET → saved to .azure-secret.local (keep it safe; rotating it logs all users out)"
+    log "ROTATE_SESSION_SECRET=1 — generated a NEW SESSION_SECRET → .azure-secret.local"
+    echo "    Every signed-in user will be logged out once this is applied."
+  elif SESSION_SECRET="$(live_session_secret)"; then
+    # Reuse what the running app already signs sessions with. A redeploy must
+    # not silently invalidate sessions.
+    log "Reusing the existing SESSION_SECRET from $APP (sessions preserved)"
+  elif [ -s .azure-secret.local ]; then
+    SESSION_SECRET="$(cat .azure-secret.local)"
+    log "Reusing SESSION_SECRET from .azure-secret.local (sessions preserved)"
+  else
+    SESSION_SECRET="$(openssl rand -hex 32)"
+    umask 077
+    printf '%s' "$SESSION_SECRET" > .azure-secret.local
+    log "No existing SESSION_SECRET found — generated one → .azure-secret.local"
+    echo "    Expected on first-time provisioning. On a live app with users this"
+    echo "    would log everyone out, so verify APP/RG are correct if unexpected."
   fi
+
+  # Matches the backend's own refusal to start on a weak secret.
+  [ "${#SESSION_SECRET}" -ge 32 ] || die "SESSION_SECRET must be at least 32 characters"
 }
 
 provision() {
