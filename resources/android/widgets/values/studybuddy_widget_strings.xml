@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_focus_label">Focus timer</string>
+    <string name="widget_focus_description">Shows your live focus session, or the focus time recorded today.</string>
+    <string name="widget_usage_label">Daily usage</string>
+    <string name="widget_usage_description">Splits today\'s screen time into study time and doomscroll time.</string>
+    <string name="widget_calendar_label">Month progress</string>
+    <string name="widget_calendar_description">Shows how far through the month you are.</string>
+    <string name="widget_goal_label">Weekly focus goal</string>
+    <string name="widget_goal_description">Compares this week\'s focus total against your daily focus goal.</string>
+    <string name="widget_unlock_label">Resisted distractions</string>
+    <string name="widget_unlock_description">Counts the distracting-app openings StudyBuddy stopped for you today.</string>
+</resources>
