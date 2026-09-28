@@ -56,14 +56,51 @@ prompt_secret RESEND_API_KEY "RESEND_API_KEY"
 prompt_secret OPENROUTER_API_KEY "OPENROUTER_API_KEY"
 
 # Keep the same session secret on reruns. It is never printed.
+#
+# Order matters: the live app is authoritative, because that is the value
+# current sessions are signed with. Falling straight through to a freshly
+# generated secret (as happens on a new machine or in Cloud Shell, where
+# SECRET_FILE does not exist) would log every signed-in user out.
+# Set ROTATE_SESSION_SECRET=1 to rotate on purpose.
 SECRET_FILE="${SECRET_FILE:-$HOME/.studybuddy-session-secret}"
+ARM_API="${ARM_API:-2024-11-01}"
+
+live_session_secret() {
+  local sub site value
+  sub="$(az account show --query id -o tsv 2>/dev/null)" || return 1
+  [[ -n "$sub" ]] || return 1
+  site="/subscriptions/$sub/resourceGroups/$RG/providers/Microsoft.Web/sites/$APP"
+
+  # Pinned api-version: some az builds request one Microsoft.Web rejects.
+  value="$(az rest --method post \
+    --url "https://management.azure.com${site}/config/appsettings/list?api-version=${ARM_API}" \
+    --query 'properties.SESSION_SECRET' -o tsv 2>/dev/null)" || value=""
+
+  if [[ -z "$value" || "$value" == "None" ]]; then
+    value="$(az webapp config appsettings list --resource-group "$RG" --name "$APP" \
+      --query "[?name=='SESSION_SECRET'].value | [0]" -o tsv 2>/dev/null)" || value=""
+  fi
+
+  [[ -n "$value" && "$value" != "None" ]] || return 1
+  printf '%s' "$value"
+}
+
 if [[ -z "${SESSION_SECRET:-}" ]]; then
-  if [[ -s "$SECRET_FILE" ]]; then
+  if [[ "${ROTATE_SESSION_SECRET:-0}" == "1" ]]; then
+    SESSION_SECRET="$(openssl rand -hex 32)"
+    umask 077
+    printf '%s' "$SESSION_SECRET" > "$SECRET_FILE"
+    log "ROTATE_SESSION_SECRET=1 — generated a NEW secret; all users will be logged out"
+  elif SESSION_SECRET="$(live_session_secret)"; then
+    log "Reusing the existing SESSION_SECRET from $APP (sessions preserved)"
+  elif [[ -s "$SECRET_FILE" ]]; then
     SESSION_SECRET="$(<"$SECRET_FILE")"
+    log "Reusing SESSION_SECRET from $SECRET_FILE (sessions preserved)"
   else
     SESSION_SECRET="$(openssl rand -hex 32)"
     umask 077
     printf '%s' "$SESSION_SECRET" > "$SECRET_FILE"
+    log "No existing SESSION_SECRET found — generated one (expected only on first setup)"
   fi
 fi
 [[ "${#SESSION_SECRET}" -ge 32 ]] || die "SESSION_SECRET must contain at least 32 bytes."
