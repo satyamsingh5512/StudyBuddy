@@ -22,6 +22,14 @@ const digitalDisciplineTestTargetDir = path.join(appRoot, 'src/test/java/in/saty
 const authSourceDir = path.join(nativeSourceDir, 'auth');
 const authTargetDir = path.join(javaDir, 'auth');
 const launcherSourceDir = path.join(nativeSourceDir, 'launcher');
+const widgetsSourceDir = path.join(nativeSourceDir, 'widgets');
+const widgetsTargetDir = path.join(javaDir, 'widgets');
+const bubbleSourceDir = path.join(nativeSourceDir, 'bubble');
+const bubbleTargetDir = path.join(javaDir, 'bubble');
+const alarmSourceDir = path.join(nativeSourceDir, 'alarm');
+const alarmTargetDir = path.join(javaDir, 'alarm');
+const rewardsSourceDir = path.join(nativeSourceDir, 'rewards');
+const rewardsTargetDir = path.join(javaDir, 'rewards');
 const resTargetDir = path.join(appRoot, 'src/main/res');
 const deviceAdminXmlTarget = path.join(appRoot, 'src/main/res/xml/studybuddy_device_admin.xml');
 const mainActivityPath = path.join(javaDir, 'MainActivity.java');
@@ -84,6 +92,14 @@ function patchGradle() {
     // in an in-app browser surface instead of an external Chrome tab.
     'implementation "androidx.browser:browser:1.8.0"',
   ];
+  // The home-screen widgets are built on RemoteViews, so no widget/Compose
+  // library is required. Strip it if an earlier revision introduced one, since
+  // a stale line here breaks every offline build.
+  appGradle = appGradle
+    .split('\n')
+    .filter((line) => !line.includes('androidx.glance'))
+    .join('\n');
+
   const missingDependencies = dependencies.filter((line) => {
     const coordinate = line.match(/"([^"]+)"/);
     return coordinate ? !appGradle.includes(coordinate[1]) : false;
@@ -179,6 +195,111 @@ if (!manifest.includes(disciplineServiceMarker)) {
 `;
   manifest = manifest.replace('</application>', `${components}    </application>`);
 }
+const widgetMarkerStart = '<!-- StudyBuddy home-screen widgets -->';
+const widgetMarkerEnd = '<!-- /StudyBuddy home-screen widgets -->';
+{
+  const widgetSpecs = [
+    ['FocusWidgetProvider', 'studybuddy_focus_widget_info', 'widget_focus_label'],
+    ['UsageWidgetProvider', 'studybuddy_usage_widget_info', 'widget_usage_label'],
+    ['StudyCalendarWidgetProvider', 'studybuddy_calendar_widget_info', 'widget_calendar_label'],
+    ['StudyGoalWidgetProvider', 'studybuddy_goal_widget_info', 'widget_goal_label'],
+    ['UnlockCountWidgetProvider', 'studybuddy_unlock_widget_info', 'widget_unlock_label'],
+  ];
+  const receivers = widgetSpecs
+    .map(
+      ([receiver, info, label]) => `        <receiver
+            android:name=".widgets.${receiver}"
+            android:exported="true"
+            android:label="@string/${label}">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/${info}" />
+        </receiver>`,
+    )
+    .join('\n');
+
+  // This block is regenerated on every run rather than added once, so renaming or
+  // removing a widget cannot leave a stale receiver pointing at a missing class.
+  // The lookahead keeps </application> out of the match so it is never consumed.
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blockPattern = new RegExp(
+    `${escapeRegExp(widgetMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(widgetMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
+  );
+  manifest = manifest.replace(blockPattern, '');
+  manifest = manifest.replace(
+    '</application>',
+    `        ${widgetMarkerStart}\n${receivers}\n        ${widgetMarkerEnd}\n    </application>`
+  );
+}
+const bubbleMarkerStart = '<!-- StudyBuddy focus bubble -->';
+const bubbleMarkerEnd = '<!-- /StudyBuddy focus bubble -->';
+{
+  const service = `        ${bubbleMarkerStart}
+        <service
+            android:name=".bubble.ProductiveModeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user-enabled draggable focus bubble available over other apps so a short focus session can be started or stopped without leaving the current app. It only starts and stops focus sessions; it does not block, suspend, or force-stop any app, and it does not use Accessibility." />
+        </service>
+        ${bubbleMarkerEnd}`;
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blockPattern = new RegExp(
+    `${escapeRegExp(bubbleMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(bubbleMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
+  );
+  manifest = manifest.replace(blockPattern, '');
+  manifest = manifest.replace('</application>', `${service}\n    </application>`);
+}
+
+const alarmMarkerStart = '<!-- StudyBuddy alarms -->';
+const alarmMarkerEnd = '<!-- /StudyBuddy alarms -->';
+{
+  const components = `        ${alarmMarkerStart}
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.alarm.FIRE" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".alarm.AlarmActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.alarm.SNOOZE" />
+                <action android:name="in.satym.studybuddy.alarm.DISMISS" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".alarm.AlarmRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        ${alarmMarkerEnd}`;
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blockPattern = new RegExp(
+    `${escapeRegExp(alarmMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(alarmMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
+  );
+  manifest = manifest.replace(blockPattern, '');
+  manifest = manifest.replace('</application>', `${components}\n    </application>`);
+}
+
+// USE_EXACT_ALARM is deliberately NOT requested. Google Play restricts it to apps
+// whose core function is alarms or a calendar, and StudyBuddy is neither.
+// SCHEDULE_EXACT_ALARM (added above) is the correct permission here, and
+// AlarmScheduler degrades to an inexact trigger when it is not granted.
+manifest = addPermission(manifest, 'android.permission.RECEIVE_BOOT_COMPLETED');
+manifest = addPermission(manifest, 'android.permission.USE_FULL_SCREEN_INTENT');
+
 fs.writeFileSync(manifestPath, manifest);
 
 fs.mkdirSync(path.dirname(drawablePath), { recursive: true });
@@ -199,6 +320,29 @@ for (const file of ['FocusEnforcerPlugin.java', 'FocusEnforcerService.java']) {
   fs.copyFileSync(source, path.join(javaDir, file));
 }
 copyDirectory(authSourceDir, authTargetDir);
+
+/** Copies a feature package: Kotlin into the package dir, res/ into the merged tree. */
+function copyFeaturePackage(sourceDir, targetDir) {
+  // Clear first so a renamed or removed source file cannot linger in the
+  // generated project and keep compiling.
+  fs.rmSync(targetDir, { recursive: true, force: true });
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const name of fs.readdirSync(sourceDir)) {
+    if (name.endsWith('.kt')) fs.copyFileSync(path.join(sourceDir, name), path.join(targetDir, name));
+  }
+  for (const resFolder of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    if (!resFolder.isDirectory() || resFolder.name === 'tests') continue;
+    fs.cpSync(path.join(sourceDir, resFolder.name), path.join(resTargetDir, resFolder.name), {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
+copyFeaturePackage(widgetsSourceDir, widgetsTargetDir);
+copyFeaturePackage(bubbleSourceDir, bubbleTargetDir);
+copyFeaturePackage(alarmSourceDir, alarmTargetDir);
+copyFeaturePackage(rewardsSourceDir, rewardsTargetDir);
 copyDirectory(digitalDisciplineSourceDir, digitalDisciplineTargetDir);
 copyDirectory(digitalDisciplineTestSourceDir, digitalDisciplineTestTargetDir);
 // Launcher artwork: replace Capacitor's template icon with the StudyBuddy logo.
