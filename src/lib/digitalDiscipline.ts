@@ -130,6 +130,8 @@ export interface DigitalDisciplineDiagnostics {
   secureCredentialStorage: boolean;
   controlLevel: DeviceControlLevel;
   consumerMonitoringEnabled: boolean;
+  /** Whether the draggable focus bubble is currently running over other apps. */
+  focusBubbleEnabled: boolean;
   featureFlags: DigitalDisciplineFeatureFlags;
 }
 
@@ -171,6 +173,9 @@ interface NativeDigitalDisciplinePlugin {
   saveProtectedApps(options: { userId: string; apps: ProtectedApplication[] }): Promise<unknown>;
   getProtectedApps(options: { userId: string }): Promise<unknown>;
   getDailyUsageSummary(options: { userId: string }): Promise<unknown>;
+  getWeeklyUsageSummaries(options: { userId: string; weeks?: number }): Promise<unknown>;
+  setProgressNotifications(options: { userId: string; enabled: boolean }): Promise<unknown>;
+  getProgressState(options: { userId: string }): Promise<unknown>;
   evaluateDoomscroll(options: {
     userId: string;
     policy: ProtectedAppPolicy;
@@ -188,6 +193,11 @@ interface NativeDigitalDisciplinePlugin {
   clearFocusHistory(options: { userId: string }): Promise<unknown>;
   disableMonitoring(): Promise<unknown>;
   getSyncStatus(options: { userId: string }): Promise<unknown>;
+  refreshWidgets(): Promise<unknown>;
+  syncNativeAlarms(options: { alarms: NativeAlarmSpec[] }): Promise<unknown>;  cancelNativeAlarm(options: { id: number }): Promise<unknown>;
+  listNativeAlarms(): Promise<unknown>;
+  setFocusBubble(options: { enabled: boolean }): Promise<unknown>;
+  setFocusGoal(options: { userId: string; dailyMinutes: number }): Promise<unknown>;
   addListener(
     eventName: 'focusStateChanged',
     listenerFunc: (state: FocusSession) => void
@@ -244,6 +254,7 @@ function parseDiagnostics(value: unknown): DigitalDisciplineDiagnostics {
     secureCredentialStorage: bool(data.secureCredentialStorage),
     controlLevel: (text(data.controlLevel) as DeviceControlLevel) ?? 'STANDARD',
     consumerMonitoringEnabled: bool(data.consumerMonitoringEnabled),
+    focusBubbleEnabled: bool(data.focusBubbleEnabled),
     featureFlags: {
       usageAnalytics: bool(flags.usageAnalytics),
       antiDoomscroll: bool(flags.antiDoomscroll),
@@ -479,5 +490,254 @@ export async function completeNativeFocusForExistingTimer(userId: string): Promi
     await completeNativeFocus(userId);
   } catch {
     // Idempotent integration: local timer/session saving remains the existing source of truth.
+  }
+}
+
+/**
+ * Pushes current local values to the home-screen widgets. Called after events
+ * that change what a widget would display, so the home screen is not left
+ * showing a stale number until the next scheduled widget update.
+ */
+export async function refreshHomeScreenWidgets(): Promise<boolean> {
+  const plugin = nativePlugin();
+  if (!plugin) return false;
+  try {
+    await plugin.refreshWidgets();
+    return true;
+  } catch {
+    // Widgets also refresh on their own schedule, so a failure here is not fatal.
+    return false;
+  }
+}
+
+/** Sets the daily focus target the weekly goal widget measures progress against. */
+export async function setDailyFocusGoalMinutes(
+  userId: string,
+  dailyMinutes: number
+): Promise<number | null> {
+  const plugin = nativePlugin();
+  if (!plugin) return null;
+  assertUserId(userId);
+  const safe = Math.min(1440, Math.max(5, Math.round(dailyMinutes)));
+  const result = record(await plugin.setFocusGoal({ userId, dailyMinutes: safe }));
+  return number(result.dailyMinutes) ?? null;
+}
+
+export interface FocusBubbleState {
+  enabled: boolean;
+  /** Present when the request was refused, e.g. the overlay permission is missing. */
+  explanation?: string;
+}
+
+export interface ProgressState {
+  streakDays: number;
+  todayFocusMinutes: number;
+  dailyGoalMinutes: number;
+  weekFocusMinutes: number;
+  /** True only when the user's own daily goal was actually reached. */
+  goalMet: boolean;
+  enabled: boolean;
+  milestonesHit: string[];
+}
+
+function parseProgressState(value: unknown): ProgressState {
+  const data = record(value);
+  return {
+    streakDays: number(data.streakDays) ?? 0,
+    todayFocusMinutes: number(data.todayFocusMinutes) ?? 0,
+    dailyGoalMinutes: number(data.dailyGoalMinutes) ?? 0,
+    weekFocusMinutes: number(data.weekFocusMinutes) ?? 0,
+    goalMet: bool(data.goalMet),
+    enabled: bool(data.enabled),
+    milestonesHit: Array.isArray(data.milestonesHit)
+      ? data.milestonesHit.flatMap((entry) => (typeof entry === 'string' ? [entry] : []))
+      : [],
+  };
+}
+
+/**
+ * Local focus streak and goal state. Every figure comes from daily usage
+ * summaries recorded on this device; nothing is compared to other users.
+ */
+export async function getProgressState(userId: string): Promise<ProgressState | null> {
+  const plugin = nativePlugin();
+  if (!plugin) return null;
+  try {
+    return parseProgressState(await plugin.getProgressState({ userId }));
+  } catch {
+    return null;
+  }
+}
+
+/** Opt-in encouragement notifications. Off by default, at most one per day. */
+export async function setProgressNotificationsEnabled(
+  userId: string,
+  enabled: boolean
+): Promise<boolean> {
+  const plugin = nativePlugin();
+  if (!plugin) return false;
+  try {
+    const result = record(await plugin.setProgressNotifications({ userId, enabled }));
+    return bool(result.enabled);
+  } catch {
+    return false;
+  }
+}
+
+export interface WeeklyUsageSummary {
+  weekStart: string;
+  screenTimeMs: number;
+  studyTimeMs: number;
+  focusTimeMs: number;
+  doomscrollTimeMs: number;
+  updatedAtMs: number;
+}
+
+/**
+ * Weekly rollups, recomputed natively from the daily rows on each read. Returns
+ * an empty list when the native layer is unavailable, so the reports view can
+ * fall back to its server data rather than rendering a broken chart.
+ */
+export async function getWeeklyUsageSummaries(
+  userId: string,
+  weeks = 8
+): Promise<WeeklyUsageSummary[]> {
+  const plugin = nativePlugin();
+  if (!plugin) return [];
+  try {
+    const data = record(await plugin.getWeeklyUsageSummaries({ userId, weeks }));
+    const list = data.weeks;
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((candidate) => {
+      const week = record(candidate);
+      const weekStart = text(week.weekStart);
+      return weekStart
+        ? [{
+            weekStart,
+            screenTimeMs: number(week.screenTimeMs) ?? 0,
+            studyTimeMs: number(week.studyTimeMs) ?? 0,
+            focusTimeMs: number(week.focusTimeMs) ?? 0,
+            doomscrollTimeMs: number(week.doomscrollTimeMs) ?? 0,
+            updatedAtMs: number(week.updatedAtMs) ?? 0,
+          }]
+        : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export interface NativeAlarmSpec {
+  id: number;
+  title: string;
+  body: string;
+  triggerAtMs: number;
+  snoozeMinutes?: number;
+}
+
+export interface NativeAlarmRecord extends NativeAlarmSpec {
+  state: 'scheduled' | 'snoozed' | 'fired' | 'dismissed';
+}
+
+export interface NativeAlarmSyncResult {
+  scheduled: number[];
+  rejected: number[];
+  /** Alarms dropped because their trigger time had already passed. */
+  past: number[];
+  /** Alarms cancelled because the caller no longer listed them. */
+  removed: number[];
+  /** False when Android will not honour an exact trigger; alarms still fire, later. */
+  exactAllowed: boolean;
+}
+
+function parseAlarmSync(value: unknown): NativeAlarmSyncResult {
+  const data = record(value);
+  const ids = (key: string): number[] => {
+    const list = data[key];
+    return Array.isArray(list) ? list.flatMap((entry) => (typeof entry === 'number' ? [entry] : [])) : [];
+  };
+  return {
+    scheduled: ids('scheduled'),
+    rejected: ids('rejected'),
+    past: ids('past'),
+    removed: ids('removed'),
+    exactAllowed: bool(data.exactAllowed),
+  };
+}
+
+function parseAlarmRecords(value: unknown): NativeAlarmRecord[] {
+  const list = record(value).alarms;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((candidate) => {
+    const alarm = record(candidate);
+    const id = number(alarm.id);
+    const state = text(alarm.state);
+    if (id === undefined) return [];
+    const valid: NativeAlarmRecord['state'][] = ['scheduled', 'snoozed', 'fired', 'dismissed'];
+    return [{
+      id,
+      title: text(alarm.title) ?? '',
+      body: text(alarm.body) ?? '',
+      triggerAtMs: number(alarm.triggerAtMs) ?? 0,
+      snoozeMinutes: number(alarm.snoozeMinutes),
+      state: state && valid.includes(state as NativeAlarmRecord['state'])
+        ? (state as NativeAlarmRecord['state'])
+        : 'scheduled',
+    }];
+  });
+}
+
+/**
+ * Makes the native AlarmManager schedule match the supplied list exactly.
+ *
+ * Anything omitted is cancelled natively, which is what stops an alarm the user
+ * deleted in the web app from still firing later.
+ */
+export async function syncNativeAlarms(alarms: NativeAlarmSpec[]): Promise<NativeAlarmSyncResult | null> {
+  const plugin = nativePlugin();
+  if (!plugin) return null;
+  const safe = alarms.flatMap((alarm) =>
+    typeof alarm.id === 'number' && alarm.id > 0 && Number.isFinite(alarm.triggerAtMs)
+      ? [{
+          id: Math.trunc(alarm.id),
+          title: (alarm.title ?? '').slice(0, 120),
+          body: (alarm.body ?? '').slice(0, 400),
+          triggerAtMs: alarm.triggerAtMs,
+          snoozeMinutes: alarm.snoozeMinutes ?? 9,
+        }]
+      : []
+  );
+  return parseAlarmSync(await plugin.syncNativeAlarms({ alarms: safe }));
+}
+
+export async function cancelNativeAlarm(id: number): Promise<boolean> {
+  const plugin = nativePlugin();
+  if (!plugin) return false;
+  try {
+    await plugin.cancelNativeAlarm({ id });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function listNativeAlarms(): Promise<NativeAlarmRecord[]> {
+  const plugin = nativePlugin();
+  if (!plugin) return [];
+  return parseAlarmRecords(await plugin.listNativeAlarms());
+}
+
+/**
+ * Turns the draggable focus bubble on or off. The bubble only starts and stops a
+ * focus session; it never blocks or force-stops an app.
+ */
+export async function setFocusBubbleEnabled(enabled: boolean): Promise<FocusBubbleState> {
+  const plugin = nativePlugin();
+  if (!plugin) return { enabled: false };
+  try {
+    const result = record(await plugin.setFocusBubble({ enabled }));
+    return { enabled: bool(result.enabled), explanation: text(result.explanation) };
+  } catch {
+    return { enabled: false };
   }
 }
