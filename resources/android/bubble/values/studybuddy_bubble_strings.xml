@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bubble_content_description">StudyBuddy focus bubble. Tap for quick focus options, drag to move.</string>
+    <string name="bubble_idle_short">Focus</string>
+    <string name="bubble_signed_out_short">Sign in</string>
+    <string name="bubble_panel_title">Quick focus</string>
+    <string name="bubble_quick_five">Start 5 minutes</string>
+    <string name="bubble_quick_twenty_five">Start 25 minutes</string>
+    <string name="bubble_dismiss">Close</string>
+    <string name="bubble_channel_name">Focus bubble</string>
+    <string name="bubble_channel_description">Keeps the StudyBuddy focus bubble available over other apps</string>
+    <string name="bubble_notification_title">Focus bubble is on</string>
+    <string name="bubble_notification_text">Tap the bubble to start or stop a quick session</string>
+</resources>
