@@ -13,7 +13,7 @@ const faqs: FaqItem[] = [
   {
     question: 'Is StudyBuddy free to use?',
     answer:
-      'You can create an account, build a study plan, and track sessions at no cost. We may introduce optional paid tiers for advanced AI features in the future, but core planning and tracking stay accessible.',
+      'Yes, and it stays that way. There is no cost to use StudyBuddy: it does not sell subscriptions or in-app purchases, and every feature that ships is available to every user at no charge.',
   },
   {
     question: 'Which exams does StudyBuddy support?',
