@@ -9,6 +9,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import `in`.satym.studybuddy.widgets.WidgetRefresh
 import org.json.JSONObject
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -114,11 +115,125 @@ class DigitalDisciplinePlugin : Plugin() {
         for ((key, value) in capabilities.diagnostics(managed)) put(key, value)
         put("controlLevel", if (managed.isDeviceOwner()) ControlLevel.MANAGED.name else if (preferences.consumerMonitoringEnabled()) ControlLevel.CONSUMER.name else ControlLevel.STANDARD.name)
         put("consumerMonitoringEnabled", preferences.consumerMonitoringEnabled())
+        put("focusBubbleEnabled", preferences.focusBubbleEnabled())
         put("featureFlags", JSObject().apply { preferences.featureFlags().forEach { (key, value) -> put(key, value) } })
     }
 
     @PluginMethod
     fun getCapabilities(call: PluginCall) = asynchronous(call) { diagnosticsJson() }
+
+    /**
+     * Replaces the native alarm schedule with the supplied alarms. The list is
+     * authoritative: anything not present is cancelled, so the native set can
+     * never drift away from what the user sees.
+     */
+    @PluginMethod
+    fun syncNativeAlarms(call: PluginCall) = asynchronous(call) {
+        val scheduler = `in`.satym.studybuddy.alarm.AlarmScheduler(getContext())
+        val requested = call.getArray("alarms") ?: JSArray()
+        val keep = mutableSetOf<Int>()
+        val scheduled = mutableListOf<Int>()
+        val rejected = mutableListOf<Int>()
+        val past = mutableListOf<Int>()
+
+        for (index in 0 until requested.length()) {
+            val entry = requested.optJSONObject(index) ?: continue
+            val id = entry.optInt("id", 0)
+            if (id <= 0) continue
+            keep += id
+            val triggerAt = entry.optLong("triggerAtMs", 0L)
+            if (triggerAt <= System.currentTimeMillis()) {
+                past += id
+                continue
+            }
+            val spec = `in`.satym.studybuddy.alarm.AlarmSpec(
+                id = id,
+                title = entry.optString("title", "").take(120),
+                body = entry.optString("body", "").take(400),
+                triggerAtWallClockMs = triggerAt,
+                snoozeMinutes = entry.optInt("snoozeMinutes", 9).coerceIn(1, 120)
+            )
+            if (scheduler.schedule(spec)) scheduled += id else rejected += id
+        }
+
+        val removed = mutableListOf<Int>()
+        for (stored in `in`.satym.studybuddy.alarm.AlarmStore(getContext()).all()) {
+            if (!keep.contains(stored.id)) {
+                scheduler.cancel(stored.id)
+                removed += stored.id
+            }
+        }
+
+        JSObject().apply {
+            put("scheduled", JSArray().apply { scheduled.forEach { put(it) } })
+            put("rejected", JSArray().apply { rejected.forEach { put(it) } })
+            put("past", JSArray().apply { past.forEach { put(it) } })
+            put("removed", JSArray().apply { removed.forEach { put(it) } })
+            put("exactAllowed", scheduler.canScheduleExact())
+        }
+    }
+
+    @PluginMethod
+    fun cancelNativeAlarm(call: PluginCall) = asynchronous(call) {
+        val id = call.getInt("id", 0) ?: 0
+        if (id <= 0) throw IllegalArgumentException("A positive alarm id is required.")
+        `in`.satym.studybuddy.alarm.AlarmScheduler(getContext()).cancel(id)
+        JSObject().apply { put("cancelled", id) }
+    }
+
+    @PluginMethod
+    fun listNativeAlarms(call: PluginCall) = asynchronous(call) {
+        val items = JSArray()
+        for (alarm in `in`.satym.studybuddy.alarm.AlarmStore(getContext()).all()) {
+            items.put(JSObject().apply {
+                put("id", alarm.id)
+                put("title", alarm.title)
+                put("body", alarm.body)
+                put("triggerAtMs", alarm.triggerAtWallClockMs)
+                put("snoozeMinutes", alarm.snoozeMinutes)
+                put("state", alarm.state)
+            })
+        }
+        JSObject().apply { put("alarms", items) }
+    }
+
+    /**
+     * Turns the draggable focus bubble on or off. The bubble only starts and stops
+     * focus sessions; it never blocks, suspends, or force-stops an app.
+     */
+    @PluginMethod
+    fun setFocusBubble(call: PluginCall) = asynchronous(call) {
+        val enable = call.getBoolean("enabled", false) ?: false
+        if (enable && !capabilities.hasOverlayPermission()) {
+            return@asynchronous JSObject().apply {
+                put("enabled", false)
+                put("explanation", "The focus bubble needs the overlay permission before it can appear over other apps.")
+            }
+        }
+        preferences.setFocusBubbleEnabled(enable)
+        if (enable) {
+            `in`.satym.studybuddy.bubble.ProductiveModeService.start(getContext())
+        } else {
+            `in`.satym.studybuddy.bubble.ProductiveModeService.stop(getContext())
+        }
+        JSObject().apply { put("enabled", enable) }
+    }
+
+    /** Pushes fresh values to the home-screen widgets; cheap and idempotent. */
+    @PluginMethod
+    fun refreshWidgets(call: PluginCall) = asynchronous(call) {
+        WidgetRefresh.all(getContext())
+        JSObject().apply { put("refreshed", true) }
+    }
+
+    @PluginMethod
+    fun setFocusGoal(call: PluginCall) = asynchronous(call) {
+        requireUser(call)
+        val minutes = (call.getInt("dailyMinutes", 0) ?: 0).coerceIn(5, 24 * 60)
+        preferences.setFocusDailyGoalMinutes(minutes)
+        WidgetRefresh.all(getContext())
+        JSObject().apply { put("dailyMinutes", minutes) }
+    }
 
     @PluginMethod
     fun getPermissionStatus(call: PluginCall) = asynchronous(call) { diagnosticsJson() }
@@ -209,6 +324,11 @@ class DigitalDisciplinePlugin : Plugin() {
         val userId = requireUser(call)
         val session = focus.complete(userId)
         getContext().stopService(Intent(getContext(), ConsumerEnforcementService::class.java))
+        // The daily summary only counts a completed session, so refresh it before
+        // deciding whether a progress notification is warranted.
+        runCatching { usage.aggregateToday(userId) }
+        runCatching { `in`.satym.studybuddy.rewards.ProgressNotifier(getContext()).notifyIfWorthwhile(userId) }
+        WidgetRefresh.all(getContext())
         emittedFocusJson(session)
     }
 
@@ -260,6 +380,61 @@ class DigitalDisciplinePlugin : Plugin() {
             put("explanation", "Usage Access is not granted. StudyBuddy continues without device usage analytics.")
         }
         summaryJson(usage.aggregateToday(userId))
+    }
+
+    /**
+     * Turns encouragement notifications on or off. They are off by default and
+     * only ever report progress already recorded locally.
+     */
+    @PluginMethod
+    fun setProgressNotifications(call: PluginCall) = asynchronous(call) {
+        requireUser(call)
+        val enable = call.getBoolean("enabled", false) ?: false
+        preferences.setProgressNotificationsEnabled(enable)
+        JSObject().apply { put("enabled", enable) }
+    }
+
+    @PluginMethod
+    fun getProgressState(call: PluginCall) = asynchronous(call) {
+        val userId = requireUser(call)
+        val notifier = `in`.satym.studybuddy.rewards.ProgressNotifier(getContext())
+        val state = notifier.stateFor(userId)
+        JSObject().apply {
+            put("streakDays", state.streakDays)
+            put("todayFocusMinutes", state.todayFocusMinutes)
+            put("dailyGoalMinutes", state.dailyGoalMinutes)
+            put("weekFocusMinutes", state.weekFocusMinutes)
+            put("goalMet", state.goalMet())
+            put("enabled", preferences.progressNotificationsEnabled())
+            put("milestonesHit", JSArray().apply { state.milestonesHit.forEach { put(it) } })
+        }
+    }
+
+    /**
+     * Weekly rollups for the reports view. The weeks are recomputed from the daily
+     * rows on read, so a corrected day is reflected without a separate repair job.
+     */
+    @PluginMethod
+    fun getWeeklyUsageSummaries(call: PluginCall) = asynchronous(call) {
+        val userId = requireUser(call)
+        val weeks = (call.getInt("weeks", 8) ?: 8).coerceIn(1, 52)
+        val written = usage.rollUpRecentWeeks(userId, weeks)
+        val items = JSArray()
+        for (week in dao.weeklySummaries(userId, weeks)) {
+            items.put(JSObject().apply {
+                put("weekStart", week.weekStart)
+                put("screenTimeMs", week.screenTimeMs)
+                put("studyTimeMs", week.studyTimeMs)
+                put("focusTimeMs", week.focusTimeMs)
+                put("doomscrollTimeMs", week.doomscrollTimeMs)
+                put("updatedAtMs", week.updatedAtMs)
+            })
+        }
+        WidgetRefresh.all(getContext())
+        JSObject().apply {
+            put("weeksWritten", written)
+            put("weeks", items)
+        }
     }
 
     @PluginMethod
