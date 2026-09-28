@@ -273,7 +273,13 @@ public class FocusEnforcerService extends Service {
                 Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
                 if (launch != null) {
                     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(launch);
+                    try {
+                        startActivity(launch);
+                    } catch (Exception ignored) {
+                        // An uncaught throw here runs on the service's main thread
+                        // and would kill the focus service mid-session. Dismissing
+                        // the overlay is the correct fallback.
+                    }
                 }
                 hideOverlay();
             });
