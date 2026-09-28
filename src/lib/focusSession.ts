@@ -129,7 +129,11 @@ export function announceFocusStart(subject?: string, durationMinutes?: number, u
     writeLocalFocus(subject);
     if (userId) {
       void import('@/lib/digitalDiscipline')
-        .then(({ startNativeFocusForExistingTimer }) => startNativeFocusForExistingTimer(userId, subject, durationMinutes))
+        .then(({ startNativeFocusForExistingTimer, refreshHomeScreenWidgets }) =>
+          startNativeFocusForExistingTimer(userId, subject, durationMinutes).then(() =>
+            refreshHomeScreenWidgets()
+          )
+        )
         .catch(() => undefined);
     }
     try {
@@ -162,7 +166,9 @@ export function announceFocusEnd(reason = 'ended', userId?: string): Promise<voi
     }
     if (userId) {
       void import('@/lib/digitalDiscipline')
-        .then(({ completeNativeFocusForExistingTimer }) => completeNativeFocusForExistingTimer(userId))
+        .then(({ completeNativeFocusForExistingTimer, refreshHomeScreenWidgets }) =>
+          completeNativeFocusForExistingTimer(userId).then(() => refreshHomeScreenWidgets())
+        )
         .catch(() => undefined);
     }
     try {
