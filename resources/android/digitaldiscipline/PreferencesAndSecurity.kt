@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
@@ -36,6 +37,57 @@ class DigitalDisciplinePreferences(private val context: Context) {
     private val studyRoomFocus = booleanPreferencesKey("study_room_focus")
     private val managedDeviceMode = booleanPreferencesKey("managed_device_mode")
     private val accessibilityIntegration = booleanPreferencesKey("accessibility_integration")
+    private val focusDailyGoal = intPreferencesKey("focus_daily_goal_minutes")
+    private val focusBubble = booleanPreferencesKey("focus_bubble_enabled")
+    private val focusBubbleX = intPreferencesKey("focus_bubble_x")
+    private val focusBubbleY = intPreferencesKey("focus_bubble_y")
+    private val progressNotifications = booleanPreferencesKey("progress_notifications_enabled")
+    private val lastProgressNotification = stringPreferencesKey("last_progress_notification_key")
+
+    fun progressNotificationsEnabled(): Boolean =
+        runBlocking { context.digitalDisciplineDataStore.data.first()[progressNotifications] ?: false }
+
+    fun setProgressNotificationsEnabled(enabled: Boolean) = runBlocking {
+        context.digitalDisciplineDataStore.edit { it[progressNotifications] = enabled }
+    }
+
+    /** Keeps encouragement to at most one notification per local day. */
+    fun lastProgressNotificationKey(): String? =
+        runBlocking { context.digitalDisciplineDataStore.data.first()[lastProgressNotification] }
+
+    fun setLastProgressNotificationKey(key: String) = runBlocking {
+        context.digitalDisciplineDataStore.edit { it[lastProgressNotification] = key }
+    }
+
+    fun focusBubbleEnabled(): Boolean =
+        runBlocking { context.digitalDisciplineDataStore.data.first()[focusBubble] ?: false }
+
+    fun setFocusBubbleEnabled(enabled: Boolean) = runBlocking {
+        context.digitalDisciplineDataStore.edit { it[focusBubble] = enabled }
+    }
+
+    /** Resting position of the focus bubble, so a dragged bubble stays where the user put it. */
+    fun focusBubbleX(): Int = runBlocking { context.digitalDisciplineDataStore.data.first()[focusBubbleX] ?: 0 }
+    fun focusBubbleY(): Int = runBlocking { context.digitalDisciplineDataStore.data.first()[focusBubbleY] ?: 0 }
+
+    fun setFocusBubblePosition(x: Int, y: Int) = runBlocking {
+        context.digitalDisciplineDataStore.edit {
+            it[focusBubbleX] = x
+            it[focusBubbleY] = y
+        }
+    }
+
+    /**
+     * The user's own daily focus target. Read by the home-screen goal widget, so
+     * the widget measures progress against a real configured goal rather than a
+     * hardcoded constant.
+     */
+    fun focusDailyGoalMinutes(): Int =
+        runBlocking { context.digitalDisciplineDataStore.data.first()[focusDailyGoal] ?: 120 }
+
+    fun setFocusDailyGoalMinutes(minutes: Int) = runBlocking {
+        context.digitalDisciplineDataStore.edit { it[focusDailyGoal] = minutes.coerceIn(5, 24 * 60) }
+    }
 
     fun userId(): String? = runBlocking { context.digitalDisciplineDataStore.data.first()[activeUserId] }
     fun consumerMonitoringEnabled(): Boolean = runBlocking { context.digitalDisciplineDataStore.data.first()[consumerMonitoring] ?: false }
