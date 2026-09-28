@@ -15,14 +15,19 @@ import {
   disableNativeDigitalDisciplineMonitoring,
   getDigitalDisciplineDiagnostics,
   getNativeDigitalUsageSummary,
+  getProgressState,
   getProtectedApplications,
   isDigitalDisciplineNativeAvailable,
   openDigitalDisciplinePermission,
   saveProtectedApplications,
   setConsumerDigitalDisciplineMonitoring,
+  setDailyFocusGoalMinutes,
   setDigitalDisciplineFeatureFlags,
+  setFocusBubbleEnabled,
+  setProgressNotificationsEnabled,
   type DigitalDisciplineDiagnostics,
   type DigitalUsageSummary,
+  type ProgressState,
   type ProtectedApplication,
   type ProtectedAppPolicy,
 } from '@/lib/digitalDiscipline';
@@ -45,6 +50,8 @@ export default function DigitalDiscipline() {
   const [packageName, setPackageName] = useState('');
   const [policy, setPolicy] = useState<ProtectedAppPolicy>('INTERVENE');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [goalInput, setGoalInput] = useState('');
 
   const nativeAvailable = isDigitalDisciplineNativeAvailable();
   const userId = user?.id ?? '';
@@ -52,14 +59,18 @@ export default function DigitalDiscipline() {
   const refresh = useCallback(async () => {
     if (!nativeAvailable || !userId) return;
     try {
-      const [nextDiagnostics, nextUsage, nextApps] = await Promise.all([
+      const [nextDiagnostics, nextUsage, nextApps, nextProgress] = await Promise.all([
         getDigitalDisciplineDiagnostics(),
         getNativeDigitalUsageSummary(userId),
         getProtectedApplications(userId),
+        getProgressState(userId),
       ]);
       setDiagnostics(nextDiagnostics);
       setUsage(nextUsage);
       setApps(nextApps);
+      setProgress(nextProgress);
+      // Seeded from the device so the field never contradicts the stored goal.
+      setGoalInput((current) => current || String(nextProgress?.dailyGoalMinutes ?? 120));
     } catch (error) {
       toast({
         title: 'Digital Discipline needs attention',
@@ -111,6 +122,22 @@ export default function DigitalDiscipline() {
     );
   }
 
+  /**
+   * Reports a failed native call.
+   *
+   * These handlers previously used try/finally with no catch, so a plugin
+   * rejection (for example "Unable to open Usage Access settings" on a device
+   * without that screen) became an unhandled promise rejection and the UI
+   * silently did nothing.
+   */
+  const reportFailure = (fallback: string) => (error: unknown) => {
+    toast({
+      title: 'Action failed',
+      description: error instanceof Error && error.message ? error.message : fallback,
+      variant: 'destructive',
+    });
+  };
+
   const openPermission = async (key: PermissionKey) => {
     setBusy(true);
     try {
@@ -119,6 +146,8 @@ export default function DigitalDiscipline() {
         title: 'Android Settings opened',
         description: 'Grant the permission if it matches what you want. Return to this page to verify.',
       });
+    } catch (error) {
+      reportFailure('Android could not open that settings screen on this device.')(error);
     } finally {
       // Keep busy true until user returns and refreshes
       setTimeout(() => setBusy(false), 500);
@@ -136,6 +165,8 @@ export default function DigitalDiscipline() {
           ? 'Usage Access and overlay permission are both required; no monitoring was started.'
           : enabled ? 'Configured app rules can now show a transparent intervention during an active native focus session.' : 'Consumer monitoring is disabled.',
       });
+    } catch (error) {
+      reportFailure('Consumer monitoring could not be updated.')(error);
     } finally {
       setBusy(false);
     }
@@ -159,6 +190,8 @@ export default function DigitalDiscipline() {
     try {
       const saved = await saveProtectedApplications(userId, apps);
       toast({ title: 'Rules saved locally', description: `${saved} configured app${saved === 1 ? '' : 's'} will use your selected policy during focus.` });
+    } catch (error) {
+      reportFailure('The protected-app rules could not be saved on this device.')(error);
     } finally {
       setBusy(false);
     }
@@ -169,6 +202,8 @@ export default function DigitalDiscipline() {
     try {
       const next = await setDigitalDisciplineFeatureFlags(userId, { [name]: enabled });
       setDiagnostics(next);
+    } catch (error) {
+      reportFailure('That setting could not be changed.')(error);
     } finally {
       setBusy(false);
     }
@@ -182,6 +217,78 @@ export default function DigitalDiscipline() {
       if (action === 'disable') await disableNativeDigitalDisciplineMonitoring();
       await refresh();
       toast({ title: action === 'disable' ? 'Monitoring disabled' : 'Local data cleared', description: 'The operation affects this device only. Existing StudyBuddy account data is unchanged.' });
+    } catch (error) {
+      reportFailure('The local data operation did not complete.')(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleFocusBubble = async (enabled: boolean) => {
+    setBusy(true);
+    try {
+      const next = await setFocusBubbleEnabled(enabled);
+      if (enabled && !next.enabled) {
+        // The native layer refuses without the overlay permission, and explains
+        // why. Surface that instead of appearing to have saved a setting.
+        setDiagnostics(await getDigitalDisciplineDiagnostics());
+        toast({
+          title: 'Focus bubble not enabled',
+          description: next.explanation ?? 'The focus bubble needs the overlay permission before it can appear over other apps.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setDiagnostics(await getDigitalDisciplineDiagnostics());
+      toast({
+        title: enabled ? 'Focus bubble enabled' : 'Focus bubble disabled',
+        description: enabled
+          ? 'A draggable bubble now sits over other apps so you can start or stop a quick focus session without leaving your app.'
+          : 'The bubble has been removed.',
+      });
+    } catch (error) {
+      reportFailure('The focus bubble could not be updated.')(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleProgressNotifications = async (enabled: boolean) => {
+    setBusy(true);
+    try {
+      const applied = await setProgressNotificationsEnabled(userId, enabled);
+      setProgress(await getProgressState(userId));
+      toast({
+        title: applied === enabled ? 'Progress notifications updated' : 'Progress notifications unchanged',
+        description: enabled
+          ? 'At most one notification a day, and only when you actually hit your goal or a milestone.'
+          : 'StudyBuddy will no longer send encouragement notifications.',
+      });
+    } catch (error) {
+      reportFailure('That setting could not be changed.')(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveFocusGoal = async () => {
+    const parsed = Number.parseInt(goalInput, 10);
+    if (!Number.isFinite(parsed) || parsed < 5 || parsed > 1440) {
+      toast({
+        title: 'Enter a goal between 5 and 1440 minutes',
+        description: 'This is your own target, used by the weekly goal widget and progress notifications.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      const stored = await setDailyFocusGoalMinutes(userId, parsed);
+      setProgress(await getProgressState(userId));
+      if (stored !== null) setGoalInput(String(stored));
+      toast({ title: 'Daily focus goal saved', description: `${stored ?? parsed} minutes a day.` });
+    } catch (error) {
+      reportFailure('The focus goal could not be saved on this device.')(error);
     } finally {
       setBusy(false);
     }
@@ -219,7 +326,47 @@ export default function DigitalDiscipline() {
         ['strictFocus', 'Strict Focus', 'Makes native focus available alongside existing StudyBuddy sessions.'],
         ['hardcoreFocus', 'Hardcore Focus', 'Requires a Keystore-protected local unlock credential and managed capability for strong enforcement.'],
         ['studyRoomFocus', 'Study Room Focus', 'Associates a joined room session with locally calculated focus time.'],
-      ] as const).map(([key, title, detail]) => <div key={key} className="flex items-start justify-between gap-3 rounded-xl border border-hairline p-3"><div><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p></div><Button type="button" size="sm" variant={diagnostics?.featureFlags[key] ? 'default' : 'outline'} disabled={busy} onClick={() => void setFlag(key, !diagnostics?.featureFlags[key])}>{diagnostics?.featureFlags[key] ? 'On' : 'Off'}</Button></div>)}</CardContent></Card>
+      ] as const).map(([key, title, detail]) => <div key={key} className="flex items-start justify-between gap-3 rounded-xl border border-hairline p-3"><div><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p></div><Button type="button" size="sm" variant={diagnostics?.featureFlags?.[key] ? 'default' : 'outline'} disabled={busy} onClick={() => void setFlag(key, !diagnostics?.featureFlags?.[key])}>{diagnostics?.featureFlags?.[key] ? 'On' : 'Off'}</Button></div>)}</CardContent></Card>
+
+      <Card><CardHeader><CardTitle>Home screen and reminders</CardTitle></CardHeader><CardContent className="space-y-4">
+        <p className="text-xs leading-5 text-muted-foreground">The home-screen widgets, focus bubble, and progress notifications all read data already stored on this device. Nothing here is compared against other users or uploaded anywhere.</p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-hairline p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Focus bubble</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">A draggable bubble over other apps for starting and stopping a 5 or 25 minute session. It only starts and stops focus; it never blocks or force-stops an app.</p>
+              {!diagnostics?.overlay && <p className="mt-1 text-xs leading-5 text-amber-700 dark:text-amber-300">Needs the overlay permission. Grant it in Permission Center first.</p>}
+            </div>
+            <Button type="button" size="sm" variant={diagnostics?.focusBubbleEnabled ? 'default' : 'outline'} disabled={busy} onClick={() => void toggleFocusBubble(!diagnostics?.focusBubbleEnabled)}>{diagnostics?.focusBubbleEnabled ? 'On' : 'Off'}</Button>
+          </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-hairline p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Progress notifications</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">At most one a day, and only when you actually reached your goal or a milestone. An unmet goal is never reported as a success.</p>
+            </div>
+            <Button type="button" size="sm" variant={progress?.enabled ? 'default' : 'outline'} disabled={busy} onClick={() => void toggleProgressNotifications(!progress?.enabled)}>{progress?.enabled ? 'On' : 'Off'}</Button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-xl border border-hairline p-3 sm:grid-cols-[1fr_auto]">
+          <div>
+            <Label htmlFor="daily-focus-goal">Daily focus goal (minutes)</Label>
+            <Input id="daily-focus-goal" inputMode="numeric" value={goalInput} onChange={(event) => setGoalInput(event.target.value)} className="mt-1" />
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Used by the weekly goal widget and the progress notifications. 5 to 1440.</p>
+          </div>
+          <Button type="button" className="self-end" variant="outline" disabled={busy} onClick={() => void saveFocusGoal()}>Save goal</Button>
+        </div>
+
+        {progress && <div className="rounded-xl border border-hairline p-3">
+          <p className="text-sm font-semibold">Where you actually are</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {formatDuration(progress.todayFocusMinutes * 60_000)} focused today against a {progress.dailyGoalMinutes}-minute goal{progress.goalMet ? ' — goal met' : ''}. {progress.streakDays > 0 ? `${progress.streakDays}-day streak.` : 'No active streak.'}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">A streak continues while you focus at least once a day; it is not extended by opening the app, and it ends if a full day is missed.</p>
+        </div>}
+      </CardContent></Card>
 
       <Card><CardHeader><CardTitle>Managed Device / Hardcore Enforcement</CardTitle></CardHeader><CardContent className="space-y-3"><div className="flex gap-3"><LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{diagnostics?.deviceOwner ? 'This device reports Device Owner status. Managed lock-task and package-suspension calls remain explicit and require verified provisioning.' : 'This is not a managed device. Consumer mode cannot lock the phone, force-stop apps, or suspend packages. Device Owner provisioning is a separate administrative process and is never enabled from this screen.'}</p></div><p className="text-xs text-muted-foreground">Use the repository’s MANAGED_DEVICE_SETUP.md before testing Device Owner mode. Preserve emergency access and a documented recovery path.</p></CardContent></Card>
 
