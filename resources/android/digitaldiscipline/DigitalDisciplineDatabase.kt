@@ -278,7 +278,16 @@ interface DigitalDisciplineDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertUsageApplications(apps: List<UsageApplicationEntity>)
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertUsageSnapshots(snapshots: List<UsageSnapshotEntity>)
     @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertDailySummary(summary: DailyUsageSummaryEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) fun upsertWeeklySummary(summary: WeeklyUsageSummaryEntity)
+    @Query("SELECT * FROM weekly_usage_summaries WHERE userId = :userId ORDER BY weekStart DESC LIMIT :limit") fun weeklySummaries(userId: String, limit: Int): List<WeeklyUsageSummaryEntity>
     @Query("SELECT * FROM daily_usage_summaries WHERE userId = :userId AND localDate = :localDate LIMIT 1") fun dailySummary(userId: String, localDate: String): DailyUsageSummaryEntity?
+    /** Inclusive of `fromDate`, used by the home-screen widgets to total a calendar week. */
+    @Query("SELECT * FROM daily_usage_summaries WHERE userId = :userId AND localDate >= :fromDate ORDER BY localDate ASC") fun dailySummariesBetween(userId: String, fromDate: String): List<DailyUsageSummaryEntity>
+    /**
+     * Bounded on both ends. A trailing-week rollup needs this: an open-ended
+     * "from" query would fold every later week into each earlier one.
+     */
+    @Query("SELECT * FROM daily_usage_summaries WHERE userId = :userId AND localDate >= :fromDate AND localDate <= :toDate ORDER BY localDate ASC") fun dailySummariesInRange(userId: String, fromDate: String, toDate: String): List<DailyUsageSummaryEntity>
     @Query("DELETE FROM usage_snapshots WHERE userId = :userId") fun deleteUsageSnapshots(userId: String)
     @Query("DELETE FROM usage_applications WHERE userId = :userId") fun deleteUsageApplications(userId: String)
     @Query("DELETE FROM daily_usage_summaries WHERE userId = :userId") fun deleteDailyUsage(userId: String)
