@@ -101,6 +101,22 @@ export default function ScheduleAlarmManager({ schedules }: ScheduleAlarmManager
 
         if (toCancel.length > 0) await cancelNativeAlarms(toCancel);
         if (toSchedule.length > 0) await scheduleNativeAlarms(toSchedule);
+
+        // The notification path above is the reliable baseline. This second,
+        // native AlarmManager schedule is what survives app death and reboot, and
+        // adds snooze. It is authoritative: any alarm missing from toSchedule is
+        // cancelled natively, so a deleted task cannot still ring later.
+        if (toSchedule.length > 0 || toCancel.length > 0) {
+          const { syncNativeAlarms: syncDurableAlarms } = await import('@/lib/digitalDiscipline');
+          await syncDurableAlarms(
+            toSchedule.map((alarm) => ({
+              id: alarm.id,
+              title: alarm.title,
+              body: alarm.body,
+              triggerAtMs: alarm.at.getTime(),
+            }))
+          );
+        }
       } catch {
         /* offline / web — foreground toasts below still cover it */
       }
