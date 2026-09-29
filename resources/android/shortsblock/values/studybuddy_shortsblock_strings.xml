@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accessibility Service -->
+    <string name="studybuddy_shortsblock_service_label">StudyGuard</string>
+    <string name="studybuddy_shortsblock_accessibility_description">
+        StudyGuard helps you stay focused by detecting and optionally blocking short-form video feeds (YouTube Shorts, Instagram Reels, etc.) and enforcing app restrictions during study sessions.\n\n
+        What is read:\n
+        • View IDs, text labels, and content descriptions in apps you configure for blocking\n
+        • Current foreground app to trigger focus reminders\n
+        • Settings app content to prevent accidental service disabling during focus\n\n
+        What is NOT read:\n
+        • Messages, emails, or private conversations\n
+        • Passwords or authentication credentials\n
+        • Content from apps not configured for blocking\n\n
+        Privacy:\n
+        All inspection happens locally on your device. No screen content, app usage, or personal data is transmitted to any server. The service only acts when a configured rule matches, and only the configured action (pressing BACK or HOME) occurs.\n\n
+        This service is entirely opt-in and can be disabled at any time in Android accessibility settings.
+    </string>
+
+    <!-- Intervention Activity -->
+    <string name="studybuddy_shortsblock_generic">That feed was closed.</string>
+    <string name="studybuddy_shortsblock_shorts_closed">%1$s was closed.</string>
+    <string name="studybuddy_shortsblock_app_blocked">%1$s is blocked during focus.</string>
+    <string name="studybuddy_shortsblock_swipe_limit_reached">Daily swipe limit reached. %1$d reels watched today.</string>
+    <string name="studybuddy_shortsblock_app_limit_reached">Daily limit of %1$d minutes reached for %2$s.</string>
+    <string name="studybuddy_shortsblock_app_window_blocked">%1$s is blocked until %2$s.</string>
+    <string name="studybuddy_shortsblock_browser_shorts_blocked">Short-form content blocked in browser.</string>
+    <string name="studybuddy_shortsblock_back_to_study">Back to studying</string>
+    <string name="studybuddy_shortsblock_close">Close</string>
+
+    <plurals name="studybuddy_shortsblock_stats">
+        <item quantity="zero">No interruptions today</item>
+        <item quantity="one">1 interruption prevented today</item>
+        <item quantity="other">%1$d interruptions prevented today</item>
+    </plurals>
+</resources>
