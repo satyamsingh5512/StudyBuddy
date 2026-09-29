@@ -67,11 +67,13 @@ import {
   useToggleTodo,
   useRescheduleTodoToToday,
 } from '@/lib/queries';
+import { applyManualOrder, loadTodoOrder, mergeOrder, saveTodoOrder } from '@/lib/todoOrder';
 import { soundManager } from '@/lib/sounds';
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -332,16 +334,16 @@ const SortableTodoItem = memo(
     const [editDifficulty, setEditDifficulty] = useState<string>(todo.difficulty || 'medium');
     const [editCompleted, setEditCompleted] = useState(todo.completed);
 
-    const handleStartEdit = (e: React.MouseEvent) => {
+    const handleStartEdit = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       setEditTitle(todo.title);
       setEditSubject(todo.subject);
       setEditDifficulty(todo.difficulty || 'medium');
       setEditCompleted(todo.completed);
       setIsEditing(true);
-    };
+    }, [todo.title, todo.subject, todo.difficulty, todo.completed]);
 
-    const handleSave = () => {
+    const handleSave = useCallback(() => {
       if (!editTitle.trim()) return;
       onEdit(todo.id, {
         title: editTitle.trim(),
@@ -350,18 +352,18 @@ const SortableTodoItem = memo(
         completed: editCompleted,
       });
       setIsEditing(false);
-    };
+    }, [editTitle, editSubject, editDifficulty, editCompleted, onEdit, todo.id]);
 
-    const handleCancel = () => setIsEditing(false);
+    const handleCancel = useCallback(() => setIsEditing(false), []);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSave();
       } else if (e.key === 'Escape') {
         handleCancel();
       }
-    };
+    }, [handleSave, handleCancel]);
 
     const diffCfg = difficultyConfig[todo.difficulty] ?? difficultyConfig['medium'];
 
@@ -501,13 +503,13 @@ const SortableTodoItem = memo(
               transition={{ duration: 0.15 }}
               className="flex items-start gap-2 p-3"
             >
-              {/* Drag handle */}
+              {/* Drag handle - RESPONSIVE FIX: 40x40px minimum touch target */}
               {!isDragDisabled && (
                 <button
                   ref={setActivatorNodeRef}
                   {...attributes}
                   {...listeners}
-                  className="mt-1 p-0.5 rounded cursor-grab active:cursor-grabbing opacity-40 group-hover:opacity-70 focus-visible:opacity-100 transition-opacity touch-none flex-shrink-0"
+                  className="mt-0.5 min-h-10 min-w-10 flex items-center justify-center rounded cursor-grab active:cursor-grabbing opacity-40 group-hover:opacity-70 focus-visible:opacity-100 transition-opacity touch-none flex-shrink-0"
                   aria-label={`Move ${todo.title}`}
                 >
                   <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -525,7 +527,7 @@ const SortableTodoItem = memo(
 
               <div className="flex-1 min-w-0">
                 <p
-                  className={`text-sm ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
+                  className={`text-sm break-words ${todo.completed ? 'line-through text-muted-foreground' : ''}`}
                 >
                   {todo.title}
                 </p>
@@ -668,11 +670,22 @@ export default function Dashboard() {
   // DnD state - separate from query data for smooth reordering
   const [dndTodos, setDndTodos] = useState<Todo[]>([]);
 
+  // The user's drag order. Todos carry no server-side position, so it lives on
+  // this device. Previously a drag only wrote `dndTodos`, which nothing renders,
+  // so every drop snapped straight back to the priority order.
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
+  useEffect(() => {
+    setManualOrder(loadTodoOrder(user?.id));
+  }, [user?.id]);
+
   // Use query data directly for rendering (React Query handles loading states)
   const todos = useMemo(() => {
     const data = todosQuery.data || [];
-    return sortTodosByPriority(data.map((todo: any) => normalizeTodoFromApi(todo)));
-  }, [todosQuery.data]);
+    return applyManualOrder(
+      sortTodosByPriority(data.map((todo: any) => normalizeTodoFromApi(todo))),
+      manualOrder
+    );
+  }, [todosQuery.data, manualOrder]);
   const isLoading = todosQuery.isLoading;
   const queryTodos = todos; // For editTodo revert
 
@@ -686,9 +699,10 @@ export default function Dashboard() {
   const toggleTodoMutation = useToggleTodo();
   const rescheduleTodoToTodayMutation = useRescheduleTodoToToday();
 
-  // DnD sensors — lower activation distance makes drag pickup feel quicker
+  // DnD sensors — MouseSensor for desktop, TouchSensor with delay for mobile to avoid scroll conflicts
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -712,10 +726,18 @@ export default function Dashboard() {
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(regularTodos, oldIndex, newIndex);
       const updatedTodos = [...overdueTodos, ...reordered];
-      // Store for DnD operations only
       setDndTodos(updatedTodos);
+      // This is what actually moves the row: `todos` re-applies the manual order.
+      setManualOrder((previous) => {
+        const next = mergeOrder(
+          previous,
+          reordered.map((t) => t.id)
+        );
+        saveTodoOrder(user?.id, next);
+        return next;
+      });
     },
-    [todos]
+    [todos, user?.id]
   );
 
   // Handler functions using mutation hooks instead of manual fetch
@@ -1438,19 +1460,18 @@ export default function Dashboard() {
                           items={regularTodos.map((t) => t.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          <AnimatePresence mode="popLayout">
-                            {regularTodos.map((todo) => (
-                              <SortableTodoItem
-                                key={todo.id}
-                                todo={todo}
-                                onToggle={toggleTodo}
-                                onDelete={deleteTodo}
-                                onRescheduleToday={rescheduleToToday}
-                                onReschedule={openRescheduleModal}
-                                onEdit={editTodo}
-                              />
-                            ))}
-                          </AnimatePresence>
+                          {/* No AnimatePresence here to avoid layout animation jank during drag */}
+                          {regularTodos.map((todo) => (
+                            <SortableTodoItem
+                              key={todo.id}
+                              todo={todo}
+                              onToggle={toggleTodo}
+                              onDelete={deleteTodo}
+                              onRescheduleToday={rescheduleToToday}
+                              onReschedule={openRescheduleModal}
+                              onEdit={editTodo}
+                            />
+                          ))}
                         </SortableContext>
                         {typeof document !== 'undefined' &&
                           createPortal(
@@ -1475,7 +1496,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p
-                                        className={`text-sm ${activeDragTodo.completed ? 'line-through text-muted-foreground' : ''}`}
+                                        className={`text-sm break-words ${activeDragTodo.completed ? 'line-through text-muted-foreground' : ''}`}
                                       >
                                         {activeDragTodo.title}
                                       </p>
