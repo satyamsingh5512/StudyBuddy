@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Zen mode notification channel -->
+    <string name="studybuddy_zen_channel_name">Zen Mode</string>
+    <string name="studybuddy_zen_channel_desc">Scheduled do-not-disturb study windows</string>
+    
+    <!-- Active Zen notification -->
+    <string name="studybuddy_zen_active_title">Zen Mode Active</string>
+    <string name="studybuddy_zen_active_text">%s – notifications silenced for focused study</string>
+    
+    <!-- Zen ended notification -->
+    <string name="studybuddy_zen_ended_title">Zen Mode Ended</string>
+    <string name="studybuddy_zen_ended_text">Study window complete</string>
+</resources>
