@@ -77,3 +77,7 @@ backups/
 
 # Rust build output
 server/target/
+
+# Third-party reference artifacts (Regain APK + decompiled output). Never commit.
+/regain/
+/regain-jadx/
