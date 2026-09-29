@@ -99,6 +99,13 @@ class FocusEngine(private val dao: DigitalDisciplineDao) {
 class UsageAnalyticsEngine(private val context: Context, private val dao: DigitalDisciplineDao) {
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
+    companion object {
+        /** Upper bound on one import. Most devices retain far less event history than this. */
+        const val MAX_BACKFILL_DAYS = 60
+        /** Consecutive event-less days that mark the end of the platform's retained log. */
+        const val MAX_EMPTY_RUN = 2
+    }
+
     private fun startOfDay(now: Long): Pair<Long, String> {
         val calendar = Calendar.getInstance().apply {
             timeInMillis = now
@@ -113,46 +120,157 @@ class UsageAnalyticsEngine(private val context: Context, private val dao: Digita
     fun aggregateToday(userId: String): DailyUsageSummaryEntity {
         val now = System.currentTimeMillis()
         val (start, date) = startOfDay(now)
-        val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: throw IllegalStateException("Usage statistics service is unavailable.")
+        val reader = DeviceUsageReader(context)
+        if (!reader.available) throw IllegalStateException("Usage statistics service is unavailable.")
+        val totals = reader.readDay(start, now)
+        // Event-based totals clip exactly at local midnight. Only fall back to the
+        // coarser daily buckets when the event log has nothing for today at all.
+        val perPackage = if (totals.hasData) totals.foregroundMsByPackage else legacyTodayBuckets(start, now)
+        val summary = writeDay(userId, date, start, now, perPackage, totals.unlockCount.takeIf { totals.hasData }, now)
+        rollUpWeek(userId)
+        return summary
+    }
+
+    /**
+     * Imports the device's own usage history for past days, the same record the
+     * system screen-time dashboard reads, so a new install shows real history
+     * instead of starting empty.
+     *
+     * - Reads newest to oldest and stops after [MAX_EMPTY_RUN] consecutive days with
+     *   no events: that is where the platform has aged the log out.
+     * - A day already recomputed after it ended is final and is skipped, so repeat
+     *   runs are cheap and never overwrite good rows with a shorter, aged-out log.
+     * - The oldest day that still has events is dropped if it looks cut off, rather
+     *   than stored as an artificially low screen time.
+     * - Days without events are not written, so a gap reads as "no data", never as
+     *   zero usage.
+     *
+     * Everything stays in the local database; nothing is uploaded.
+     */
+    fun backfillHistory(userId: String, days: Int): UsageBackfillResult {
+        val safeDays = days.coerceIn(1, MAX_BACKFILL_DAYS)
+        val reader = DeviceUsageReader(context)
+        if (!reader.available) throw IllegalStateException("Usage statistics service is unavailable.")
+        val now = System.currentTimeMillis()
+        val today = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+
+        data class PastDay(val date: String, val start: Long, val end: Long, val totals: DayUsageTotals)
+        val read = mutableListOf<PastDay>()
+        var skippedFinal = 0
+        var emptyRun = 0
+        for (offset in 1..safeDays) {
+            val dayStart = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -offset) }
+            // Calendar arithmetic, not 24h multiples, so DST days are 23 or 25 hours long.
+            val dayEnd = (dayStart.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
+            val date = dateFormatter.format(Date(dayStart.timeInMillis))
+            val existing = dao.dailySummary(userId, date)
+            if (existing != null && existing.updatedAtMs >= dayEnd.timeInMillis) {
+                skippedFinal += 1
+                emptyRun = 0
+                continue
+            }
+            val totals = reader.readDay(dayStart.timeInMillis, dayEnd.timeInMillis)
+            if (!totals.hasData) {
+                emptyRun += 1
+                if (emptyRun >= MAX_EMPTY_RUN) break
+                continue
+            }
+            emptyRun = 0
+            read += PastDay(date, dayStart.timeInMillis, dayEnd.timeInMillis, totals)
+        }
+
+        // `read` is newest first; the last entry is the oldest day that still had events.
+        val oldest = read.lastOrNull()
+        val oldestHasOlderData = oldest != null && run {
+            val olderStart = Calendar.getInstance().apply { timeInMillis = oldest.start; add(Calendar.DAY_OF_YEAR, -1) }.timeInMillis
+            reader.readDay(olderStart, oldest.start).hasData
+        }
+        var truncatedDropped = false
+        val toWrite = if (oldest != null && UsageEventFolder.isLikelyTruncated(oldest.totals, oldest.start, oldestHasOlderData)) {
+            truncatedDropped = true
+            read.dropLast(1)
+        } else read
+
+        for (day in toWrite) {
+            writeDay(userId, day.date, day.start, day.end, day.totals.foregroundMsByPackage, day.totals.unlockCount, now)
+        }
+        if (toWrite.isNotEmpty()) rollUpRecentWeeks(userId, (safeDays + 6) / 7 + 1)
+        return UsageBackfillResult(
+            daysWritten = toWrite.size,
+            daysAlreadyFinal = skippedFinal,
+            oldestDate = toWrite.lastOrNull()?.date,
+            truncatedOldestDropped = truncatedDropped
+        )
+    }
+
+    /**
+     * Writes one day's summary plus its per-app rows. Focus, blocked attempts and
+     * interventions are bounded to the day, so a past day is not credited with
+     * activity that happened after it.
+     */
+    private fun writeDay(
+        userId: String,
+        date: String,
+        start: Long,
+        end: Long,
+        foregroundMsByPackage: Map<String, Long>,
+        unlockCount: Int?,
+        now: Long
+    ): DailyUsageSummaryEntity {
         val protected = dao.protectedApps(userId).associateBy { it.packageName }
-        val stats = manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now).orEmpty()
         val snapshots = mutableListOf<UsageSnapshotEntity>()
         val applications = mutableListOf<UsageApplicationEntity>()
         var screenTime = 0L
         var distractionTime = 0L
-        for (stat in stats) {
-            val duration = stat.totalTimeInForeground.coerceAtLeast(0L)
-            if (duration == 0L || stat.packageName == context.packageName) continue
+        for ((packageName, rawDuration) in foregroundMsByPackage) {
+            val duration = rawDuration.coerceAtLeast(0L)
+            if (duration == 0L || packageName == context.packageName) continue
             screenTime += duration
-            val config = protected[stat.packageName]
+            val config = protected[packageName]
             if (config?.policy == AppPolicy.WARN.name || config?.policy == AppPolicy.INTERVENE.name || config?.policy == AppPolicy.BLOCK.name) {
                 distractionTime += duration
             }
             val label = try {
-                context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(stat.packageName, 0)).toString()
-            } catch (_: PackageManager.NameNotFoundException) { stat.packageName }
-            applications += UsageApplicationEntity(userId, stat.packageName, label, config?.category ?: "OTHER", config != null, now)
+                context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(packageName, 0)).toString()
+            } catch (_: PackageManager.NameNotFoundException) { packageName }
+            applications += UsageApplicationEntity(userId, packageName, label, config?.category ?: "OTHER", config != null, now)
             snapshots += UsageSnapshotEntity(
-                id = "day:$date:${stat.packageName}", userId = userId, packageName = stat.packageName,
-                startAtMs = start, endAtMs = now, foregroundMs = duration, capturedAtMs = now
+                id = "day:$date:$packageName", userId = userId, packageName = packageName,
+                startAtMs = start, endAtMs = end, foregroundMs = duration, capturedAtMs = now
             )
         }
-        val focus = dao.focusSince(userId, start).sumOf { FocusEngine(dao).elapsedMs(it) }
-        val attempts = dao.blockedAttemptCount(userId, start)
-        val interventions = dao.interventionCount(userId, start)
+        val focusEngine = FocusEngine(dao)
+        val focus = dao.focusBetween(userId, start, end).sumOf { focusEngine.elapsedMs(it) }
+        val attempts = dao.blockedAttemptCountBetween(userId, start, end)
+        val interventions = dao.interventionCountBetween(userId, start, end)
         // This is deliberately an estimate: count only configured ten-second interventions.
         val recovered = interventions.toLong() * 10_000L
         val summary = DailyUsageSummaryEntity(
             userId, date, screenTime, studyTimeMs = focus, focusTimeMs = focus,
             distractionTimeMs = distractionTime, doomscrollTimeMs = distractionTime,
-            blockedAttempts = attempts, interventions = interventions, estimatedRecoveredMs = recovered, updatedAtMs = now
+            blockedAttempts = attempts, interventions = interventions, estimatedRecoveredMs = recovered,
+            updatedAtMs = now, unlockCount = unlockCount
         )
         dao.upsertUsageApplications(applications)
+        // Replace, not merge: an app that dropped out of a recomputed day must not linger.
+        dao.deleteDaySnapshots(userId, "day:$date:")
         dao.upsertUsageSnapshots(snapshots)
         dao.upsertDailySummary(summary)
-        rollUpWeek(userId)
         return summary
+    }
+
+    /** Pre-existing bucket path, kept only as a fallback when the event log is empty. */
+    private fun legacyTodayBuckets(start: Long, now: Long): Map<String, Long> {
+        val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyMap()
+        val totals = HashMap<String, Long>()
+        for (stat in manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now).orEmpty()) {
+            val duration = stat.totalTimeInForeground.coerceAtLeast(0L)
+            if (duration > 0L) totals[stat.packageName] = (totals[stat.packageName] ?: 0L) + duration
+        }
+        return totals
     }
 
     /**
@@ -254,7 +372,12 @@ class UsageAggregationWorker(appContext: Context, params: WorkerParameters) : Co
         val preferences = DigitalDisciplinePreferences(applicationContext)
         val userId = preferences.userId() ?: return Result.success()
         return try {
-            UsageAnalyticsEngine(applicationContext, DigitalDisciplineDatabase.get(applicationContext).dao()).aggregateToday(userId)
+            val engine = UsageAnalyticsEngine(applicationContext, DigitalDisciplineDatabase.get(applicationContext).dao())
+            engine.aggregateToday(userId)
+            // Runs every 6h, so without this the last hours of each day were never
+            // recorded unless the app happened to be opened before midnight. Days
+            // already finalised are skipped, so this is cheap.
+            engine.backfillHistory(userId, 7)
             Result.success()
         } catch (_: SecurityException) {
             // Usage Access may be revoked. Do not retry/poll or wake the device.
