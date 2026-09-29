@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="#1a1a1a"
+    android:padding="24dp">
+
+    <!-- Clock and date at the top -->
+    <TextClock
+        android:id="@+id/studybuddy_focuslauncher_clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:format12Hour="h:mm"
+        android:format24Hour="HH:mm"
+        android:textSize="72sp"
+        android:textColor="#e0e0e0"
+        android:fontFamily="sans-serif-light"
+        android:layout_marginTop="32dp" />
+
+    <TextClock
+        android:id="@+id/studybuddy_focuslauncher_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:format12Hour="EEEE, MMMM d"
+        android:format24Hour="EEEE, MMMM d"
+        android:textSize="18sp"
+        android:textColor="#b0b0b0"
+        android:fontFamily="sans-serif"
+        android:layout_marginTop="8dp" />
+
+    <!-- Focus stats -->
+    <TextView
+        android:id="@+id/studybuddy_focuslauncher_stats"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/studybuddy_focuslauncher_loading"
+        android:textSize="16sp"
+        android:textColor="#90caf9"
+        android:fontFamily="sans-serif"
+        android:gravity="center"
+        android:layout_marginTop="24dp" />
+
+    <!-- App grid -->
+    <GridView
+        android:id="@+id/studybuddy_focuslauncher_grid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:numColumns="4"
+        android:verticalSpacing="16dp"
+        android:horizontalSpacing="16dp"
+        android:stretchMode="columnWidth"
+        android:gravity="center"
+        android:layout_marginTop="32dp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Open StudyBuddy button -->
+    <TextView
+        android:id="@+id/studybuddy_focuslauncher_open_app"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/studybuddy_focuslauncher_open_app"
+        android:textSize="18sp"
+        android:textColor="#1a1a1a"
+        android:background="#90caf9"
+        android:gravity="center"
+        android:padding="16dp"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <!-- Exit focus home (requires long press) -->
+    <TextView
+        android:id="@+id/studybuddy_focuslauncher_exit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/studybuddy_focuslauncher_exit"
+        android:textSize="14sp"
+        android:textColor="#808080"
+        android:gravity="center"
+        android:padding="12dp"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif"
+        android:clickable="true"
+        android:focusable="true" />
+
+</LinearLayout>

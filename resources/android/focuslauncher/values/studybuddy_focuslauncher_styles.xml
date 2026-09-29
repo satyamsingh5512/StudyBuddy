@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="StudyBuddyFocusLauncherTheme" parent="android:Theme.Material.NoActionBar">
+        <!-- Dark background, literal hex to avoid cross-file color reference issues -->
+        <item name="android:colorBackground">#1a1a1a</item>
+        <item name="android:windowBackground">#1a1a1a</item>
+        <item name="android:statusBarColor">#1a1a1a</item>
+        <item name="android:navigationBarColor">#1a1a1a</item>
+    </style>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FocusLauncherActivity -->
+    <string name="studybuddy_focuslauncher_loading">Loading focus stats…</string>
+    <string name="studybuddy_focuslauncher_signed_out">Sign in to track focus time</string>
+    <string name="studybuddy_focuslauncher_stats_format">%1$d min focused today%2$s</string>
+    <string name="studybuddy_focuslauncher_open_app">Open StudyBuddy</string>
+    <string name="studybuddy_focuslauncher_exit">Exit focus home (long press)</string>
+    <string name="studybuddy_focuslauncher_app_icon_desc">App icon</string>
+</resources>
