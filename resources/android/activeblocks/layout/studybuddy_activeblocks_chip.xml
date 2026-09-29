@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/studybuddy_activeblocks_chip_background"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:elevation="8dp">
+
+    <TextView
+        android:id="@+id/studybuddy_activeblocks_chip_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="● Checking..."
+        android:textSize="12sp"
+        android:textColor="#FFFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+</LinearLayout>

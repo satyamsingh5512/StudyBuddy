@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chip service -->
+    <string name="studybuddy_activeblocks_chip_channel_name">Active Blocks Chip</string>
+    <string name="studybuddy_activeblocks_chip_channel_description">Persistent chip showing what is currently blocked</string>
+    <string name="studybuddy_activeblocks_chip_notification_title">Active blocks chip</string>
+    <string name="studybuddy_activeblocks_chip_notification_text">Tap the floating chip to see what\'s blocked</string>
+    <string name="studybuddy_activeblocks_chip_signed_out">Sign in</string>
+    <string name="studybuddy_activeblocks_chip_idle">Idle</string>
+    <string name="studybuddy_activeblocks_chip_shorts">Shorts blocked</string>
+
+    <!-- Panel -->
+    <string name="studybuddy_activeblocks_panel_title">Active Blocks</string>
+    <string name="studybuddy_activeblocks_panel_hide">Hide</string>
+    <string name="studybuddy_activeblocks_panel_open_app">Open StudyBuddy</string>
+    <string name="studybuddy_activeblocks_panel_no_active_blocks">No active blocks right now</string>
+
+    <!-- Standing notification -->
+    <string name="studybuddy_activeblocks_standing_channel_name">Usage Summary</string>
+    <string name="studybuddy_activeblocks_standing_channel_description">Ongoing notification showing today\'s screen time and focus progress</string>
+    <string name="studybuddy_activeblocks_standing_title">Today\'s activity</string>
+    <string name="studybuddy_activeblocks_standing_hide_today">Hide today</string>
+    <string name="studybuddy_activeblocks_standing_no_activity">No activity tracked today</string>
+</resources>
