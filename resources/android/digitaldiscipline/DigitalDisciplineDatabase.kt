@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "user_local_profiles", indices = [Index(value = ["updatedAtMs"])])
 data class UserLocalProfileEntity(
@@ -151,7 +153,9 @@ data class DailyUsageSummaryEntity(
     val blockedAttempts: Int,
     val interventions: Int,
     val estimatedRecoveredMs: Long,
-    val updatedAtMs: Long
+    val updatedAtMs: Long,
+    /** Screen unlocks that day. Null when not measured (Android 8.1 and below, or rows from before v2). */
+    val unlockCount: Int? = null
 )
 
 @Entity(tableName = "weekly_usage_summaries", primaryKeys = ["userId", "weekStart"], indices = [Index(value = ["weekStart"]), Index(value = ["userId", "updatedAtMs"])])
@@ -288,6 +292,16 @@ interface DigitalDisciplineDao {
      * "from" query would fold every later week into each earlier one.
      */
     @Query("SELECT * FROM daily_usage_summaries WHERE userId = :userId AND localDate >= :fromDate AND localDate <= :toDate ORDER BY localDate ASC") fun dailySummariesInRange(userId: String, fromDate: String, toDate: String): List<DailyUsageSummaryEntity>
+    /** Newest first, used by the usage-history view. */
+    @Query("SELECT * FROM daily_usage_summaries WHERE userId = :userId AND localDate >= :fromDate ORDER BY localDate DESC") fun dailySummariesNewestFirst(userId: String, fromDate: String): List<DailyUsageSummaryEntity>
+    /** Focus sessions that started inside `[fromMs, toMs)`, so a past day is not credited with later sessions. */
+    @Query("SELECT * FROM focus_sessions WHERE userId = :userId AND startedWallClockMs >= :fromMs AND startedWallClockMs < :toMs") fun focusBetween(userId: String, fromMs: Long, toMs: Long): List<FocusSessionEntity>
+    @Query("SELECT COUNT(*) FROM blocked_attempts WHERE userId = :userId AND atMs >= :fromMs AND atMs < :toMs") fun blockedAttemptCountBetween(userId: String, fromMs: Long, toMs: Long): Int
+    @Query("SELECT COUNT(*) FROM intervention_events WHERE userId = :userId AND atMs >= :fromMs AND atMs < :toMs") fun interventionCountBetween(userId: String, fromMs: Long, toMs: Long): Int
+    /** Per-app rows for one day; ids are written as `day:<localDate>:<package>`. */
+    @Query("SELECT * FROM usage_snapshots WHERE userId = :userId AND id LIKE :idPrefix || '%' ORDER BY foregroundMs DESC") fun daySnapshots(userId: String, idPrefix: String): List<UsageSnapshotEntity>
+    @Query("DELETE FROM usage_snapshots WHERE userId = :userId AND id LIKE :idPrefix || '%'") fun deleteDaySnapshots(userId: String, idPrefix: String)
+    @Query("SELECT * FROM usage_applications WHERE userId = :userId") fun usageApplications(userId: String): List<UsageApplicationEntity>
     @Query("DELETE FROM usage_snapshots WHERE userId = :userId") fun deleteUsageSnapshots(userId: String)
     @Query("DELETE FROM usage_applications WHERE userId = :userId") fun deleteUsageApplications(userId: String)
     @Query("DELETE FROM daily_usage_summaries WHERE userId = :userId") fun deleteDailyUsage(userId: String)
@@ -316,20 +330,31 @@ interface DigitalDisciplineDao {
         DigitalDisciplineSettingsEntity::class, AllowedApplicationEntity::class, UnlockCredentialMetadataEntity::class,
         AchievementEntity::class, ProductivityMetricEntity::class, SyncQueueItemEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class DigitalDisciplineDatabase : RoomDatabase() {
     abstract fun dao(): DigitalDisciplineDao
 
     companion object {
+        /**
+         * v2 adds the nullable daily unlock count. Nullable with no default, so rows
+         * written before the upgrade read as "not measured" rather than zero unlocks.
+         * Never replace this with a destructive fallback: it would wipe local history.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE daily_usage_summaries ADD COLUMN unlockCount INTEGER")
+            }
+        }
+
         @Volatile private var instance: DigitalDisciplineDatabase? = null
         fun get(context: Context): DigitalDisciplineDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext,
                 DigitalDisciplineDatabase::class.java,
                 "studybuddy-digital-discipline.db"
-            ).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
         }
     }
 }
