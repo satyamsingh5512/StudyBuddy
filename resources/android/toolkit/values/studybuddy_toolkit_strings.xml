@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Guided permission setup. Each string names the control the user has to find on
+      the screen that just opened. Wording stays vendor-neutral: Android skins rename
+      these switches, so the copy describes what the switch does rather than quoting
+      one manufacturer's label.
+    -->
+    <string name="studybuddy_toolkit_coach_generic">Find StudyBuddy in this list and turn the permission on, then come back.</string>
+    <string name="studybuddy_toolkit_coach_notifications">Turn on “Allow notifications”, then return to StudyBuddy.</string>
+    <string name="studybuddy_toolkit_coach_exact_alarms">Switch on “Allow setting alarms and reminders”, then return to StudyBuddy.</string>
+    <string name="studybuddy_toolkit_coach_usage_access">Tap StudyBuddy, then switch “Permit usage access” on.</string>
+    <string name="studybuddy_toolkit_coach_overlay">Tap StudyBuddy, then switch “Allow display over other apps” on.</string>
+    <string name="studybuddy_toolkit_coach_accessibility">Open Installed apps or Downloaded services, tap StudyGuard, then switch “Use StudyGuard” on and confirm.</string>
+    <string name="studybuddy_toolkit_coach_dnd">Find StudyBuddy in this list and switch “Allow Do Not Disturb” on.</string>
+    <string name="studybuddy_toolkit_coach_battery">Choose “All apps”, tap StudyBuddy, then pick “Don’t optimise” so long sessions are not paused.</string>
+    <string name="studybuddy_toolkit_coach_default_home">Pick StudyBuddy as the home app. You can switch back to your usual launcher here at any time.</string>
+</resources>
