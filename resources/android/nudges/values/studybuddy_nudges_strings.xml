@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Focus nudge notifications -->
+    <string name="studybuddy_nudges_focus_channel_name">Focus Reminders</string>
+    <string name="studybuddy_nudges_focus_channel_description">Gentle reminders when you switch apps during an active focus session</string>
+    <string name="studybuddy_nudges_focus_notification_title">Focus session still running</string>
+    <string name="studybuddy_nudges_focus_notification_text">%1$d min remaining</string>
+    <string name="studybuddy_nudges_focus_action_return">Back to StudyBuddy</string>
+    <string name="studybuddy_nudges_focus_action_end">End session</string>
+    
+    <!-- Study reminder notifications -->
+    <string name="studybuddy_nudges_reminder_channel_name">Study Reminders</string>
+    <string name="studybuddy_nudges_reminder_channel_description">Scheduled reminders for your study sessions</string>
+    <string name="studybuddy_nudges_reminder_title">Time to study</string>
+    <string name="studybuddy_nudges_reminder_text">Open your study apps</string>
+    <string name="studybuddy_nudges_reminder_idle_title">Study time</string>
+    <string name="studybuddy_nudges_reminder_idle_text">No focus time recorded today · start a session</string>
+    <string name="studybuddy_nudges_reminder_action_open">Open %1$s</string>
+</resources>
