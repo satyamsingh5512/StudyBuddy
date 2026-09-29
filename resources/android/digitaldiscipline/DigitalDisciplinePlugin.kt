@@ -109,6 +109,8 @@ class DigitalDisciplinePlugin : Plugin() {
         put("interventions", summary.interventions)
         put("estimatedRecoveredMs", summary.estimatedRecoveredMs)
         put("updatedAtMs", summary.updatedAtMs)
+        // Omitted rather than 0 when unmeasured, so the UI can say "not available".
+        summary.unlockCount?.let { put("unlockCount", it) }
     }
 
     private fun diagnosticsJson(): JSObject = JSObject().apply {
@@ -380,6 +382,60 @@ class DigitalDisciplinePlugin : Plugin() {
             put("explanation", "Usage Access is not granted. StudyBuddy continues without device usage analytics.")
         }
         summaryJson(usage.aggregateToday(userId))
+    }
+
+    /**
+     * Daily history, newest first. Imports any days the device still has in its
+     * usage log (the same source as the system screen-time view) before reading,
+     * so a fresh install shows past days rather than starting empty.
+     */
+    @PluginMethod
+    fun getDailyUsageHistory(call: PluginCall) = asynchronous(call) {
+        val userId = requireUser(call)
+        val days = (call.getInt("days", 30) ?: 30).coerceIn(1, UsageAnalyticsEngine.MAX_BACKFILL_DAYS)
+        if (!capabilities.hasUsageAccess()) return@asynchronous JSObject().apply {
+            put("available", false)
+            put("explanation", "Usage Access is not granted. StudyBuddy cannot read past screen time without it.")
+            put("days", JSArray())
+        }
+        val imported = usage.backfillHistory(userId, days)
+        usage.aggregateToday(userId)
+        val from = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(
+            java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, -days) }.time
+        )
+        val items = JSArray()
+        for (summary in dao.dailySummariesNewestFirst(userId, from)) items.put(summaryJson(summary))
+        WidgetRefresh.all(getContext())
+        JSObject().apply {
+            put("available", true)
+            put("days", items)
+            put("daysImported", imported.daysWritten)
+            put("oldestImportedDate", imported.oldestDate)
+            put("truncatedOldestDropped", imported.truncatedOldestDropped)
+        }
+    }
+
+    /** Per-app foreground time for one local day, largest first, from local rows only. */
+    @PluginMethod
+    fun getAppUsageForDay(call: PluginCall) = asynchronous(call) {
+        val userId = requireUser(call)
+        val localDate = call.getString("localDate", "") ?: ""
+        require(localDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "localDate must be yyyy-MM-dd." }
+        val labels = dao.usageApplications(userId).associateBy { it.packageName }
+        val items = JSArray()
+        for (row in dao.daySnapshots(userId, "day:$localDate:")) {
+            val app = labels[row.packageName]
+            items.put(JSObject().apply {
+                put("packageName", row.packageName)
+                put("label", app?.label ?: row.packageName)
+                put("category", app?.category ?: "OTHER")
+                put("foregroundMs", row.foregroundMs)
+            })
+        }
+        JSObject().apply {
+            put("localDate", localDate)
+            put("apps", items)
+        }
     }
 
     /**
