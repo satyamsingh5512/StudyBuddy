@@ -16,7 +16,8 @@
 #   ./redeploy.sh
 #
 # Config via env (all optional — sensible defaults match the existing deploy):
-#   APP           Web app name (default: studybuddy-api)
+#   APP           Web app name (default: studybuddy-api-20260914)
+#   FORCE_BUILD   =1 → build+push locally even if CI already pushed this commit
 #   RG            Resource group (default: studybuddy-rg)
 #   GHCR_IMAGE    default: derived from git remote, tag = short commit SHA
 #   GH_OWNER      GitHub owner/org (lowercase); auto-derived if empty
@@ -26,11 +27,37 @@
 # Secrets are NOT read or written by this script — app settings are untouched.
 set -euo pipefail
 
-APP="${APP:-studybuddy-api}"
+APP="${APP:-studybuddy-api-20260914}"
 RG="${RG:-studybuddy-rg}"
+FORCE_BUILD="${FORCE_BUILD:-0}"   # =1 → always build+push locally, even if CI already pushed this commit
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+
+# Log in to ghcr.io with push rights, or die with the exact fix.
+# Order: DOCKER_PAT → existing docker login → gh CLI token (if it has write:packages).
+ghcr_login() {
+  local user="$1"
+  if [ -n "${DOCKER_PAT:-}" ]; then
+    [ -n "$user" ] || die "GH_OWNER env required with DOCKER_PAT"
+    log "Docker login to ghcr.io as $user (DOCKER_PAT)"
+    printf '%s' "$DOCKER_PAT" | docker login ghcr.io -u "$user" --password-stdin
+    return
+  fi
+  if grep -qs '"ghcr.io"' "${DOCKER_CONFIG:-$HOME/.docker}/config.json"; then
+    echo "Using existing 'docker login ghcr.io' credentials."
+    return
+  fi
+  gh_status="$(command -v gh >/dev/null 2>&1 && gh auth status 2>&1 || true)"
+  if [[ "$gh_status" == *write:packages* ]]; then
+    log "Docker login to ghcr.io via gh CLI token"
+    gh auth token | docker login ghcr.io -u "${user:-$(gh api user --jq .login)}" --password-stdin
+    return
+  fi
+  die "no GHCR push credentials. Fix once with:
+    gh auth refresh -h github.com -s write:packages
+  then re-run (or export DOCKER_PAT=<classic PAT with write:packages>)."
+}
 
 command -v git >/dev/null 2>&1 || die "git is required"
 command -v docker >/dev/null 2>&1 || die "docker is required"
@@ -57,34 +84,38 @@ az webapp show -g "$RG" -n "$APP" >/dev/null 2>&1 || \
 GHCR_IMAGE="${GHCR_IMAGE:-}"
 if [ -z "$GHCR_IMAGE" ]; then
   REMOTE="$(git remote get-url origin 2>/dev/null || echo '')"
-  OWNER_REPO="$(printf '%s' "$REMOTE" | sed -E 's#.*github\.com[:/]([^/]+/[^/]+?)(\.git)?/?$#\1#')"
+  OWNER_REPO="$(printf '%s' "$REMOTE" | sed -E 's#.*github\.com[:/]([^/]+/[^/]+)/?$#\1#; s#\.git$##')"
+  # ERE has no non-greedy '+?', so '.git' is stripped in a second expression.
+  # Keeping it once pointed Azure at a private '.../studybuddy.git/...' image → 503.
   [[ "$OWNER_REPO" == *"/"* ]] || die "cannot derive image from remote '$REMOTE' — set GHCR_IMAGE explicitly"
   GH_OWNER_DERIVED="$(printf '%s' "$OWNER_REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')"
   REPO_LC="$(printf '%s' "$OWNER_REPO" | tr '[:upper:]' '[:lower:]')"
   [[ "$REPO_LC" =~ ^[a-z0-9_.-]+/[a-z0-9_.-]+$ ]] || die "cannot derive image from remote '$REMOTE' — set GHCR_IMAGE explicitly"
   GHCR_IMAGE="ghcr.io/$REPO_LC/studybuddy-api"
 fi
-IMAGE_SHA_TAG="${GHCR_IMAGE%%:*}:$COMMIT_SHA"
-IMAGE_LATEST_TAG="${GHCR_IMAGE%%:*}:latest"
-log "Image: $IMAGE_SHA_TAG (+ latest)"
+IMAGE_REPO="${GHCR_IMAGE%%:*}"
+IMAGE_LATEST_TAG="$IMAGE_REPO:latest"
 
-# 3. Registry login (skip if already logged in).
-if [ -n "${DOCKER_PAT:-}" ]; then
-  GH_OWNER="${GH_OWNER:-${GH_OWNER_DERIVED:-}}"
-  [ -n "$GH_OWNER" ] || die "GH_OWNER env required with DOCKER_PAT"
-  log "Docker login to ghcr.io as $GH_OWNER"
-  printf '%s' "$DOCKER_PAT" | docker login ghcr.io -u "$GH_OWNER" --password-stdin
+# 3. Reuse the image GitHub Actions already pushed for this commit
+# (.github/workflows/azure-backend.yml tags it with the full SHA). That needs
+# no local push credentials at all.
+CI_IMAGE="$IMAGE_REPO:$(git rev-parse HEAD)"
+if [ "$FORCE_BUILD" != "1" ] && timeout 60 docker manifest inspect "$CI_IMAGE" >/dev/null 2>&1; then
+  IMAGE_SHA_TAG="$CI_IMAGE"
+  log "CI already pushed $IMAGE_SHA_TAG — skipping local build/push (FORCE_BUILD=1 to override)"
 else
-  echo "No DOCKER_PAT — assuming 'docker login ghcr.io' was already done."
-fi
+  IMAGE_SHA_TAG="$IMAGE_REPO:$COMMIT_SHA"
+  log "Image: $IMAGE_SHA_TAG (+ latest)"
 
-# 4. Build + push.
-log "Building $IMAGE_SHA_TAG"
-docker build -f backend/Dockerfile -t "$IMAGE_SHA_TAG" -t "$IMAGE_LATEST_TAG" ./backend
-log "Pushing $IMAGE_SHA_TAG"
-docker push "$IMAGE_SHA_TAG"
-log "Pushing $IMAGE_LATEST_TAG"
-docker push "$IMAGE_LATEST_TAG"
+  # 4. Registry login, then build + push.
+  ghcr_login "${GH_OWNER:-${GH_OWNER_DERIVED:-}}"
+  log "Building $IMAGE_SHA_TAG"
+  docker build -f backend/Dockerfile -t "$IMAGE_SHA_TAG" -t "$IMAGE_LATEST_TAG" ./backend
+  log "Pushing $IMAGE_SHA_TAG"
+  docker push "$IMAGE_SHA_TAG"
+  log "Pushing $IMAGE_LATEST_TAG"
+  docker push "$IMAGE_LATEST_TAG"
+fi
 
 # 5. Point the Web App at the new image and restart so it actually pulls it.
 # (Azure only re-pulls on settings change or restart — pushing to GHCR alone
