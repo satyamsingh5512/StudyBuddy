@@ -37,7 +37,7 @@ set -euo pipefail
 PHASE="${1:-full}"
 REPO_URL="${REPO_URL:-https://github.com/satyamsingh5512/StudyBuddy.git}"
 DIR="${DIR:-StudyBuddy}"               # clone target when starting outside a repo
-APP="${APP:-studybuddy-api}"           # globally unique
+APP="${APP:-studybuddy-api-20260914}"   # the live app (plain 'studybuddy-api' is not ours)
 RG="${RG:-studybuddy-rg}"
 LOC="${LOC:-centralindia}"
 PLAN="${PLAN:-studybuddy-plan}"
@@ -100,7 +100,7 @@ fi
 GHCR_IMAGE="${GHCR_IMAGE:-}"
 if [ -z "$GHCR_IMAGE" ]; then
   REMOTE="$(git remote get-url origin 2>/dev/null || echo '')"
-  OWNER_REPO="$(printf '%s' "$REMOTE" | sed -E 's#.*github\.com[:/]([^/]+/[^/]+?)(\.git)?/?$#\1#')"
+  OWNER_REPO="$(printf '%s' "$REMOTE" | sed -E 's#.*github\.com[:/]([^/]+/[^/]+)/?$#\1#; s#\.git$##')"
   OWNER_REPO="${OWNER_REPO%.git}" # belt-and-braces: remote URLs end in .git
   if [[ "$OWNER_REPO" == *"/"* ]]; then
     GH_OWNER_DERIVED="$(printf '%s' "$OWNER_REPO" | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')"
@@ -122,8 +122,18 @@ case "$PHASE" in
       [ -n "${GH_OWNER:-${GH_OWNER_DERIVED:-}}" ] || die "GH_OWNER env required with DOCKER_PAT"
       log "Docker login to ghcr.io as ${GH_OWNER:-$GH_OWNER_DERIVED}"
       printf '%s' "$DOCKER_PAT" | docker login ghcr.io -u "${GH_OWNER:-$GH_OWNER_DERIVED}" --password-stdin
+    elif grep -qs '"ghcr.io"' "${DOCKER_CONFIG:-$HOME/.docker}/config.json"; then
+      echo "Using existing 'docker login ghcr.io' credentials."
     else
-      echo "No DOCKER_PAT — assuming 'docker login ghcr.io' was already done."
+      gh_status="$(command -v gh >/dev/null 2>&1 && gh auth status 2>&1 || true)"
+      if [[ "$gh_status" == *write:packages* ]]; then
+        log "Docker login to ghcr.io via gh CLI token"
+        gh auth token | docker login ghcr.io -u "${GH_OWNER:-${GH_OWNER_DERIVED:-$(gh api user --jq .login)}}" --password-stdin
+      else
+        die "no GHCR push credentials. Fix once with:
+    gh auth refresh -h github.com -s write:packages
+  then re-run (or export DOCKER_PAT=<classic PAT with write:packages>)."
+      fi
     fi
     ;;
 esac
