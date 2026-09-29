@@ -59,7 +59,7 @@ const TaskRow = memo(function TaskRow({ task, onToggle, onDelete, busy }: TaskRo
         onClick={() => onToggle(task)}
         disabled={busy || task.optimistic}
         aria-label={`${task.completed ? 'Reopen' : 'Complete'} ${task.title}`}
-        className={`press relative grid h-6 w-6 shrink-0 place-items-center rounded-[7px] border disabled:cursor-wait ${
+        className={`press relative grid h-11 w-11 shrink-0 place-items-center rounded-[7px] border disabled:cursor-wait ${
           task.completed
             ? 'border-brand bg-brand text-on-accent'
             : 'border-ink/30 bg-ink/[0.04] hover:border-brand hover:bg-brand-subtle'
@@ -75,14 +75,14 @@ const TaskRow = memo(function TaskRow({ task, onToggle, onDelete, busy }: TaskRo
         className="min-w-0 flex-1 cursor-pointer text-left disabled:cursor-wait"
       >
         <span
-          className={`block truncate text-[14px] font-medium tracking-[-0.015em] transition-colors ${
+          className={`block break-words text-[14px] font-medium tracking-[-0.015em] transition-colors ${
             task.completed ? 'text-muted-ink line-through' : 'text-ink'
           }`}
         >
           {task.title}
         </span>
         {(date || task.subject) && (
-          <span className="mt-0.5 block truncate text-[11px] text-muted-ink">
+          <span className="mt-0.5 block break-words text-[11px] text-muted-ink">
             {[task.subject && task.subject !== 'General' ? task.subject : '', date]
               .filter(Boolean)
               .join(' · ')}
@@ -95,7 +95,7 @@ const TaskRow = memo(function TaskRow({ task, onToggle, onDelete, busy }: TaskRo
         onClick={() => onDelete(task)}
         disabled={busy || task.optimistic}
         aria-label={`Delete ${task.title}`}
-        className="press grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted-ink opacity-60 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 disabled:cursor-wait sm:opacity-0 sm:group-hover:opacity-100"
+        className="press grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-ink opacity-60 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 disabled:cursor-wait sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-4 w-4" />
       </button>
