@@ -51,6 +51,26 @@ export interface DigitalUsageSummary {
   /** An explicit estimate based only on completed configured interventions. */
   estimatedRecoveredMs?: number;
   updatedAtMs?: number;
+  /** Screen unlocks that day. Absent when the device cannot report it (Android 8.1 and below). */
+  unlockCount?: number;
+}
+
+export interface DailyUsageHistory {
+  available: boolean;
+  explanation?: string;
+  /** Newest first. Days the device has no record of are absent, never zero-filled. */
+  days: DigitalUsageSummary[];
+  daysImported: number;
+  oldestImportedDate?: string;
+  /** True when the oldest retained day looked cut off by the platform and was skipped. */
+  truncatedOldestDropped: boolean;
+}
+
+export interface AppUsageEntry {
+  packageName: string;
+  label: string;
+  category: string;
+  foregroundMs: number;
 }
 
 export interface ProtectedApplication {
@@ -173,6 +193,8 @@ interface NativeDigitalDisciplinePlugin {
   saveProtectedApps(options: { userId: string; apps: ProtectedApplication[] }): Promise<unknown>;
   getProtectedApps(options: { userId: string }): Promise<unknown>;
   getDailyUsageSummary(options: { userId: string }): Promise<unknown>;
+  getDailyUsageHistory(options: { userId: string; days?: number }): Promise<unknown>;
+  getAppUsageForDay(options: { userId: string; localDate: string }): Promise<unknown>;
   getWeeklyUsageSummaries(options: { userId: string; weeks?: number }): Promise<unknown>;
   setProgressNotifications(options: { userId: string; enabled: boolean }): Promise<unknown>;
   getProgressState(options: { userId: string }): Promise<unknown>;
@@ -282,6 +304,7 @@ function parseUsageSummary(value: unknown): DigitalUsageSummary {
     interventions: number(data.interventions),
     estimatedRecoveredMs: number(data.estimatedRecoveredMs),
     updatedAtMs: number(data.updatedAtMs),
+    unlockCount: number(data.unlockCount),
   };
 }
 
@@ -395,6 +418,49 @@ export async function getNativeDigitalUsageSummary(userId: string): Promise<Digi
   assertUserId(userId);
   const plugin = nativePlugin();
   return plugin ? parseUsageSummary(await plugin.getDailyUsageSummary({ userId })) : null;
+}
+
+/**
+ * Past daily screen time, imported from the device's own usage log on first call
+ * and kept locally afterwards. Returns null off-device so callers can fall back to
+ * server data.
+ */
+export async function getNativeUsageHistory(userId: string, days = 30): Promise<DailyUsageHistory | null> {
+  assertUserId(userId);
+  const plugin = nativePlugin();
+  if (!plugin) return null;
+  const data = record(await plugin.getDailyUsageHistory({ userId, days }));
+  const list = Array.isArray(data.days) ? data.days : [];
+  return {
+    available: bool(data.available),
+    explanation: text(data.explanation),
+    days: list.map(parseUsageSummary).filter((day) => Boolean(day.localDate)),
+    daysImported: number(data.daysImported) ?? 0,
+    oldestImportedDate: text(data.oldestImportedDate),
+    truncatedOldestDropped: bool(data.truncatedOldestDropped),
+  };
+}
+
+/** Per-app breakdown for one `yyyy-MM-dd` local day, largest first. */
+export async function getNativeAppUsageForDay(userId: string, localDate: string): Promise<AppUsageEntry[]> {
+  assertUserId(userId);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) throw new Error('localDate must be yyyy-MM-dd.');
+  const plugin = nativePlugin();
+  if (!plugin) return [];
+  const apps = record(await plugin.getAppUsageForDay({ userId, localDate })).apps;
+  if (!Array.isArray(apps)) return [];
+  return apps.flatMap((candidate) => {
+    const app = record(candidate);
+    const packageName = text(app.packageName);
+    const foregroundMs = number(app.foregroundMs);
+    if (!packageName || foregroundMs === undefined) return [];
+    return [{
+      packageName,
+      label: text(app.label) ?? packageName,
+      category: text(app.category) ?? 'OTHER',
+      foregroundMs,
+    }];
+  });
 }
 
 export async function saveProtectedApplications(userId: string, apps: ProtectedApplication[]): Promise<number> {
