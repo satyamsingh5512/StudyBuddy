@@ -294,6 +294,27 @@
     text-wrap: balance;
   }
 
+  /* RESPONSIVE FIX: Ensure text breaks and doesn't cause overflow */
+  .break-words-safe {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  /* RESPONSIVE FIX: Minimum 44x44px touch targets on mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  @media (max-width: 640px) {
+    .touch-target-mobile {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
   .glass-card,
   .glass,
   .glass-panel {
@@ -478,6 +499,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* Still allow transforms during drag */
+  [data-dnd-kit] {
+    transition-duration: 0s !important;
+  }
 }
 
 /* Optimized Lists */
@@ -576,7 +602,7 @@
 }
 
 /* Mobile rendering budget: avoid repaint-heavy glass compositing and fixed blur layers
-   while retaining the same surfaces, hierarchy, and controls. */
+   while retaining the same surfaces, hierarchy, and controls. RESPONSIVE FIX: Reduce blur on small screens. */
 @media (max-width: 767px) {
   body {
     background-attachment: scroll;
@@ -584,31 +610,30 @@
 
   .glass-card,
   .glass,
-  .glass-panel,
-  .glass-strong,
-  .glass-control,
-  .glass-subtle,
-  .neo-button,
-  .neo-button-primary,
-  .neo-card {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-  }
-
-  .glass-card,
-  .glass,
   .glass-panel {
+    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+    backdrop-filter: blur(8px) saturate(140%) !important;
     background-color: rgba(var(--glass-bg) / 0.88);
   }
 
   .glass-strong {
+    -webkit-backdrop-filter: blur(10px) saturate(150%) !important;
+    backdrop-filter: blur(10px) saturate(150%) !important;
     background-color: rgba(var(--glass-bg) / 0.94);
   }
 
   .glass-control,
   .neo-button,
   .neo-card {
+    -webkit-backdrop-filter: blur(6px) saturate(130%) !important;
+    backdrop-filter: blur(6px) saturate(130%) !important;
     background-color: rgba(var(--glass-bg) / 0.78);
+  }
+
+  .glass-subtle,
+  .neo-button-primary {
+    -webkit-backdrop-filter: blur(6px) saturate(130%) !important;
+    backdrop-filter: blur(6px) saturate(130%) !important;
   }
 
   .sbd-ambient-bg {
@@ -624,8 +649,8 @@
   .sbd-glass--ambient,
   .sbd-glass--card,
   .sbd-glass--elevated {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
+    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+    backdrop-filter: blur(8px) saturate(140%) !important;
   }
 }
 
