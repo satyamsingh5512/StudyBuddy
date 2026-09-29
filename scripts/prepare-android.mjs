@@ -30,6 +30,22 @@ const alarmSourceDir = path.join(nativeSourceDir, 'alarm');
 const alarmTargetDir = path.join(javaDir, 'alarm');
 const rewardsSourceDir = path.join(nativeSourceDir, 'rewards');
 const rewardsTargetDir = path.join(javaDir, 'rewards');
+const soundsSourceDir = path.join(nativeSourceDir, 'sounds');
+const soundsTargetDir = path.join(javaDir, 'sounds');
+const zenSourceDir = path.join(nativeSourceDir, 'zen');
+const zenTargetDir = path.join(javaDir, 'zen');
+const nudgesSourceDir = path.join(nativeSourceDir, 'nudges');
+const nudgesTargetDir = path.join(javaDir, 'nudges');
+const shortsBlockSourceDir = path.join(nativeSourceDir, 'shortsblock');
+const shortsBlockTargetDir = path.join(javaDir, 'shortsblock');
+const focusLauncherSourceDir = path.join(nativeSourceDir, 'focuslauncher');
+const focusLauncherTargetDir = path.join(javaDir, 'focuslauncher');
+const activeBlocksSourceDir = path.join(nativeSourceDir, 'activeblocks');
+const activeBlocksTargetDir = path.join(javaDir, 'activeblocks');
+const toolkitSourceDir = path.join(nativeSourceDir, 'toolkit');
+const toolkitTargetDir = path.join(javaDir, 'toolkit');
+const toolkitTestSourceDir = path.join(nativeSourceDir, 'toolkit-tests');
+const toolkitTestTargetDir = path.join(appRoot, 'src/test/java/in/satym/studybuddy/toolkit');
 const resTargetDir = path.join(appRoot, 'src/main/res');
 const deviceAdminXmlTarget = path.join(appRoot, 'src/main/res/xml/studybuddy_device_admin.xml');
 const mainActivityPath = path.join(javaDir, 'MainActivity.java');
@@ -56,6 +72,28 @@ function copyDirectory(source, target) {
   }
   fs.mkdirSync(target, { recursive: true });
   fs.cpSync(source, target, { recursive: true });
+}
+
+/**
+ * Replaces a marker-delimited block inside <application>, or appends it when absent.
+ *
+ * The block is regenerated on every run rather than added once, so renaming or
+ * removing a component cannot leave a stale declaration pointing at a missing class.
+ * The lookahead keeps </application> out of the match so it is never consumed — an
+ * earlier revision did consume it and corrupted the manifest.
+ *
+ * Removal leaves behind the indentation that preceded the marker, which used to make
+ * the manifest grow by one blank line on every run. Collapsing whitespace-only lines
+ * before the closing tag is what makes repeated runs byte-identical.
+ */
+function regenerateApplicationBlock(manifest, startMarker, endMarker, body) {
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const blockPattern = new RegExp(
+    `[ \\t]*${escapeRegExp(startMarker)}[\\s\\S]*?(?:${escapeRegExp(endMarker)}(?=\\s*</application>)|(?=\\s*</application>))`,
+  );
+  let next = manifest.replace(blockPattern, '');
+  next = next.replace(/(?:[ \t]*\r?\n)+([ \t]*)<\/application>/, '\n$1</application>');
+  return next.replace('</application>', `${body}\n    </application>`);
 }
 
 function patchGradle() {
@@ -91,6 +129,9 @@ function patchGradle() {
     // Custom Tabs: Google rejects OAuth inside embedded WebViews, so sign-in runs
     // in an in-app browser surface instead of an external Chrome tab.
     'implementation "androidx.browser:browser:1.8.0"',
+    // Local JVM tests run against android.jar stubs, where every org.json method
+    // throws "not mocked". The real implementation is test-only and never ships.
+    'testImplementation "org.json:json:20231013"',
   ];
   // The home-screen widgets are built on RemoteViews, so no widget/Compose
   // library is required. Strip it if an earlier revision introduced one, since
@@ -99,6 +140,39 @@ function patchGradle() {
     .split('\n')
     .filter((line) => !line.includes('androidx.glance'))
     .join('\n');
+
+  // Release signing is opt-in and driven entirely by environment variables, so no
+  // keystore path, alias, or password is ever written into a tracked file. When
+  // these are absent the release build simply stays unsigned, which is the correct
+  // default: an APK signed with a throwaway key cannot be upgraded to a real one.
+  const storeFile = process.env.SB_KEYSTORE_PATH;
+  const storePassword = process.env.SB_KEYSTORE_PASSWORD;
+  const keyAlias = process.env.SB_KEY_ALIAS;
+  const keyPassword = process.env.SB_KEY_PASSWORD;
+
+  if (storeFile && storePassword && keyAlias && keyPassword) {
+    if (!appGradle.includes('signingConfigs {')) {
+      appGradle = appGradle.replace(
+        '    buildTypes {',
+        `    signingConfigs {
+        release {
+            storeFile file("${storeFile}")
+            storePassword "${storePassword}"
+            keyAlias "${keyAlias}"
+            keyPassword "${keyPassword}"
+        }
+    }
+    buildTypes {`
+      );
+    }
+    if (!appGradle.includes('signingConfig signingConfigs.release')) {
+      appGradle = appGradle.replace(
+        '        release {\n            minifyEnabled false',
+        '        release {\n            signingConfig signingConfigs.release\n            minifyEnabled false'
+      );
+    }
+    console.log('Release signing configured from SB_* environment variables.');
+  }
 
   const missingDependencies = dependencies.filter((line) => {
     const coordinate = line.match(/"([^"]+)"/);
@@ -221,17 +295,11 @@ const widgetMarkerEnd = '<!-- /StudyBuddy home-screen widgets -->';
     )
     .join('\n');
 
-  // This block is regenerated on every run rather than added once, so renaming or
-  // removing a widget cannot leave a stale receiver pointing at a missing class.
-  // The lookahead keeps </application> out of the match so it is never consumed.
-  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const blockPattern = new RegExp(
-    `${escapeRegExp(widgetMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(widgetMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
-  );
-  manifest = manifest.replace(blockPattern, '');
-  manifest = manifest.replace(
-    '</application>',
-    `        ${widgetMarkerStart}\n${receivers}\n        ${widgetMarkerEnd}\n    </application>`
+  manifest = regenerateApplicationBlock(
+    manifest,
+    widgetMarkerStart,
+    widgetMarkerEnd,
+    `        ${widgetMarkerStart}\n${receivers}\n        ${widgetMarkerEnd}`,
   );
 }
 const bubbleMarkerStart = '<!-- StudyBuddy focus bubble -->';
@@ -247,12 +315,7 @@ const bubbleMarkerEnd = '<!-- /StudyBuddy focus bubble -->';
                 android:value="Keeps the user-enabled draggable focus bubble available over other apps so a short focus session can be started or stopped without leaving the current app. It only starts and stops focus sessions; it does not block, suspend, or force-stop any app, and it does not use Accessibility." />
         </service>
         ${bubbleMarkerEnd}`;
-  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const blockPattern = new RegExp(
-    `${escapeRegExp(bubbleMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(bubbleMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
-  );
-  manifest = manifest.replace(blockPattern, '');
-  manifest = manifest.replace('</application>', `${service}\n    </application>`);
+  manifest = regenerateApplicationBlock(manifest, bubbleMarkerStart, bubbleMarkerEnd, service);
 }
 
 const alarmMarkerStart = '<!-- StudyBuddy alarms -->';
@@ -285,12 +348,129 @@ const alarmMarkerEnd = '<!-- /StudyBuddy alarms -->';
             </intent-filter>
         </receiver>
         ${alarmMarkerEnd}`;
-  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const blockPattern = new RegExp(
-    `${escapeRegExp(alarmMarkerStart)}[\\s\\S]*?(?:${escapeRegExp(alarmMarkerEnd)}(?=\\s*</application>)|(?=\\s*</application>))`
-  );
-  manifest = manifest.replace(blockPattern, '');
-  manifest = manifest.replace('</application>', `${components}\n    </application>`);
+  manifest = regenerateApplicationBlock(manifest, alarmMarkerStart, alarmMarkerEnd, components);
+}
+
+const toolkitMarkerStart = '<!-- StudyBuddy study toolkit -->';
+const toolkitMarkerEnd = '<!-- /StudyBuddy study toolkit -->';
+{
+  // Focus sounds, scheduled Zen windows, leave-focus nudges and study reminders,
+  // short-form feed blocking, the opt-in distraction-free home screen, and the
+  // active-blocks surfaces (floating chip and standing usage notification).
+  //
+  // FocusLauncherActivity ships android:enabled="false" on purpose. A HOME
+  // intent-filter makes an activity a candidate launcher, and the user must opt in
+  // before StudyBuddy is allowed to appear in the home picker at all; the component
+  // is switched on at runtime by FocusLauncher.setEnabled.
+  const components = `        ${toolkitMarkerStart}
+        <service
+            android:name=".sounds.FocusSoundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <receiver
+            android:name=".zen.ZenAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.zen.TRANSITION" />
+                <action android:name="in.satym.studybuddy.zen.MANUAL_EXIT" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".zen.ZenRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".nudges.NudgeActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.nudges.END_SESSION" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".nudges.StudyReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.nudges.REMIND" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".nudges.NudgesRestoreReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <service
+            android:name=".shortsblock.StudyGuardAccessibilityService"
+            android:exported="true"
+            android:label="@string/studybuddy_shortsblock_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/studybuddy_shortsblock_accessibility" />
+        </service>
+        <activity
+            android:name=".shortsblock.ShortsBlockedActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="in.satym.studybuddy.shortsblock"
+            android:theme="@style/StudyBuddyShortsBlockTheme" />
+        <activity
+            android:name=".focuslauncher.FocusLauncherActivity"
+            android:clearTaskOnLaunch="true"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:theme="@style/StudyBuddyFocusLauncherTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name=".activeblocks.ActiveBlocksChipService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user-enabled active-blocks chip on screen so the blocks currently in force and the running focus session stay visible without opening the notification shade or switching apps. It reads only StudyBuddy's own settings and focus records; it does not block, suspend, or force-stop any app." />
+        </service>
+        <receiver
+            android:name=".activeblocks.ActiveBlocksRestoreReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".activeblocks.StandingActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="in.satym.studybuddy.activeblocks.HIDE_TODAY" />
+            </intent-filter>
+        </receiver>
+        ${toolkitMarkerEnd}`;
+  manifest = regenerateApplicationBlock(manifest, toolkitMarkerStart, toolkitMarkerEnd, components);
 }
 
 // USE_EXACT_ALARM is deliberately NOT requested. Google Play restricts it to apps
@@ -299,6 +479,74 @@ const alarmMarkerEnd = '<!-- /StudyBuddy alarms -->';
 // AlarmScheduler degrades to an inexact trigger when it is not granted.
 manifest = addPermission(manifest, 'android.permission.RECEIVE_BOOT_COMPLETED');
 manifest = addPermission(manifest, 'android.permission.USE_FULL_SCREEN_INTENT');
+// Focus sounds run as a media-playback foreground service so the synthesised
+// soundscape survives the app going to the background.
+manifest = addPermission(manifest, 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK');
+// Scheduled Zen windows toggle Do Not Disturb. The user still has to grant policy
+// access in system settings; declaring the permission only makes that possible.
+manifest = addPermission(manifest, 'android.permission.ACCESS_NOTIFICATION_POLICY');
+// The active-blocks chip is a specialUse foreground service drawn over other apps and
+// both surfaces restore after a reboot. SYSTEM_ALERT_WINDOW, FOREGROUND_SERVICE,
+// FOREGROUND_SERVICE_SPECIAL_USE, POST_NOTIFICATIONS and RECEIVE_BOOT_COMPLETED are all
+// already requested above, so the package adds no new permission of its own.
+// addPermission is idempotent, so restating them here would be harmless but redundant.
+
+// Package visibility for the features that let the user pick apps: study apps for
+// reminders, allowed apps on the focus home screen, and apps to pause during focus.
+// This is the narrow <queries> form, restricted to launchable activities.
+// QUERY_ALL_PACKAGES is deliberately NOT requested: it is a broad, policy-sensitive
+// permission and a launcher-intent query answers every question this app asks.
+const queriesMarker = '<!-- StudyBuddy launchable app visibility -->';
+if (!manifest.includes(queriesMarker)) {
+  const queries = `    ${queriesMarker}
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+`;
+  // <queries> is a direct child of <manifest>, never of <application>.
+  manifest = manifest.replace('<application', `${queries}    <application`);
+}
+
+// Invite links. `studybuddy://invite/<id>` is the in-app scheme the native share
+// sheet uses; the https form lets an invite sent over any messaging app open in the
+// installed APK. autoVerify stays false because App Links verification requires a
+// hosted assetlinks.json that this personal build does not publish, and an
+// unverified https filter still works — it just shows a disambiguation chooser.
+const inviteMarker = '<!-- StudyBuddy invite deep link -->';
+if (!manifest.includes(inviteMarker)) {
+  const inviteFilter = `
+            ${inviteMarker}
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="studybuddy" android:host="invite" />
+            </intent-filter>
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="sbd.satym.in" android:pathPrefix="/invite" />
+            </intent-filter>
+`;
+  // Attached to the launcher activity, which already carries the OAuth deep link
+  // and is launchMode="singleTask", so an invite reuses the running task.
+  const anchor = manifest.indexOf(deepLinkMarker);
+  if (anchor === -1) {
+    console.error('Unable to find the OAuth deep link marker while adding the invite deep link.');
+    process.exit(1);
+  }
+  const filterEnd = manifest.indexOf('</intent-filter>', anchor);
+  if (filterEnd === -1) {
+    console.error('Unable to find the end of the OAuth intent-filter while adding the invite deep link.');
+    process.exit(1);
+  }
+  const insertAt = filterEnd + '</intent-filter>'.length;
+  manifest = manifest.slice(0, insertAt) + '\n' + inviteFilter + manifest.slice(insertAt);
+}
 
 fs.writeFileSync(manifestPath, manifest);
 
@@ -343,8 +591,51 @@ copyFeaturePackage(widgetsSourceDir, widgetsTargetDir);
 copyFeaturePackage(bubbleSourceDir, bubbleTargetDir);
 copyFeaturePackage(alarmSourceDir, alarmTargetDir);
 copyFeaturePackage(rewardsSourceDir, rewardsTargetDir);
+copyFeaturePackage(soundsSourceDir, soundsTargetDir);
+copyFeaturePackage(zenSourceDir, zenTargetDir);
+copyFeaturePackage(nudgesSourceDir, nudgesTargetDir);
+copyFeaturePackage(shortsBlockSourceDir, shortsBlockTargetDir);
+/**
+ * Copies JUnit sources that run on the plain JVM.
+ *
+ * The unit-test source set declares only `junit:junit`, so a single test file that
+ * imports an instrumentation framework does not fail on its own — it fails
+ * `compileDebugUnitTestKotlin`, which takes every other test in the project down with
+ * it. Files needing a dependency the build does not declare are therefore left in
+ * `resources/android/<pkg>-tests/` and skipped here, loudly, rather than copied in to
+ * break the build. Declare the dependency and they start being copied again.
+ */
+function copyJvmTests(source, target) {
+  if (!fs.existsSync(source)) {
+    console.error(`Missing tracked Android test directory: ${source}`);
+    process.exit(1);
+  }
+  const undeclaredTestDeps = ['org.robolectric', 'androidx.test', 'org.mockito'];
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.mkdirSync(target, { recursive: true });
+  for (const name of fs.readdirSync(source).sort()) {
+    if (!name.endsWith('.kt')) continue;
+    const from = path.join(source, name);
+    const body = fs.readFileSync(from, 'utf8');
+    const needed = undeclaredTestDeps.find((dep) => body.includes(`import ${dep}`));
+    if (needed) {
+      console.warn(`Skipping ${name}: needs an undeclared test dependency (${needed}).`);
+      continue;
+    }
+    fs.copyFileSync(from, path.join(target, name));
+  }
+}
+
+copyFeaturePackage(focusLauncherSourceDir, focusLauncherTargetDir);
+copyFeaturePackage(activeBlocksSourceDir, activeBlocksTargetDir);
+copyFeaturePackage(toolkitSourceDir, toolkitTargetDir);
 copyDirectory(digitalDisciplineSourceDir, digitalDisciplineTargetDir);
-copyDirectory(digitalDisciplineTestSourceDir, digitalDisciplineTestTargetDir);
+copyJvmTests(digitalDisciplineTestSourceDir, digitalDisciplineTestTargetDir);
+// Pure-logic JUnit tests for the toolkit: Zen schedule maths, reminder maths, app-limit
+// windows, browser URL rules, and the short-form detection rules. They are plain JVM
+// tests with no Android dependency, which is why the detection rules were written
+// against an interface.
+copyJvmTests(toolkitTestSourceDir, toolkitTestTargetDir);
 // Launcher artwork: replace Capacitor's template icon with the StudyBuddy logo.
 // The template also ships a decorative vector background in drawable-v24, which
 // would otherwise win over drawable/ic_launcher_background.xml on API 24+.
@@ -418,6 +709,22 @@ if (!activity.includes('DigitalDisciplinePlugin')) {
     'registerPlugin(FocusEnforcerPlugin.class);\n        registerPlugin(DigitalDisciplinePlugin.class);',
   );
 }
+if (!activity.includes('StudyToolkitPlugin')) {
+  activity = activity.replace(
+    'import in.satym.studybuddy.FocusEnforcerPlugin;',
+    'import in.satym.studybuddy.FocusEnforcerPlugin;\nimport in.satym.studybuddy.toolkit.StudyToolkitPlugin;',
+  );
+  if (!activity.includes('registerPlugin(FocusEnforcerPlugin.class);')) {
+    console.error('Unable to find FocusEnforcer registration while registering StudyToolkitPlugin.');
+    process.exit(1);
+  }
+  activity = activity.replace(
+    'registerPlugin(FocusEnforcerPlugin.class);',
+    'registerPlugin(FocusEnforcerPlugin.class);\n        registerPlugin(StudyToolkitPlugin.class);',
+  );
+}
 fs.writeFileSync(mainActivityPath, activity);
 
-console.log('Prepared Android alarms, launcher icons, in-app Google sign-in, native focus guard, and Digital Discipline bridge.');
+console.log(
+  'Prepared Android alarms, launcher icons, in-app Google sign-in, native focus guard, Digital Discipline bridge, and the study toolkit (sounds, Zen, nudges, shorts blocking, focus home screen, active-blocks chip and standing notification).',
+);
