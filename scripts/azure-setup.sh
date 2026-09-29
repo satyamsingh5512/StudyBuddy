@@ -43,7 +43,7 @@
 set -euo pipefail
 
 PHASE="${1:-all}"
-APP="${APP:-studybuddy-api}"
+APP="${APP:-studybuddy-api-20260914}"
 RG="${RG:-studybuddy-rg}"
 LOC="${LOC:-centralindia}"
 PLAN="${PLAN:-studybuddy-plan}"
