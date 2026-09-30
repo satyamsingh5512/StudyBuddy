@@ -190,16 +190,54 @@ object PermissionCoach {
      * possible outcome for a button labelled Grant.
      */
     fun open(context: Context, key: String): Boolean {
-        val primary = intentFor(context, key)
+        // Android 13+ greys out the accessibility switch for apps installed from a
+        // downloaded APK ("Restricted setting"). The only way through is App info ->
+        // menu -> Allow restricted settings, and that menu item only appears after the
+        // user has been blocked once. So: blocked-once -> send them to App info;
+        // never-tried -> send them to the switch, but tell them what to do if it is grey.
+        val restriction = if (key == KEY_ACCESSIBILITY) restrictedSettingsState(context) else Restriction.NONE
+        val primary = if (restriction == Restriction.BLOCKED_ONCE) appDetailsIntent(context) else intentFor(context, key)
         val launched = startSettings(context, primary) || startSettings(context, appDetailsIntent(context))
         if (launched) {
+            val message = when (restriction) {
+                Restriction.BLOCKED_ONCE -> context.getString(R.string.studybuddy_toolkit_coach_restricted_allow)
+                Restriction.RESTRICTED -> context.getString(R.string.studybuddy_toolkit_coach_restricted_first)
+                Restriction.NONE -> guidance(context, key)
+            }
             // Posted rather than shown inline so the Toast lands after the settings
             // activity has drawn; a Toast shown during the transition is easy to miss.
             Handler(Looper.getMainLooper()).postDelayed({
-                runCatching { Toast.makeText(context, guidance(context, key), Toast.LENGTH_LONG).show() }
+                runCatching { Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
             }, TOAST_DELAY_MS)
         }
         return launched
+    }
+
+    private enum class Restriction { NONE, RESTRICTED, BLOCKED_ONCE }
+
+    /**
+     * Reads the platform's restricted-settings app-op for our own package. The package
+     * installer sets it to ERRORED for sideloaded installs; Settings flips it to IGNORED
+     * after the user hits the greyed-out switch (which is what makes "Allow restricted
+     * settings" appear), and to ALLOWED once they allow it. The op string is not public
+     * API, so any failure reads as "not restricted" and the normal guidance is shown.
+     */
+    private fun restrictedSettingsState(context: Context): Restriction {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Restriction.NONE
+        if (isGranted(context, KEY_ACCESSIBILITY)) return Restriction.NONE
+        val mode = runCatching {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            appOps.unsafeCheckOpNoThrow(
+                "android:access_restricted_settings",
+                context.applicationInfo.uid,
+                context.packageName
+            )
+        }.getOrNull() ?: return Restriction.NONE
+        return when (mode) {
+            AppOpsManager.MODE_IGNORED -> Restriction.BLOCKED_ONCE
+            AppOpsManager.MODE_ERRORED -> Restriction.RESTRICTED
+            else -> Restriction.NONE
+        }
     }
 
     private fun startSettings(context: Context, intent: Intent?): Boolean {
