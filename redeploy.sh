@@ -78,6 +78,30 @@ log "Deploying commit $COMMIT_SHA"
 az webapp show -g "$RG" -n "$APP" >/dev/null 2>&1 || \
   die "web app '$APP' not found in resource group '$RG' — run ./azure.sh provision first, or set APP/RG"
 
+# Skip entirely when the backend source is identical to what is already running.
+# Most commits here touch only the web/Android code, which Vercel and the APK ship;
+# rebuilding an identical Go image just restarts the API for nothing.
+DEPLOYED_TAG="$(az webapp show -g "$RG" -n "$APP" --query siteConfig.linuxFxVersion -o tsv 2>/dev/null | sed -E 's#.*:##')"
+if [ "$FORCE_BUILD" != "1" ] && [ -n "$DEPLOYED_TAG" ] \
+  && git rev-parse --verify --quiet "${DEPLOYED_TAG}^{commit}" >/dev/null \
+  && git diff --quiet "$DEPLOYED_TAG" HEAD -- backend; then
+  log "backend/ is unchanged since the running image ($DEPLOYED_TAG) — nothing to redeploy"
+  echo "(FORCE_BUILD=1 ./redeploy.sh to rebuild and restart anyway)"
+  exit 0
+fi
+
+# Registry calls can be reset mid-handshake (seen over VPN tunnels such as
+# Cloudflare WARP). Retry with a short backoff instead of failing the deploy.
+retry() {
+  local attempt
+  for attempt in 1 2 3 4; do
+    "$@" && return 0
+    [ "$attempt" = 4 ] && return 1
+    echo "attempt $attempt failed — retrying in $((attempt * 5))s …"
+    sleep $((attempt * 5))
+  done
+}
+
 # 2. Derive GHCR_IMAGE (tag by commit SHA so each redeploy is traceable and
 # rollback-able; ':latest' is also pushed so other tooling that expects it
 # keeps working).
@@ -112,9 +136,9 @@ else
   log "Building $IMAGE_SHA_TAG"
   docker build -f backend/Dockerfile -t "$IMAGE_SHA_TAG" -t "$IMAGE_LATEST_TAG" ./backend
   log "Pushing $IMAGE_SHA_TAG"
-  docker push "$IMAGE_SHA_TAG"
+  retry docker push "$IMAGE_SHA_TAG" || die "push of $IMAGE_SHA_TAG failed 4 times — check network/VPN, then re-run"
   log "Pushing $IMAGE_LATEST_TAG"
-  docker push "$IMAGE_LATEST_TAG"
+  retry docker push "$IMAGE_LATEST_TAG" || die "push of $IMAGE_LATEST_TAG failed 4 times — check network/VPN, then re-run"
 fi
 
 # 5. Point the Web App at the new image and restart so it actually pulls it.
