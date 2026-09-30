@@ -733,3 +733,11 @@ test('no Regain identifier leaks into StudyBuddy sources', async () => {
   }
   assert.deepEqual(offenders, [], `Regain identifiers found:\n${offenders.join('\n')}`);
 });
+
+test('native plugins are registered before the Capacitor bridge is built', async () => {
+  // BridgeActivity creates the bridge inside super.onCreate(); a plugin registered
+  // after it rejects every call with "<Name> plugin is not implemented on android".
+  const script = await readFile(path.join(process.cwd(), 'scripts/prepare-android.mjs'), 'utf8');
+  assert.match(script, /Move all registrations ahead of it/);
+  assert.match(script, /Plugin registration is still after super\.onCreate/);
+});
