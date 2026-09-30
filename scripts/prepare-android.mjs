@@ -723,6 +723,27 @@ if (!activity.includes('StudyToolkitPlugin')) {
     'registerPlugin(FocusEnforcerPlugin.class);\n        registerPlugin(StudyToolkitPlugin.class);',
   );
 }
+// BridgeActivity builds the Capacitor bridge inside super.onCreate(), so a plugin
+// registered after that call is never added and every call to it rejects with
+// "<Name> plugin is not implemented on android". Move all registrations ahead of it.
+{
+  const onCreate = /(public void onCreate\(Bundle savedInstanceState\) \{\n)([\s\S]*?)(\n    \})/;
+  const match = activity.match(onCreate);
+  if (!match) {
+    console.error('Unable to find MainActivity.onCreate while ordering plugin registration.');
+    process.exit(1);
+  }
+  const lines = match[2].split('\n').filter((line) => line.trim() !== '');
+  const registrations = lines.filter((line) => line.includes('registerPlugin('));
+  const rest = lines.filter((line) => !line.includes('registerPlugin('));
+  const body = [...registrations, ...rest].map((line) => `        ${line.trim()}`).join('\n');
+  activity = activity.replace(onCreate, `$1${body}$3`);
+  const superIndex = activity.indexOf('super.onCreate(savedInstanceState);');
+  if (registrations.some((line) => activity.indexOf(line.trim()) > superIndex)) {
+    console.error('Plugin registration is still after super.onCreate in MainActivity.');
+    process.exit(1);
+  }
+}
 fs.writeFileSync(mainActivityPath, activity);
 
 console.log(
