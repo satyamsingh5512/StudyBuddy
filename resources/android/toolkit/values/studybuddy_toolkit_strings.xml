@@ -12,6 +12,8 @@
     <string name="studybuddy_toolkit_coach_usage_access">Tap StudyBuddy, then switch “Permit usage access” on.</string>
     <string name="studybuddy_toolkit_coach_overlay">Tap StudyBuddy, then switch “Allow display over other apps” on.</string>
     <string name="studybuddy_toolkit_coach_accessibility">Open Installed apps or Downloaded services, tap StudyGuard, then switch “Use StudyGuard” on and confirm.</string>
+    <string name="studybuddy_toolkit_coach_restricted_first">Tap StudyGuard. If the switch is greyed out as a restricted setting, tap OK, then open App info for StudyBuddy → ⋮ menu → Allow restricted settings, and come back.</string>
+    <string name="studybuddy_toolkit_coach_restricted_allow">Tap the ⋮ menu (top right) → Allow restricted settings and confirm. Then go back to StudyBuddy and grant Accessibility again.</string>
     <string name="studybuddy_toolkit_coach_dnd">Find StudyBuddy in this list and switch “Allow Do Not Disturb” on.</string>
     <string name="studybuddy_toolkit_coach_battery">Choose “All apps”, tap StudyBuddy, then pick “Don’t optimise” so long sessions are not paused.</string>
     <string name="studybuddy_toolkit_coach_default_home">Pick StudyBuddy as the home app. You can switch back to your usual launcher here at any time.</string>
